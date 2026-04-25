@@ -1,0 +1,9 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+node_modules/
+*.log
+.htpasswd
+mollies_backup_*.sql

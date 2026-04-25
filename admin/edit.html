@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Edit Location - Mollie's Guide Admin</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/admin/admin.css?v=20260425a">
+</head>
+<body>
+  <header class="admin-header">
+    <h1><a href="/admin/">Mollie's Guide<span class="subtitle">Admin</span></a></h1>
+    <div class="actions">
+      <a href="/admin/" class="btn btn-secondary">&larr; Back to list</a>
+    </div>
+  </header>
+
+  <main class="main">
+    <h2 class="section-title" id="page-title">Edit Location</h2>
+    <div id="flash"></div>
+
+    <form id="edit-form" autocomplete="off">
+      <div class="form-grid">
+        <div class="field field-full">
+          <label for="f-name">Name</label>
+          <input type="text" id="f-name" name="name" required>
+        </div>
+
+        <div class="field">
+          <label for="f-category">Category</label>
+          <select id="f-category" name="category"></select>
+        </div>
+
+        <div class="field">
+          <label for="f-county">County</label>
+          <input type="text" id="f-county" name="county" list="counties-list">
+          <datalist id="counties-list"></datalist>
+        </div>
+
+        <div class="field field-full">
+          <label for="f-address">Street Address</label>
+          <input type="text" id="f-address" name="address">
+        </div>
+
+        <div class="field">
+          <label for="f-city">City</label>
+          <input type="text" id="f-city" name="city">
+        </div>
+
+        <div class="field">
+          <label for="f-state">State</label>
+          <input type="text" id="f-state" name="state" value="PA" maxlength="2">
+        </div>
+
+        <div class="field">
+          <label for="f-zip">ZIP</label>
+          <input type="text" id="f-zip" name="zip" maxlength="10">
+        </div>
+
+        <div class="field">
+          <label for="f-lat">Latitude</label>
+          <input type="number" id="f-lat" name="lat" step="0.0000001">
+        </div>
+
+        <div class="field">
+          <label for="f-lng">Longitude</label>
+          <input type="number" id="f-lng" name="lng" step="0.0000001">
+        </div>
+      </div>
+
+      <h3 class="section-title">Contact</h3>
+      <div class="form-grid">
+        <div class="field">
+          <label for="f-phone">Phone</label>
+          <input type="tel" id="f-phone" name="phone">
+        </div>
+        <div class="field">
+          <label for="f-alt-phone">Alt Phone</label>
+          <input type="tel" id="f-alt-phone" name="alt_phone">
+        </div>
+        <div class="field">
+          <label for="f-email">Email</label>
+          <input type="email" id="f-email" name="email">
+        </div>
+        <div class="field">
+          <label for="f-website">Website</label>
+          <input type="url" id="f-website" name="website" placeholder="https://...">
+        </div>
+        <div class="field field-full">
+          <label for="f-facebook">Facebook URL</label>
+          <input type="url" id="f-facebook" name="facebook_url" placeholder="https://www.facebook.com/...">
+        </div>
+        <div class="field field-full">
+          <label for="f-hours">Hours</label>
+          <input type="text" id="f-hours" name="hours" placeholder="Mon-Fri 8am-6pm; Sat 8am-2pm; closed Sun">
+        </div>
+      </div>
+
+      <h3 class="section-title">Practices &amp; Amenities</h3>
+      <div class="form-grid">
+        <div class="field field-full">
+          <label>Growing Practices</label>
+          <div class="checkbox-group">
+            <label><input type="checkbox" id="f-organic" name="organic"> Organic</label>
+            <label><input type="checkbox" id="f-pesticide-free" name="pesticide_free"> Pesticide-free</label>
+            <label><input type="checkbox" id="f-low-chemical" name="low_chemical"> Low-chemical</label>
+          </div>
+        </div>
+
+        <div class="field field-full">
+          <label>Payment Methods</label>
+          <div class="checkbox-group" id="payment-methods-group">
+            <label><input type="checkbox" value="cash"> Cash</label>
+            <label><input type="checkbox" value="check"> Check</label>
+            <label><input type="checkbox" value="debit"> Debit</label>
+            <label><input type="checkbox" value="visa"> Visa</label>
+            <label><input type="checkbox" value="mastercard"> Mastercard</label>
+            <label><input type="checkbox" value="amex"> Amex</label>
+            <label><input type="checkbox" value="discover"> Discover</label>
+            <label><input type="checkbox" value="sfmnp"> SFMNP (Senior Vouchers)</label>
+            <label><input type="checkbox" value="wic"> WIC</label>
+            <label><input type="checkbox" value="ebt"> EBT/SNAP</label>
+          </div>
+        </div>
+
+        <div class="field field-full">
+          <label>Amenities</label>
+          <div class="checkbox-group" id="amenities-group">
+            <label><input type="checkbox" value="market"> Farm market</label>
+            <label><input type="checkbox" value="bakery"> Bakery</label>
+            <label><input type="checkbox" value="deli"> Deli</label>
+            <label><input type="checkbox" value="cafe"> Cafe</label>
+            <label><input type="checkbox" value="ice cream"> Ice cream</label>
+            <label><input type="checkbox" value="cider"> Cider</label>
+            <label><input type="checkbox" value="garden center"> Garden center</label>
+            <label><input type="checkbox" value="farm animals"> Farm animals</label>
+            <label><input type="checkbox" value="petting zoo"> Petting zoo</label>
+            <label><input type="checkbox" value="hayrides"> Hayrides</label>
+            <label><input type="checkbox" value="corn maze"> Corn maze</label>
+            <label><input type="checkbox" value="playground"> Playground</label>
+            <label><input type="checkbox" value="picnic"> Picnic area</label>
+            <label><input type="checkbox" value="pumpkin patch"> Pumpkin patch</label>
+            <label><input type="checkbox" value="restrooms"> Restrooms</label>
+            <label><input type="checkbox" value="parking"> Parking</label>
+            <label><input type="checkbox" value="wheelchair accessible"> Wheelchair accessible</label>
+          </div>
+        </div>
+
+        <div class="field field-full">
+          <label for="f-notes">Internal Notes (about the farm itself)</label>
+          <textarea id="f-notes" name="notes"></textarea>
+        </div>
+      </div>
+
+      <h3 class="section-title">Crops</h3>
+      <div class="crop-rows" id="crop-rows"></div>
+      <button type="button" class="btn btn-secondary btn-small" id="add-crop-btn">+ Add crop</button>
+
+      <div class="form-footer">
+        <button type="button" class="btn btn-danger" id="delete-btn" style="display:none">Delete this location</button>
+        <div style="display:flex; gap:8px; margin-left:auto;">
+          <a href="/admin/" class="btn btn-secondary">Cancel</a>
+          <button type="submit" class="btn btn-primary" id="save-btn">Save</button>
+        </div>
+      </div>
+    </form>
+  </main>
+
+  <script src="/admin/admin.js?v=20260425a"></script>
+  <script>AdminEdit.init();</script>
+</body>
+</html>

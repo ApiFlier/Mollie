@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Mollie's Guide - Admin</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/admin/admin.css?v=20260425a">
+</head>
+<body>
+  <header class="admin-header">
+    <h1><a href="/admin/">Mollie's Guide<span class="subtitle">Admin</span></a></h1>
+    <div class="actions">
+      <a href="/" class="btn btn-secondary">View Public Site</a>
+      <button id="btn-change-username" class="btn btn-secondary" type="button">Change Username</button>
+      <button id="btn-change-password" class="btn btn-secondary" type="button">Change Password</button>
+      <a href="/admin/edit.html" class="btn btn-primary">+ Add Location</a>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="search-bar">
+      <input type="text" id="search-input" placeholder="Search by name, city, or county...">
+      <select id="category-filter">
+        <option value="">All categories</option>
+      </select>
+    </div>
+
+    <div id="flash"></div>
+
+    <div id="content">Loading...</div>
+
+    <div class="modal-overlay" id="creds-modal" style="display:none">
+      <div class="modal">
+        <button class="modal-close" id="modal-close" aria-label="Close">&times;</button>
+        <h2 id="modal-title" class="section-title" style="margin-top:0">Change</h2>
+        <div id="modal-flash"></div>
+        <form id="modal-form" autocomplete="off">
+          <div class="form-grid" style="grid-template-columns: 1fr;">
+            <div class="field" id="field-current-username" style="display:none">
+              <label>Current username</label>
+              <input type="text" id="m-current-username" autocomplete="username">
+            </div>
+            <div class="field" id="field-current-password">
+              <label>Current password</label>
+              <input type="password" id="m-current-password" autocomplete="current-password">
+            </div>
+            <div class="field" id="field-new-username" style="display:none">
+              <label>New username</label>
+              <input type="text" id="m-new-username">
+            </div>
+            <div class="field" id="field-new-password" style="display:none">
+              <label>New password</label>
+              <input type="password" id="m-new-password" autocomplete="new-password">
+            </div>
+            <div class="field" id="field-confirm-password" style="display:none">
+              <label>Confirm new password</label>
+              <input type="password" id="m-confirm-password" autocomplete="new-password">
+            </div>
+          </div>
+          <div class="form-footer">
+            <button type="button" class="btn btn-secondary" id="modal-cancel">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="modal-save">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <script src="/admin/admin.js?v=20260425a"></script>
+  <script>AdminList.init(); AdminCredsModal.init();</script>
+</body>
+</html>
