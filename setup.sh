@@ -53,22 +53,16 @@ echo ""
 if [ -f "$ENV_FILE" ]; then
     warn ".env already exists. Skipping creation. Delete it manually if you want to regenerate."
 else
-    read -s -p "Enter MySQL ROOT password: " MYSQL_ROOT_PASSWORD
-    echo ""
-    read -s -p "Enter MySQL DB password (for 'mollies' user): " DB_PASSWORD
-    echo ""
-
     FLASK_SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
-    info "Generated Flask secret key automatically."
 
     cat > "$ENV_FILE" << EOF
-MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-DB_PASSWORD=${DB_PASSWORD}
+MYSQL_ROOT_PASSWORD=meeks
+DB_PASSWORD=meeks
 FLASK_SECRET=${FLASK_SECRET}
 EOF
 
     chmod 600 "$ENV_FILE"
-    info ".env created."
+    info ".env created with default credentials (meeks/meeks). Change these in production!"
 fi
 
 echo ""
@@ -78,10 +72,12 @@ echo ""
 if [ -f "$HTPASSWD_FILE" ]; then
     warn ".htpasswd already exists. Skipping. Delete it manually to reset credentials."
 else
-    read -p "Enter admin username: " ADMIN_USER
-    htpasswd -B -c "$HTPASSWD_FILE" "$ADMIN_USER"
+    # Default: meeks/meeks (bcrypt hash)
+    echo 'meeks:$2y$05$0Z1234567890123456789uQKZv1234567890123456789012345678' > "$HTPASSWD_FILE"
+    # Generate a real hash for meeks/meeks
+    htpasswd -B -b -c "$HTPASSWD_FILE" meeks meeks
     chmod 600 "$HTPASSWD_FILE"
-    info ".htpasswd created."
+    info ".htpasswd created with default credentials meeks/meeks. Change via admin panel after login!"
 fi
 
 echo ""
@@ -104,19 +100,12 @@ echo ""
 echo "--- Step 4: Restore database backup ---"
 echo ""
 
-read -p "Do you have a .sql backup file to restore? (y/n): " HAS_BACKUP
+BACKUP_PATH="$MOLLIE_DIR/api/data/mollies_backup.sql"
+ROOT_PASS=$(grep MYSQL_ROOT_PASSWORD "$ENV_FILE" | cut -d= -f2)
+DB_PASS=$(grep DB_PASSWORD "$ENV_FILE" | cut -d= -f2)
 
-if [ "$HAS_BACKUP" = "y" ] || [ "$HAS_BACKUP" = "Y" ]; then
-    read -p "Full path to your .sql backup file: " BACKUP_PATH
-
-    if [ ! -f "$BACKUP_PATH" ]; then
-        error "File not found: $BACKUP_PATH"
-    fi
-
-    DB_PASS=$(grep DB_PASSWORD "$ENV_FILE" | cut -d= -f2)
-    ROOT_PASS=$(grep MYSQL_ROOT_PASSWORD "$ENV_FILE" | cut -d= -f2)
-
-    info "Restoring database from $BACKUP_PATH..."
+if [ -f "$BACKUP_PATH" ]; then
+    info "Found backup at $BACKUP_PATH. Restoring..."
     docker exec -i mollies-db mysql \
         -uroot -p"${ROOT_PASS}" \
         mollies_guide < "$BACKUP_PATH"
@@ -127,9 +116,16 @@ if [ "$HAS_BACKUP" = "y" ] || [ "$HAS_BACKUP" = "Y" ]; then
 
     info "Database restored. Farm count: $FARM_COUNT"
 else
-    warn "Skipping database restore. The site will work but show no farms."
-    warn "You can restore later with:"
-    warn "  docker exec -i mollies-db mysql -uroot -p\$(grep MYSQL_ROOT_PASSWORD /mollie/.env | cut -d= -f2) mollies_guide < your_backup.sql"
+    warn "No backup file found at $BACKUP_PATH."
+    read -p "Enter full path to a .sql backup file (or press Enter to skip): " CUSTOM_BACKUP
+    if [ -n "$CUSTOM_BACKUP" ] && [ -f "$CUSTOM_BACKUP" ]; then
+        docker exec -i mollies-db mysql \
+            -uroot -p"${ROOT_PASS}" \
+            mollies_guide < "$CUSTOM_BACKUP"
+        info "Database restored from $CUSTOM_BACKUP."
+    else
+        warn "Skipping database restore. Site will work but show no farms."
+    fi
 fi
 
 echo ""
