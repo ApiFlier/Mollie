@@ -3,7 +3,7 @@
   "locations": [
     {
       "name": "Half Crown Hill Orchard",
-      "category": "orchard",
+      "category": "farm",
       "county": "Allegheny",
       "address": "600 North Branch Road",
       "city": "McDonald",
@@ -43,7 +43,7 @@
     },
     {
       "name": "Norman's Orchard",
-      "category": "orchard",
+      "category": "farm",
       "county": "Allegheny",
       "address": "2318 Butler Logan Road",
       "city": "Tarentum",
@@ -101,7 +101,7 @@
     },
     {
       "name": "Shenot Farm and Market",
-      "category": "orchard",
+      "category": "farm",
       "county": "Allegheny",
       "address": "3754 Wexford Run Rd",
       "city": "Wexford",
@@ -150,7 +150,7 @@
     },
     {
       "name": "Soergel Orchards",
-      "category": "orchard",
+      "category": "farm",
       "county": "Allegheny",
       "address": "2573 Brandt School Road",
       "city": "Wexford",
@@ -332,7 +332,7 @@
     },
     {
       "name": "Sturges Orchards and Farm Market",
-      "category": "orchard",
+      "category": "farm",
       "county": "Beaver",
       "address": "868 Route 288",
       "city": "Fombell",
@@ -538,7 +538,7 @@
     },
     {
       "name": "Pome Ridge Orchard",
-      "category": "orchard",
+      "category": "farm",
       "county": "Indiana",
       "address": "1715 Luciusboro Road",
       "city": "Blairsville",
@@ -960,7 +960,7 @@
     },
     {
       "name": "Hillside Orchards",
-      "category": "orchard",
+      "category": "farm",
       "county": "Westmoreland",
       "address": "7217 Route 819",
       "city": "Mount Pleasant",
@@ -1128,7 +1128,7 @@
     },
     {
       "name": "Church Run Orchard",
-      "category": "orchard",
+      "category": "farm",
       "county": "Crawford",
       "address": "44868 Warner Rd",
       "city": "Titusville",
@@ -1371,7 +1371,7 @@
     },
     {
       "name": "Lehman Fruit Farm",
-      "category": "orchard",
+      "category": "farm",
       "county": "Erie",
       "address": "6550 Pieper Road",
       "city": "Girard",
@@ -1480,7 +1480,7 @@
     },
     {
       "name": "Rahal Farms",
-      "category": "orchard",
+      "category": "farm",
       "county": "Erie",
       "address": "8200 Bort Road",
       "city": "North East",
@@ -1535,7 +1535,7 @@
     },
     {
       "name": "Sceiford Farms",
-      "category": "orchard",
+      "category": "farm",
       "county": "Erie",
       "address": "11820 Middle Rd",
       "city": "North East",
@@ -1644,7 +1644,7 @@
     },
     {
       "name": "Westgate Farms Fruit Market",
-      "category": "orchard",
+      "category": "farm",
       "county": "Erie",
       "address": "10951 E. Lake Road",
       "city": "North East",
@@ -1679,7 +1679,7 @@
     },
     {
       "name": "Ziesenheim Fruit Farm",
-      "category": "orchard",
+      "category": "farm",
       "county": "Erie",
       "address": "8760 West Lake Road",
       "city": "Lake City",
@@ -1909,7 +1909,7 @@
     },
     {
       "name": "Barber's Orchards",
-      "category": "orchard",
+      "category": "farm",
       "county": "Venango",
       "address": "3394 State Route 417",
       "city": "Franklin",

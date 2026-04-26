@@ -3,7 +3,7 @@
   "locations": [
     {
       "name": "Half Crown Hill Orchard",
-      "category": "orchard",
+      "category": "farm",
       "county": "Allegheny",
       "address": "600 North Branch Road",
       "city": "McDonald",
@@ -41,7 +41,7 @@
     },
     {
       "name": "Norman's Orchard",
-      "category": "orchard",
+      "category": "farm",
       "county": "Allegheny",
       "address": "2318 Butler Logan Road",
       "city": "Tarentum",
@@ -97,7 +97,7 @@
     },
     {
       "name": "Shenot Farm and Market",
-      "category": "orchard",
+      "category": "farm",
       "county": "Allegheny",
       "address": "3754 Wexford Run Rd",
       "city": "Wexford",
@@ -144,7 +144,7 @@
     },
     {
       "name": "Soergel Orchards",
-      "category": "orchard",
+      "category": "farm",
       "county": "Allegheny",
       "address": "2573 Brandt School Road",
       "city": "Wexford",
@@ -320,7 +320,7 @@
     },
     {
       "name": "Sturges Orchards and Farm Market",
-      "category": "orchard",
+      "category": "farm",
       "county": "Beaver",
       "address": "868 Route 288",
       "city": "Fombell",
@@ -514,7 +514,7 @@
     },
     {
       "name": "Pome Ridge Orchard",
-      "category": "orchard",
+      "category": "farm",
       "county": "Indiana",
       "address": "1715 Luciusboro Road",
       "city": "Blairsville",
@@ -918,7 +918,7 @@
     },
     {
       "name": "Hillside Orchards",
-      "category": "orchard",
+      "category": "farm",
       "county": "Westmoreland",
       "address": "7217 Route 819",
       "city": "Mount Pleasant",
@@ -1080,7 +1080,7 @@
     },
     {
       "name": "Church Run Orchard",
-      "category": "orchard",
+      "category": "farm",
       "county": "Crawford",
       "address": "44868 Warner Rd",
       "city": "Titusville",
@@ -1309,7 +1309,7 @@
     },
     {
       "name": "Lehman Fruit Farm",
-      "category": "orchard",
+      "category": "farm",
       "county": "Erie",
       "address": "6550 Pieper Road",
       "city": "Girard",
@@ -1414,7 +1414,7 @@
     },
     {
       "name": "Rahal Farms",
-      "category": "orchard",
+      "category": "farm",
       "county": "Erie",
       "address": "8200 Bort Road",
       "city": "North East",
@@ -1467,7 +1467,7 @@
     },
     {
       "name": "Sceiford Farms",
-      "category": "orchard",
+      "category": "farm",
       "county": "Erie",
       "address": "11820 Middle Rd",
       "city": "North East",
@@ -1572,7 +1572,7 @@
     },
     {
       "name": "Westgate Farms Fruit Market",
-      "category": "orchard",
+      "category": "farm",
       "county": "Erie",
       "address": "10951 E. Lake Road",
       "city": "North East",
@@ -1605,7 +1605,7 @@
     },
     {
       "name": "Ziesenheim Fruit Farm",
-      "category": "orchard",
+      "category": "farm",
       "county": "Erie",
       "address": "8760 West Lake Road",
       "city": "Lake City",
@@ -1825,7 +1825,7 @@
     },
     {
       "name": "Barber's Orchards",
-      "category": "orchard",
+      "category": "farm",
       "county": "Venango",
       "address": "3394 State Route 417",
       "city": "Franklin",
@@ -1969,7 +1969,7 @@
     },
     {
       "name": "Bohlayer's Orchards",
-      "category": "orchard",
+      "category": "farm",
       "county": "Bradford",
       "address": "RR 2 Box 2530",
       "city": "Troy",
@@ -2012,7 +2012,7 @@
     },
     {
       "name": "Gardiner's Farm",
-      "category": "orchard",
+      "category": "farm",
       "county": "Bradford",
       "address": "5420 Fall Brook Rd",
       "city": "Troy",
@@ -2185,7 +2185,7 @@
     },
     {
       "name": "Sidehill Orchard",
-      "category": "orchard",
+      "category": "farm",
       "county": "Lycoming",
       "address": "1523 Stopper Road",
       "city": "Williamsport",
@@ -2243,7 +2243,7 @@
     },
     {
       "name": "Beechwood Orchards",
-      "category": "orchard",
+      "category": "farm",
       "county": "Adams",
       "address": "984 Carlisle Road",
       "city": "Biglerville",
@@ -2273,7 +2273,7 @@
     },
     {
       "name": "Boyer Nurseries & Orchards, Inc.",
-      "category": "orchard",
+      "category": "farm",
       "county": "Adams",
       "address": "405 Boyer Nursery Road",
       "city": "Biglerville",
@@ -2331,7 +2331,7 @@
     },
     {
       "name": "Hollabaugh Bros., Inc.",
-      "category": "orchard",
+      "category": "farm",
       "county": "Adams",
       "address": "545 Carlisle Road",
       "city": "Biglerville",
@@ -2660,7 +2660,7 @@
     },
     {
       "name": "Way Fruit Farm",
-      "category": "orchard",
+      "category": "farm",
       "county": "Centre",
       "address": "2355 Halfmoon Valley Road",
       "city": "Port Matilda",
@@ -2728,7 +2728,7 @@
     },
     {
       "name": "Peach Hill Orchard",
-      "category": "orchard",
+      "category": "farm",
       "county": "Bedford",
       "address": "1086 Curryville Road",
       "city": "Martinsburg",
@@ -2773,7 +2773,7 @@
     },
     {
       "name": "Ridgetop Orchard",
-      "category": "orchard",
+      "category": "farm",
       "county": "Bedford",
       "address": "2953 Valley Rd",
       "city": "Fishertown",
@@ -2821,7 +2821,7 @@
     },
     {
       "name": "Sleek's Orchard",
-      "category": "orchard",
+      "category": "farm",
       "county": "Bedford",
       "address": "181 Wentz Road",
       "city": "New Paris",
@@ -3276,7 +3276,7 @@
     },
     {
       "name": "Dries Orchard",
-      "category": "orchard",
+      "category": "farm",
       "county": "Northumberland",
       "address": "1724 Dornsife Mountain Rd.",
       "city": "Sunbury",
@@ -3454,7 +3454,7 @@
     },
     {
       "name": "Northill Orchard",
-      "category": "orchard",
+      "category": "farm",
       "county": "Snyder",
       "address": "636 Scholl Rd",
       "city": "Winfield",
@@ -3766,7 +3766,7 @@
     },
     {
       "name": "Brown's Orchards & Farm Market",
-      "category": "orchard",
+      "category": "farm",
       "county": "York",
       "address": "8773 Yellow Church Road",
       "city": "Seven Valleys",
@@ -3890,7 +3890,7 @@
     },
     {
       "name": "Flinchbaugh's Orchard and Farm Market",
-      "category": "orchard",
+      "category": "farm",
       "county": "York",
       "address": "110 Ducktown Road",
       "city": "York",
@@ -3952,7 +3952,7 @@
     },
     {
       "name": "Forge Hill",
-      "category": "orchard",
+      "category": "farm",
       "county": "York",
       "address": "135 Blossom Dr",
       "city": "Mt Wolf",
@@ -3989,7 +3989,7 @@
     },
     {
       "name": "Maple Lawn Farms, Inc.",
-      "category": "orchard",
+      "category": "farm",
       "county": "York",
       "address": "2885 New Park Road",
       "city": "New Park",
@@ -4082,7 +4082,7 @@
     },
     {
       "name": "Paulus Orchards",
-      "category": "orchard",
+      "category": "farm",
       "county": "York",
       "address": "522 East Mount Airy Road",
       "city": "Dillsburg",
@@ -4208,7 +4208,7 @@
     },
     {
       "name": "Susquehanna Orchards",
-      "category": "orchard",
+      "category": "farm",
       "county": "York",
       "address": "56560 Orchard Road",
       "city": "Delta",
@@ -4273,7 +4273,7 @@
     },
     {
       "name": "Shaw Orchards",
-      "category": "orchard",
+      "category": "farm",
       "county": "York",
       "address": "3121 Norrisville Road",
       "city": "White Hall",

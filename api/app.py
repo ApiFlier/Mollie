@@ -9,7 +9,7 @@ Endpoints:
   GET /crops/distinct                - distinct crop names (for filter dropdowns)
 
 Filters on /locations:
-  ?category=pick-your-own,orchard    - comma-separated category names
+  ?category=pick-your-own,farm    - comma-separated category names
   ?month=7                           - only locations with crops in season this month
   ?crop=blueberries                  - only locations growing this crop
   ?pyo_only=true                     - only locations with at least one PYO crop
