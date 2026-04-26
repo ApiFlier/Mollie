@@ -10,6 +10,7 @@ const AdminAPI = (() => {
 
   async function request(path, options) {
     options = options || {};
+    options.credentials = "include";
     const r = await fetch(BASE + path, options);
     if (!r.ok) {
       let detail = "";
@@ -78,6 +79,13 @@ const AdminList = (() => {
   var contentEl, searchEl, categoryFilterEl;
 
   function init() {
+    AdminAuth.check().then(function(ok) {
+      if (!ok) return;
+      _initInner();
+    });
+  }
+
+  function _initInner() {
     contentEl = document.getElementById("content");
     searchEl = document.getElementById("search-input");
     categoryFilterEl = document.getElementById("category-filter");
@@ -154,6 +162,13 @@ const AdminEdit = (() => {
   var form, pageTitle, deleteBtn, cropRowsEl;
 
   function init() {
+    AdminAuth.check().then(function(ok) {
+      if (!ok) return;
+      _initInner();
+    });
+  }
+
+  function _initInner() {
     form = document.getElementById("edit-form");
     pageTitle = document.getElementById("page-title");
     deleteBtn = document.getElementById("delete-btn");
@@ -617,4 +632,70 @@ const AdminCredsModal = (() => {
   }
 
   return { init: init };
+})();
+
+// ---------- LOGIN PAGE ----------
+const AdminLogin = (() => {
+  function init() {
+    var form = document.getElementById("login-form");
+    var btn = document.getElementById("login-btn");
+    var flash = document.getElementById("flash");
+
+    form.addEventListener("submit", function(e) {
+      e.preventDefault();
+      btn.disabled = true;
+      btn.textContent = "Signing in...";
+      flash.innerHTML = "";
+
+      var username = document.getElementById("username").value.trim();
+      var password = document.getElementById("password").value;
+
+      fetch("/api/login", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username, password: password })
+      }).then(function(r) {
+        if (r.ok) {
+          window.location.href = "/admin/";
+          return;
+        }
+        return r.json().then(function(body) {
+          throw new Error(body.error || "Login failed");
+        });
+      }).catch(function(err) {
+        flash.innerHTML = '<div class="flash flash-error">' + escapeHtml(err.message) + '</div>';
+      }).finally(function() {
+        btn.disabled = false;
+        btn.textContent = "Sign in";
+      });
+    });
+  }
+  return { init: init };
+})();
+
+// ---------- AUTH GUARD ----------
+// Runs on every admin page (except login.html). Redirects to login if not authenticated.
+const AdminAuth = (() => {
+  function check() {
+    if (window.location.pathname.indexOf("/admin/login") !== -1) return Promise.resolve(true);
+    return fetch("/api/auth/check", { credentials: "include" }).then(function(r) {
+      if (!r.ok) {
+        window.location.href = "/admin/login.html";
+        return false;
+      }
+      return true;
+    }).catch(function() {
+      window.location.href = "/admin/login.html";
+      return false;
+    });
+  }
+
+  function logout() {
+    fetch("/api/logout", { method: "POST", credentials: "include" }).finally(function() {
+      window.location.href = "/admin/login.html";
+    });
+  }
+
+  return { check: check, logout: logout };
 })();

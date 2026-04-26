@@ -10,13 +10,14 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/admin/admin.css?v=20260425a">
+  <link rel="stylesheet" href="/admin/admin.css?v=20260425b">
 </head>
 <body>
   <header class="admin-header">
     <h1><a href="/admin/">Mollie's Guide<span class="subtitle">Admin</span></a></h1>
     <div class="actions">
       <a href="/" class="btn btn-secondary">View Public Site</a>
+      <button type="button" class="btn btn-secondary" id="btn-logout">Logout</button>
       <button id="btn-change-username" class="btn btn-secondary" type="button">Change Username</button>
       <button id="btn-change-password" class="btn btn-secondary" type="button">Change Password</button>
       <a href="/admin/edit.html" class="btn btn-primary">+ Add Location</a>
@@ -72,7 +73,13 @@
     </div>
   </main>
 
-  <script src="/admin/admin.js?v=20260425a"></script>
+  <script src="/admin/admin.js?v=20260425b"></script>
   <script>AdminList.init(); AdminCredsModal.init();</script>
+  <script>
+    (function() {
+      var b = document.getElementById("btn-logout");
+      if (b) b.addEventListener("click", function() { AdminAuth.logout(); });
+    })();
+  </script>
 </body>
 </html>

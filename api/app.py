@@ -19,7 +19,7 @@ Filters on /locations:
 import os
 import json
 import logging
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, session
 from flask_cors import CORS
 import mysql.connector
 from mysql.connector import pooling
@@ -30,7 +30,15 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 log = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app)
+app.secret_key = os.environ.get("FLASK_SECRET", "fallback-not-secure-change-me")
+app.config.update(
+    SESSION_COOKIE_NAME="mollies_session",
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=True,  # HTTPS only
+    PERMANENT_SESSION_LIFETIME=60 * 60 * 24 * 30,  # 30 days
+)
+CORS(app, supports_credentials=True)
 
 DB_CONFIG = {
     "host": os.environ.get("DB_HOST", "db"),
@@ -55,6 +63,70 @@ def get_pool():
 
 def get_conn():
     return get_pool().get_connection()
+
+# ---------- Auth helpers ----------
+
+HTPASSWD_PATH_FOR_AUTH = "/etc/nginx/.htpasswd"
+
+
+def _check_credentials(username, password):
+    """Verify username/password against the htpasswd file. Returns True/False."""
+    try:
+        with open(HTPASSWD_PATH_FOR_AUTH) as f:
+            line = f.readline().strip()
+    except Exception:
+        return False
+    if ":" not in line:
+        return False
+    file_user, file_hash = line.split(":", 1)
+    if username != file_user:
+        return False
+    try:
+        return bcrypt.checkpw(password.encode("utf-8"), file_hash.encode("utf-8"))
+    except Exception:
+        return False
+
+
+def login_required(f):
+    """Decorator: require an active session."""
+    from functools import wraps
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if not session.get("authenticated"):
+            return jsonify({"error": "auth required"}), 401
+        return f(*args, **kwargs)
+    return wrapper
+
+
+@app.route("/login", methods=["POST"])
+def login():
+    body = request.get_json(silent=True) or {}
+    username = (body.get("username") or "").strip()
+    password = body.get("password") or ""
+    if not username or not password:
+        return jsonify({"error": "username and password required"}), 400
+    if not _check_credentials(username, password):
+        return jsonify({"error": "invalid credentials"}), 401
+    session.permanent = True
+    session["authenticated"] = True
+    session["username"] = username
+    return jsonify({"ok": True, "username": username})
+
+
+@app.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return jsonify({"ok": True})
+
+
+@app.route("/auth/check", methods=["GET"])
+def auth_check():
+    """Return the current session's username, or 401 if not logged in."""
+    if not session.get("authenticated"):
+        return jsonify({"authenticated": False}), 401
+    return jsonify({"authenticated": True, "username": session.get("username")})
+
+
 
 
 def parse_bool(value):
@@ -298,6 +370,7 @@ def list_notes(loc_id):
     return jsonify(notes)
 
 
+@login_required
 @app.route("/locations/<int:loc_id>/notes", methods=["POST"])
 def add_note(loc_id):
     body = request.get_json(silent=True) or {}
@@ -335,6 +408,7 @@ def add_note(loc_id):
     return jsonify(row), 201
 
 
+@login_required
 @app.route("/notes/<int:note_id>", methods=["DELETE"])
 def delete_note(note_id):
     conn = get_conn()
@@ -617,6 +691,7 @@ def _get_category_map(cur):
     return {row["name"]: row["id"] for row in cur.fetchall()}
 
 
+@login_required
 @app.route("/locations", methods=["POST"])
 def create_location():
     body = request.get_json(silent=True) or {}
@@ -648,6 +723,7 @@ def create_location():
     return jsonify({"id": new_id}), 201
 
 
+@login_required
 @app.route("/locations/<int:loc_id>", methods=["PUT"])
 def update_location(loc_id):
     body = request.get_json(silent=True) or {}
@@ -703,6 +779,7 @@ def update_location(loc_id):
     return jsonify({"id": loc_id, "updated": True})
 
 
+@login_required
 @app.route("/locations/<int:loc_id>", methods=["DELETE"])
 def delete_location(loc_id):
     conn = get_conn()
@@ -717,6 +794,7 @@ def delete_location(loc_id):
     return jsonify({"deleted": loc_id})
 
 
+@login_required
 @app.route("/locations/<int:loc_id>/crops", methods=["POST"])
 def create_crop(loc_id):
     body = request.get_json(silent=True) or {}
@@ -750,6 +828,7 @@ def create_crop(loc_id):
     return jsonify({"id": new_id}), 201
 
 
+@login_required
 @app.route("/crops/<int:crop_id>", methods=["PUT"])
 def update_crop(crop_id):
     body = request.get_json(silent=True) or {}
@@ -782,6 +861,7 @@ def update_crop(crop_id):
     return jsonify({"id": crop_id, "updated": True}) if affected else (jsonify({"error": "crop not found"}), 404)
 
 
+@login_required
 @app.route("/crops/<int:crop_id>", methods=["DELETE"])
 def delete_crop(crop_id):
     conn = get_conn()
@@ -827,6 +907,7 @@ def credentials_info():
         return jsonify({"error": str(e)}), 500
 
 
+@login_required
 @app.route("/credentials", methods=["PUT"])
 def update_credentials():
     """

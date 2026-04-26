@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Login - Mollies Guide Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/admin/admin.css?v=20260425b">
+</head>
+<body style="display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px;">
+  <div style="max-width:400px; width:100%;">
+    <h1 style="font-family: Lora, serif; color: var(--berry); text-align:center; margin: 0 0 8px 0;">Mollies Guide</h1>
+    <p style="text-align:center; color: var(--ink-soft); margin: 0 0 24px 0; font-size: 14px;">Admin login</p>
+
+    <div id="flash"></div>
+
+    <form id="login-form" autocomplete="on" style="background: var(--bg-panel); padding: 24px; border-radius: 8px; border: 1px solid var(--line);">
+      <div class="field">
+        <label for="username">Username</label>
+        <input type="text" id="username" name="username" autocomplete="username" required autofocus>
+      </div>
+      <div class="field" style="margin-top: 14px;">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn btn-primary" id="login-btn" style="width:100%; margin-top: 18px; padding: 10px;">Sign in</button>
+    </form>
+  </div>
+
+  <script src="/admin/admin.js?v=20260425b"></script>
+  <script>AdminLogin.init();</script>
+</body>
+</html>
