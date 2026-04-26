@@ -1,0 +1,767 @@
+{
+  "extracted_date": "2026-04-26",
+  "locations": [
+    {
+      "name": "Burkhart's Blueberries",
+      "category": "pick-your-own",
+      "county": "Berkeley",
+      "address": "780 Poor House Rd.",
+      "city": "Martinsburg",
+      "state": "WV",
+      "zip": "25403",
+      "phone": "304-229-2391",
+      "email": "iknoeyes@msn.com",
+      "facebook_url": "https://www.facebook.com/burkhartblueberrieswv",
+      "hours": "June; call for hours and days",
+      "payment_methods": [
+        "cash",
+        "check"
+      ],
+      "notes": "Organic practices but not certified.",
+      "organic": true,
+      "crops": [
+        {
+          "name": "blueberries",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 6
+        }
+      ]
+    },
+    {
+      "name": "Orr's Farm Market",
+      "category": "farm",
+      "county": "Berkeley",
+      "address": "682 Orr Drive",
+      "city": "Martinsburg",
+      "state": "WV",
+      "zip": "25403",
+      "phone": "304-263-1168",
+      "fax": "304-263-1153",
+      "email": "info@orrsfarmmarket.com",
+      "website": "https://www.orrsfarmmarket.com",
+      "facebook_url": "https://www.facebook.com/profile.php?id=100064824127429",
+      "hours": "Mon-Sat 8am-6pm; Sun 10am-4pm (May 1 to Oct 31)",
+      "payment_methods": [
+        "cash",
+        "check",
+        "debit",
+        "visa",
+        "mastercard",
+        "discover",
+        "wic",
+        "sfmnp"
+      ],
+      "amenities": [
+        "restrooms",
+        "birthday parties",
+        "school tours",
+        "integrated pest management"
+      ],
+      "notes": "Reservation required for picking.",
+      "crops": [
+        {
+          "name": "strawberries",
+          "is_pyo": true,
+          "season_start_month": 5,
+          "season_end_month": 6
+        },
+        {
+          "name": "cherries (sweet)",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 6
+        },
+        {
+          "name": "cherries (tart)",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 6
+        },
+        {
+          "name": "raspberries (red)",
+          "is_pyo": true,
+          "season_start_month": 7,
+          "season_end_month": 9
+        },
+        {
+          "name": "raspberries (golden)",
+          "is_pyo": true,
+          "season_start_month": 7,
+          "season_end_month": 9
+        },
+        {
+          "name": "grapes",
+          "is_pyo": true,
+          "season_start_month": 8,
+          "season_end_month": 9
+        },
+        {
+          "name": "peaches",
+          "is_pyo": true,
+          "season_start_month": 7,
+          "season_end_month": 9
+        },
+        {
+          "name": "apples",
+          "is_pyo": true,
+          "season_start_month": 8,
+          "season_end_month": 12
+        },
+        {
+          "name": "blackberries",
+          "is_pyo": true,
+          "season_start_month": 7,
+          "season_end_month": 8
+        },
+        {
+          "name": "pumpkins",
+          "is_pyo": true,
+          "season_start_month": 9,
+          "season_end_month": 10
+        },
+        {
+          "name": "flowers",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 9
+        },
+        {
+          "name": "vegetables",
+          "is_pyo": false,
+          "season_start_month": 7,
+          "season_end_month": 11
+        }
+      ]
+    },
+    {
+      "name": "Garden by the Woods",
+      "category": "pick-your-own",
+      "county": "Berkeley",
+      "address": "1210 Bedington Road",
+      "city": "Martinsburg",
+      "state": "WV",
+      "zip": "25402",
+      "phone": "304-433-7090",
+      "email": "patriciacorona800@msn.com",
+      "facebook_url": "https://www.facebook.com/Gardenbythewoods",
+      "hours": "7 days a week by appointment only",
+      "payment_methods": [
+        "cash",
+        "check"
+      ],
+      "amenities": [
+        "farm animals"
+      ],
+      "notes": "",
+      "crops": [
+        {
+          "name": "flowers",
+          "is_pyo": true,
+          "season_start_month": 3,
+          "season_end_month": 10
+        }
+      ]
+    },
+    {
+      "name": "Thornbrook Berries",
+      "category": "pick-your-own",
+      "county": "Berkeley",
+      "address": "2528 Dominion Rd",
+      "city": "Gerrardstown",
+      "state": "WV",
+      "zip": "25420",
+      "phone": "304-820-2115",
+      "email": "freedomacres.llc@gmail.com",
+      "facebook_url": "https://www.facebook.com/burkhartblueberrieswv",
+      "hours": "Mon & Wed by appointment (in season)",
+      "notes": "Discounts for large quantities.",
+      "crops": [
+        {
+          "name": "blackberries",
+          "is_pyo": true,
+          "season_start_month": 7,
+          "season_end_month": 8
+        }
+      ]
+    },
+    {
+      "name": "Capon Crossing Farm Market",
+      "category": "pick-your-own",
+      "county": "Hampshire",
+      "address": "Hc 64 Box 232 A",
+      "city": "Wardensville",
+      "state": "WV",
+      "zip": "26851",
+      "phone": "540-664-4219",
+      "alt_phone": "304-874-3462",
+      "email": "caponcrossing@aol.com",
+      "facebook_url": "https://www.facebook.com/caponcrossing",
+      "hours": "Open all year (daylight hours)",
+      "payment_methods": [
+        "cash",
+        "check",
+        "visa",
+        "mastercard"
+      ],
+      "amenities": [
+        "natural growing practices",
+        "honey",
+        "fresh eggs"
+      ],
+      "notes": "Market is on a working cattle farm. Bluegrass Band available for booking.",
+      "crops": [
+        {
+          "name": "asparagus",
+          "is_pyo": true,
+          "season_start_month": 4,
+          "season_end_month": 6
+        },
+        {
+          "name": "beans",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 9
+        },
+        {
+          "name": "broccoli",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 10
+        },
+        {
+          "name": "cucumbers",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 9
+        },
+        {
+          "name": "eggplants",
+          "is_pyo": true,
+          "season_start_month": 7,
+          "season_end_month": 9
+        },
+        {
+          "name": "flowers",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 10
+        },
+        {
+          "name": "herbs or spices",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 10
+        },
+        {
+          "name": "melons",
+          "is_pyo": true,
+          "season_start_month": 7,
+          "season_end_month": 9
+        },
+        {
+          "name": "onions",
+          "is_pyo": true,
+          "season_start_month": 7,
+          "season_end_month": 10
+        },
+        {
+          "name": "peppers",
+          "is_pyo": true,
+          "season_start_month": 7,
+          "season_end_month": 10
+        },
+        {
+          "name": "pumpkins",
+          "is_pyo": true,
+          "season_start_month": 9,
+          "season_end_month": 10
+        },
+        {
+          "name": "raspberries (red)",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 9
+        },
+        {
+          "name": "summer squash",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 9
+        },
+        {
+          "name": "winter squash",
+          "is_pyo": true,
+          "season_start_month": 9,
+          "season_end_month": 11
+        },
+        {
+          "name": "strawberries",
+          "is_pyo": true,
+          "season_start_month": 5,
+          "season_end_month": 6
+        },
+        {
+          "name": "tomatoes",
+          "is_pyo": true,
+          "season_start_month": 7,
+          "season_end_month": 10
+        }
+      ]
+    },
+    {
+      "name": "Church View Farm",
+      "category": "pick-your-own",
+      "county": "Hampshire",
+      "address": "HC 64 Box 2027",
+      "city": "Romney",
+      "state": "WV",
+      "zip": "26757",
+      "phone": "304-822-3878",
+      "email": "churchviewfarm@frontiernet.net",
+      "website": "https://www.churchviewfarmwv.com/",
+      "facebook_url": "https://www.facebook.com/pages/Church-View-Farm/80921506717",
+      "hours": "Fridays (in season) for PYO if surplus available",
+      "payment_methods": [
+        "cash",
+        "check"
+      ],
+      "amenities": [
+        "honey"
+      ],
+      "notes": "Primarily sell at Romney Farmer's Market on Saturday mornings. PYO only available in times of surplus.",
+      "crops": [
+        {
+          "name": "beans",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 10
+        },
+        {
+          "name": "blackberries",
+          "is_pyo": true,
+          "season_start_month": 7,
+          "season_end_month": 8
+        },
+        {
+          "name": "cherries",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 7
+        },
+        {
+          "name": "peppers",
+          "is_pyo": true,
+          "season_start_month": 7,
+          "season_end_month": 10
+        },
+        {
+          "name": "raspberries",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 9
+        }
+      ]
+    },
+    {
+      "name": "Country Family Farms",
+      "category": "pick-your-own",
+      "county": "Hampshire",
+      "address": "27117 Northwestern Pike",
+      "city": "Romney",
+      "state": "WV",
+      "zip": "26757",
+      "phone": "831-325-8930",
+      "email": "countryfamilyfarms@gmail.com",
+      "website": "https://countryfamilyfarms.com/",
+      "facebook_url": "https://www.facebook.com/countryfamilyfarms",
+      "hours": "Call or check page for availability",
+      "amenities": [
+        "farm stand"
+      ],
+      "notes": "",
+      "crops": [
+        {
+          "name": "flowers",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 9
+        }
+      ]
+    },
+    {
+      "name": "Seeds of Grace Acres",
+      "category": "pick-your-own",
+      "county": "Hampshire",
+      "address": "178 Crestview Mountain Rd",
+      "city": "Augusta",
+      "state": "WV",
+      "zip": "26704",
+      "phone": "681-231-1518",
+      "alt_phone": "304-703-8097",
+      "email": "seedsofgraceacres@gmail.com",
+      "website": "https://seedsofgraceacres.com",
+      "facebook_url": "https://www.facebook.com/seedsofgrace.acres.7",
+      "hours": "Call for current hours",
+      "payment_methods": [
+        "cash",
+        "debit",
+        "visa",
+        "mastercard",
+        "discover",
+        "amex"
+      ],
+      "amenities": [
+        "concessions",
+        "picnic area",
+        "porta-potties",
+        "wifi",
+        "face painting",
+        "inflatables",
+        "ziplines",
+        "petting zoo",
+        "birthday parties",
+        "weddings",
+        "school tours"
+      ],
+      "notes": "Uses natural organic practices (SQE Organic).",
+      "organic": true,
+      "crops": [
+        {
+          "name": "apples",
+          "is_pyo": true,
+          "season_start_month": 8,
+          "season_end_month": 11
+        },
+        {
+          "name": "pears",
+          "is_pyo": true,
+          "season_start_month": 8,
+          "season_end_month": 10
+        },
+        {
+          "name": "pears (asian)",
+          "is_pyo": true,
+          "season_start_month": 8,
+          "season_end_month": 10
+        },
+        {
+          "name": "blackberries",
+          "is_pyo": true,
+          "season_start_month": 7,
+          "season_end_month": 8
+        },
+        {
+          "name": "blueberries",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 8
+        },
+        {
+          "name": "figs",
+          "is_pyo": true,
+          "season_start_month": 8,
+          "season_end_month": 10
+        },
+        {
+          "name": "melons",
+          "is_pyo": true,
+          "season_start_month": 7,
+          "season_end_month": 9
+        },
+        {
+          "name": "pawpaws",
+          "is_pyo": true,
+          "season_start_month": 9,
+          "season_end_month": 10
+        },
+        {
+          "name": "peaches",
+          "is_pyo": true,
+          "season_start_month": 7,
+          "season_end_month": 9
+        },
+        {
+          "name": "persimmons",
+          "is_pyo": true,
+          "season_start_month": 9,
+          "season_end_month": 11
+        },
+        {
+          "name": "plums",
+          "is_pyo": true,
+          "season_start_month": 7,
+          "season_end_month": 9
+        },
+        {
+          "name": "raspberries (red)",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 10
+        },
+        {
+          "name": "strawberries",
+          "is_pyo": true,
+          "season_start_month": 5,
+          "season_end_month": 6
+        },
+        {
+          "name": "beans",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 10
+        },
+        {
+          "name": "beets",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 10
+        },
+        {
+          "name": "broccoli",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 11
+        },
+        {
+          "name": "Brussels sprouts",
+          "is_pyo": true,
+          "season_start_month": 9,
+          "season_end_month": 11
+        },
+        {
+          "name": "sweet corn",
+          "is_pyo": true,
+          "season_start_month": 7,
+          "season_end_month": 9
+        },
+        {
+          "name": "cucumbers",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 9
+        },
+        {
+          "name": "lettuce",
+          "is_pyo": true,
+          "season_start_month": 5,
+          "season_end_month": 10
+        },
+        {
+          "name": "okra",
+          "is_pyo": true,
+          "season_start_month": 7,
+          "season_end_month": 9
+        },
+        {
+          "name": "onions",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 10
+        },
+        {
+          "name": "peas",
+          "is_pyo": true,
+          "season_start_month": 5,
+          "season_end_month": 7
+        },
+        {
+          "name": "peppers",
+          "is_pyo": true,
+          "season_start_month": 7,
+          "season_end_month": 10
+        },
+        {
+          "name": "pumpkins",
+          "is_pyo": true,
+          "season_start_month": 9,
+          "season_end_month": 11
+        },
+        {
+          "name": "squash",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 10
+        },
+        {
+          "name": "tomatoes",
+          "is_pyo": true,
+          "season_start_month": 7,
+          "season_end_month": 10
+        },
+        {
+          "name": "watermelons",
+          "is_pyo": true,
+          "season_start_month": 7,
+          "season_end_month": 9
+        },
+        {
+          "name": "sunflowers",
+          "is_pyo": true,
+          "season_start_month": 7,
+          "season_end_month": 10
+        }
+      ]
+    },
+    {
+      "name": "Buena Vista Farm",
+      "category": "pick-your-own",
+      "county": "Hardy",
+      "address": "4975 US 220 North",
+      "city": "Old Fields",
+      "state": "WV",
+      "zip": "26845",
+      "phone": "304-538-2788",
+      "email": "bvfarm@hardynet.com",
+      "facebook_url": "https://www.facebook.com/buenavistafarm",
+      "hours": "April 15 to Oct 31 (when market is open)",
+      "payment_methods": [
+        "cash",
+        "check",
+        "debit",
+        "visa",
+        "mastercard",
+        "discover",
+        "amex",
+        "wic",
+        "sfmnp",
+        "snap"
+      ],
+      "amenities": [
+        "restrooms",
+        "picnic area",
+        "farm animals"
+      ],
+      "notes": "U-pick green beans or they pick for you (approx Aug 1-Sept 1).",
+      "crops": [
+        {
+          "name": "strawberries",
+          "is_pyo": true,
+          "season_start_month": 5,
+          "season_end_month": 6
+        },
+        {
+          "name": "beans",
+          "is_pyo": true,
+          "season_start_month": 8,
+          "season_end_month": 9
+        },
+        {
+          "name": "asparagus",
+          "is_pyo": true,
+          "season_start_month": 4,
+          "season_end_month": 6
+        },
+        {
+          "name": "beets",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 10
+        },
+        {
+          "name": "blackberries",
+          "is_pyo": true,
+          "season_start_month": 7,
+          "season_end_month": 8
+        },
+        {
+          "name": "cucumbers",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 9
+        },
+        {
+          "name": "herbs or spices",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 10
+        },
+        {
+          "name": "onions",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 10
+        },
+        {
+          "name": "peas",
+          "is_pyo": true,
+          "season_start_month": 5,
+          "season_end_month": 7
+        },
+        {
+          "name": "peppers",
+          "is_pyo": true,
+          "season_start_month": 7,
+          "season_end_month": 10
+        },
+        {
+          "name": "pumpkins",
+          "is_pyo": true,
+          "season_start_month": 9,
+          "season_end_month": 10
+        },
+        {
+          "name": "squash",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 10
+        },
+        {
+          "name": "tomatoes",
+          "is_pyo": true,
+          "season_start_month": 7,
+          "season_end_month": 10
+        }
+      ]
+    },
+    {
+      "name": "Cold Run Valley Berry Farm",
+      "category": "pick-your-own",
+      "county": "Morgan",
+      "address": "4262 Cold Run Valley Road",
+      "city": "Berkeley Springs",
+      "state": "WV",
+      "zip": "25411",
+      "phone": "304-258-2828",
+      "alt_phone": "304-836-8552",
+      "email": "dnk2130@frontier.com",
+      "facebook_url": "https://www.facebook.com/Cold-Run-Valley-Berry-Farm-205348346225772",
+      "hours": "Mon-Sat 7am-5pm (June thru August); closed Sun",
+      "payment_methods": [
+        "cash"
+      ],
+      "amenities": [
+        "farm market",
+        "porta-potties",
+        "natural growing practices"
+      ],
+      "notes": "",
+      "crops": [
+        {
+          "name": "raspberries (black)",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 7
+        },
+        {
+          "name": "blackberries",
+          "is_pyo": true,
+          "season_start_month": 7,
+          "season_end_month": 8
+        },
+        {
+          "name": "blueberries",
+          "is_pyo": true,
+          "season_start_month": 6,
+          "season_end_month": 8
+        },
+        {
+          "name": "strawberries",
+          "is_pyo": true,
+          "season_start_month": 5,
+          "season_end_month": 6
+        }
+      ]
+    }
+  ]
+}
