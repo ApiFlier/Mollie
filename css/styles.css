@@ -421,3 +421,23 @@ h1 .subtitle {
   color: var(--ink-soft);
   font-style: italic;
 }
+
+/* Fix 1: Desktop Side Panel */
+@media (min-width: 768px) {
+  .detail-panel {
+    left: auto;
+    right: 20px;
+    bottom: 20px;
+    width: 400px;
+    border-radius: 16px;
+    max-height: calc(100vh - 140px);
+  }
+}
+
+/* Fix 3: Touch Targets (Public Site) */
+.detail-panel .close-btn { width: 44px !important; height: 44px !important; }
+.note-card .note-delete { width: 44px !important; height: 44px !important; }
+
+/* Fix 4: Hide Scrollbars on Filter Chips */
+.chip-row::-webkit-scrollbar { display: none; }
+.chip-row { -ms-overflow-style: none; scrollbar-width: none; }

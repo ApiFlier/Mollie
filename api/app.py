@@ -345,12 +345,20 @@ def get_locations():
     crop_sub_parts  = []
     crop_sub_params = []
     if month_filter is not None:
-        crop_sub_parts.append(
+        month_match = (
             "(%s BETWEEN cr.season_start_month AND cr.season_end_month "
             "OR (cr.season_start_month > cr.season_end_month "
             "    AND (%s >= cr.season_start_month OR %s <= cr.season_end_month)))"
         )
-        crop_sub_params.extend([month_filter, month_filter, month_filter])
+        # Check location table OR crops table
+        loc_month_match = (
+            "(%s BETWEEN l.season_start_month AND l.season_end_month "
+            "OR (l.season_start_month > l.season_end_month "
+            "    AND (%s >= l.season_start_month OR %s <= l.season_end_month)))"
+        )
+        
+        where.append(f"({loc_month_match} OR EXISTS (SELECT 1 FROM crops cr WHERE cr.location_id = l.id AND {month_match}))")
+        params.extend([month_filter, month_filter, month_filter, month_filter, month_filter, month_filter])
     if crop_filter:
         crop_sub_parts.append("LOWER(cr.name) LIKE %s")
         crop_sub_params.append(f"%{crop_filter}%")

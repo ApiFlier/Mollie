@@ -58,8 +58,25 @@ const MolliesFilters = (() => {
         c.classList.remove("chip-active");
       }
     });
+
+    // Hide Farm-specific filters if looking at festivals/markets
+    var isFarm = (value === "" || value === "farm" || value === "pick-your-own");
+    document.getElementById("crop-select").style.display = isFarm ? "" : "none";
+    document.getElementById("month-select").style.display = isFarm ? "" : "none";
+    document.getElementById("pyo-toggle").parentElement.style.display = isFarm ? "" : "none";
+    document.getElementById("organic-toggle").parentElement.style.display = isFarm ? "" : "none";
+
+    // Clear their states so they don't invisibly filter out results
+    if (!isFarm) {
+      state.crop = ""; document.getElementById("crop-select").value = "";
+      state.month = ""; document.getElementById("month-select").value = "";
+      state.pyo_only = false; document.getElementById("pyo-toggle").checked = false;
+      state.organic = false; document.getElementById("organic-toggle").checked = false;
+    }
+
     emitChange();
   }
+
 
   function buildCropDropdown(crops) {
     cropEl.innerHTML = "";

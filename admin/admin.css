@@ -382,3 +382,6 @@ table.locations-table {
   border-radius: 50%;
 }
 .modal-close:hover { background: var(--bg); }
+
+/* Fix 3: Touch Targets (Admin) */
+.crop-row .delete-cell button { width: 44px !important; height: 44px !important; }

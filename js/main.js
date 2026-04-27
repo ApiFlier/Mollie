@@ -120,6 +120,13 @@
       html += '</div>';
     }
 
+    if (loc.notes) {
+      html += '<div class="section">';
+      html += '<div class="section-label">About / Details</div>';
+      html += '<div style="white-space: pre-wrap; font-size: 14px; line-height: 1.5;">' + escapeHtml(loc.notes) + '</div>';
+      html += '</div>';
+    }
+
     html += '<div class="notes-section">';
     html += '<div class="section-label">My Notes</div>';
     html += '<div class="notes-list" id="notes-list-' + loc.id + '">Loading...</div>';

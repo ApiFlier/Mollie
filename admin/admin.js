@@ -130,7 +130,7 @@ const AdminList = (() => {
       return;
     }
 
-    var html = '<table class="locations-table"><thead><tr>';
+    var html = '<div style="overflow-x: auto;"><table class="locations-table"><thead><tr>';
     html += '<th>Name</th><th>Category</th><th>County</th><th>City</th><th>Crops</th><th></th>';
     html += '</tr></thead><tbody>';
     filtered.forEach(function(loc) {
@@ -145,7 +145,7 @@ const AdminList = (() => {
       html += '</div></td>';
       html += '</tr>';
     });
-    html += '</tbody></table>';
+    html += '</tbody></table></div>';
     html += '<p style="margin-top:10px;color:var(--ink-soft);font-size:12px;">' + filtered.length + ' of ' + allLocations.length + ' locations</p>';
     contentEl.innerHTML = html;
   }
