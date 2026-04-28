@@ -1,157 +1,91 @@
-/**
- * Filter UI for Mollie's Guide.
- * All inputs are tap-only - no typing required.
- */
-
 const MolliesFilters = (() => {
-  const state = {
-    category: "",
-    crop: "",
-    month: "",
-    pyo_only: false,
-    organic: false
-  };
-
+  const state = { category: "", crop: "", month: "", pyo_only: false, organic: false };
   let onChangeHandler = null;
   let categoriesEl, cropEl, monthEl, pyoEl, organicEl;
 
   function emitChange() {
-    if (onChangeHandler) {
-      var payload = {};
-      if (state.category) payload.category = state.category;
-      if (state.crop) payload.crop = state.crop;
-      if (state.month) payload.month = state.month;
-      if (state.pyo_only) payload.pyo_only = "true";
-      if (state.organic) payload.organic = "true";
-      onChangeHandler(payload);
-    }
-  }
-
-  function buildCategoryChips(categories) {
-    categoriesEl.innerHTML = "";
-
-    var allChip = document.createElement("button");
-    allChip.className = "chip chip-active";
-    allChip.textContent = "All";
-    allChip.dataset.value = "";
-    allChip.addEventListener("click", function() { selectCategory(""); });
-    categoriesEl.appendChild(allChip);
-
-    categories.forEach(function(cat) {
-      var chip = document.createElement("button");
-      chip.className = "chip";
-      chip.textContent = cat.name.replace(/-/g, " ");
-      chip.dataset.value = cat.name;
-      chip.style.borderColor = cat.color;
-      chip.addEventListener("click", function() { selectCategory(cat.name); });
-      categoriesEl.appendChild(chip);
-    });
+    if (!onChangeHandler) return;
+    const p = {};
+    if (state.category) p.category = state.category;
+    if (state.crop) p.crop = state.crop;
+    if (state.month) p.month = state.month;
+    onChangeHandler(p);
   }
 
   function selectCategory(value) {
     state.category = value;
-    var chips = categoriesEl.querySelectorAll(".chip");
-    chips.forEach(function(c) {
-      if (c.dataset.value === value) {
-        c.classList.add("chip-active");
-      } else {
-        c.classList.remove("chip-active");
-      }
+    
+    // Update active chip visuals
+    categoriesEl.querySelectorAll(".chip").forEach(c => {
+      c.classList.toggle("chip-active", c.dataset.value === value);
     });
-
-    // Hide Farm-specific filters if looking at festivals/markets
-    var isFarm = (value === "" || value === "farm" || value === "pick-your-own");
-    document.getElementById("crop-select").style.display = isFarm ? "" : "none";
-    document.getElementById("month-select").style.display = isFarm ? "" : "none";
-    document.getElementById("pyo-toggle").parentElement.style.display = isFarm ? "" : "none";
-    document.getElementById("organic-toggle").parentElement.style.display = isFarm ? "" : "none";
-
-    // Clear their states so they don't invisibly filter out results
-    if (!isFarm) {
-      state.crop = ""; document.getElementById("crop-select").value = "";
-      state.month = ""; document.getElementById("month-select").value = "";
-      state.pyo_only = false; document.getElementById("pyo-toggle").checked = false;
-      state.organic = false; document.getElementById("organic-toggle").checked = false;
+    
+    const isFarm = (value === "farm" || value === "pick-your-own");
+    const cropLabel = document.querySelector('label[for="crop-select"]');
+    
+    // Only show the secondary dropdown for Farms
+    if (isFarm) {
+      if (cropLabel) cropLabel.textContent = "Crop";
+      if (cropEl) {
+          cropEl.style.display = "";
+          MolliesAPI.getDistinctCrops().then(crops => {
+            cropEl.innerHTML = '<option value="">Any crop</option>' + crops.map(c => `<option value="${c.name}">${c.name}</option>`).join("");
+          });
+      }
+    } else {
+      // Hide the secondary dropdown for All, Fairs, Festivals, etc.
+      if (cropEl) cropEl.style.display = "none";
+      state.crop = ""; // Clear the crop state so it doesn't accidentally filter
     }
 
+    if (monthEl) monthEl.style.display = ""; 
     emitChange();
   }
 
+  return {
+    init: (els, cb) => {
+      categoriesEl = els.categories; cropEl = els.crop; monthEl = els.month;
+      onChangeHandler = cb.onChange;
+      
+      MolliesAPI.getCategories().then(cats => {
+        categoriesEl.innerHTML = ''; // Clear out any existing HTML
 
-  function buildCropDropdown(crops) {
-    cropEl.innerHTML = "";
-    var blank = document.createElement("option");
-    blank.value = "";
-    blank.textContent = "Any crop";
-    cropEl.appendChild(blank);
+        // Build the "All" button correctly WITH a click listener
+        const allBtn = document.createElement("button");
+        allBtn.className = "chip chip-active"; 
+        allBtn.textContent = "All";
+        allBtn.dataset.value = "";
+        allBtn.onclick = () => selectCategory("");
+        categoriesEl.appendChild(allBtn);
 
-    crops.forEach(function(c) {
-      var opt = document.createElement("option");
-      opt.value = c.name;
-      opt.textContent = c.name + " (" + c.farm_count + ")";
-      cropEl.appendChild(opt);
-    });
+        // Build the rest of the category buttons
+        cats.forEach(c => {
+          const btn = document.createElement("button");
+          btn.className = "chip"; 
+          btn.textContent = c.name.charAt(0).toUpperCase() + c.name.slice(1);
+          btn.dataset.value = c.name; 
+          btn.style.borderColor = c.color;
+          btn.onclick = () => selectCategory(c.name);
+          categoriesEl.appendChild(btn);
+        });
+      });
 
-    cropEl.addEventListener("change", function() {
-      state.crop = cropEl.value;
-      emitChange();
-    });
-  }
+      const ms = ["Any month","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      if (monthEl) {
+          monthEl.innerHTML = ms.map((m, i) => `<option value="${i===0?'':i}">${m}</option>`).join("");
+          monthEl.onchange = () => { state.month = monthEl.value; emitChange(); };
+      }
+      
+      if (cropEl) {
+          cropEl.onchange = () => { state.crop = cropEl.value; emitChange(); };
+          // Hide it by default on initial load (since "All" is selected)
+          cropEl.style.display = "none"; 
+      }
+      
+      const cropLabel = document.querySelector('label[for="crop-select"]');
+      if (cropLabel) cropLabel.textContent = "Crop";
 
-  function buildMonthDropdown() {
-    var months = [
-      "Any month",
-      "January", "February", "March", "April", "May", "June",
-      "July", "August", "September", "October", "November", "December"
-    ];
-
-    monthEl.innerHTML = "";
-    months.forEach(function(name, i) {
-      var opt = document.createElement("option");
-      opt.value = i === 0 ? "" : String(i);
-      opt.textContent = name;
-      monthEl.appendChild(opt);
-    });
-
-    monthEl.addEventListener("change", function() {
-      state.month = monthEl.value;
-      emitChange();
-    });
-  }
-
-  function setupToggles() {
-    pyoEl.addEventListener("change", function() {
-      state.pyo_only = pyoEl.checked;
-      emitChange();
-    });
-    organicEl.addEventListener("change", function() {
-      state.organic = organicEl.checked;
-      emitChange();
-    });
-  }
-
-  function init(elements, callbacks) {
-    categoriesEl = elements.categories;
-    cropEl = elements.crop;
-    monthEl = elements.month;
-    pyoEl = elements.pyo;
-    organicEl = elements.organic;
-
-    onChangeHandler = callbacks.onChange;
-
-    Promise.all([
-      MolliesAPI.getCategories(),
-      MolliesAPI.getDistinctCrops()
-    ]).then(function(results) {
-      buildCategoryChips(results[0]);
-      buildCropDropdown(results[1]);
-      buildMonthDropdown();
-      setupToggles();
-      if (callbacks.onReady) callbacks.onReady();
-    }).catch(function(err) {
-      console.error("Filters init failed:", err);
-    });
-  }
-
-  return { init: init };
+      if (cb.onReady) cb.onReady();
+    }
+  };
 })();

@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/admin/admin.css?v=20260427a">
+  <link rel="stylesheet" href="/admin/admin.css?v=20260428a">
 </head>
 <body>
   <header class="admin-header">
@@ -38,7 +38,7 @@
         </div>
 
         <div class="field">
-          <label for="f-county">County</label>
+          <label for="f-county">County / Region</label>
           <input type="text" id="f-county" name="county" list="counties-list">
           <datalist id="counties-list"></datalist>
         </div>
@@ -74,7 +74,37 @@
         </div>
       </div>
 
-      <h3 class="section-title">Contact</h3>
+      <div id="section-events" style="display:none;">
+        <h3 class="section-title">Events / Fairs</h3>
+        <div class="form-grid">
+          <div class="field field-full">
+            <label for="f-event_date">Date / Schedule (e.g. July 6-11)</label>
+            <input type="text" id="f-event_date" name="event_date">
+          </div>
+          <div class="field">
+            <label for="f-season_start_month">Event Month (Start)</label>
+            <select id="f-season_start_month" name="season_start_month">
+              <option value="">--</option>
+              <option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option>
+              <option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option>
+              <option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>
+              <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="f-season_end_month">Event Month (End)</label>
+            <select id="f-season_end_month" name="season_end_month">
+              <option value="">--</option>
+              <option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option>
+              <option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option>
+              <option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>
+              <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <h3 class="section-title">Contact & Description</h3>
       <div class="form-grid">
         <div class="field">
           <label for="f-phone">Phone</label>
@@ -96,9 +126,15 @@
           <label for="f-facebook">Facebook URL</label>
           <input type="url" id="f-facebook" name="facebook_url" placeholder="https://www.facebook.com/...">
         </div>
-        <div class="field field-full">
+        
+        <div class="field field-full" id="section-hours" style="display:none;">
           <label for="f-hours">Hours</label>
           <input type="text" id="f-hours" name="hours" placeholder="Mon-Fri 8am-6pm; Sat 8am-2pm; closed Sun">
+        </div>
+        
+        <div class="field field-full">
+          <label for="f-notes">Description / Site Info (Public)</label>
+          <textarea id="f-notes" name="notes"></textarea>
         </div>
       </div>
 
@@ -151,20 +187,17 @@
             <label><input type="checkbox" value="wheelchair accessible"> Wheelchair accessible</label>
           </div>
         </div>
-
-        <div class="field field-full">
-          <label for="f-notes">Internal Notes (about the farm itself)</label>
-          <textarea id="f-notes" name="notes"></textarea>
-        </div>
       </div>
 
-      <h3 class="section-title">Crops</h3>
-      <div class="crop-rows" id="crop-rows"></div>
-      <button type="button" class="btn btn-secondary btn-small" id="add-crop-btn">+ Add crop</button>
+      <div id="section-crops" style="display:none;">
+        <h3 class="section-title">Crops</h3>
+        <div class="crop-rows" id="crop-rows"></div>
+        <button type="button" class="btn btn-secondary btn-small" id="add-crop-btn">+ Add crop</button>
+      </div>
 
       <div class="form-footer">
-        <button type="button" class="btn btn-danger" id="delete-btn" style="display:none">Delete this location</button>
-        <div style="display:flex; gap:8px; margin-left:auto;">
+        <button type="button" class="btn btn-danger" id="delete-btn" style="display:none; margin-top:20px;">Delete this location</button>
+        <div style="display:flex; gap:8px; margin-left:auto; margin-top:20px;">
           <a href="/admin/" class="btn btn-secondary">Cancel</a>
           <button type="submit" class="btn btn-primary" id="save-btn">Save</button>
         </div>
@@ -172,7 +205,7 @@
     </form>
   </main>
 
-  <script src="/admin/admin.js?v=20260427a"></script>
+  <script src="/admin/admin.js?v=20260428a"></script>
   <script>AdminEdit.init();</script>
   <script>
     (function() {

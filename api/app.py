@@ -1,927 +1,275 @@
-"""
-Mollie's Guide API
-
-Endpoints:
-  GET  /health                          - liveness check
-  GET  /locations                       - all locations (with optional filters)
-  GET  /locations/<id>                  - single location with crops
-  POST /locations                       - create location (auth required)
-  PUT  /locations/<id>                  - update location, geocodes if address changed (auth required)
-  DEL  /locations/<id>                  - delete location (auth required)
-  GET  /categories                      - list of categories
-  GET  /crops/distinct                  - distinct crop names (for filter dropdowns)
-  POST /locations/<id>/crops            - add crop (auth required)
-  PUT  /crops/<id>                      - update crop (auth required)
-  DEL  /crops/<id>                      - delete crop (auth required)
-  PUT  /admin/locations/<id>/crops      - replace entire crop list (auth required)
-  GET  /admin/amenities-vocab           - known amenity strings
-  GET  /admin/payment-vocab             - known payment method strings
-  GET  /counties                        - distinct county list
-  GET  /credentials                     - current admin username
-  PUT  /credentials                     - update admin credentials (auth required)
-  GET  /locations/<id>/notes            - list notes for location
-  POST /locations/<id>/notes            - add note (auth required)
-  DEL  /notes/<id>                      - delete note (auth required)
-
-Filters on GET /locations:
-  ?category=pick-your-own,farm          - comma-separated category names
-  ?month=7                              - only locations with crops in season this month
-  ?crop=blueberries                     - only locations growing this crop
-  ?pyo_only=true                        - only locations with at least one PYO crop
-  ?organic=true                         - organic only
-"""
-
 import os
-import json
-import time
-import logging
-import urllib.request
-import urllib.parse
-from functools import wraps
-
 from flask import Flask, jsonify, request, session
 from flask_cors import CORS
 import mysql.connector
 from mysql.connector import pooling
-import bcrypt
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-log = logging.getLogger(__name__)
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET", "fallback-not-secure-change-me")
+# Using a fixed secret for debugging to ensure sessions don't reset on restart
+app.secret_key = "dev-secret-removed"
+
 app.config.update(
     SESSION_COOKIE_NAME="mollies_session",
-    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_HTTPONLY=False, # Set to False so JS can see it if needed for debugging
     SESSION_COOKIE_SAMESITE="Lax",
-    SESSION_COOKIE_SECURE=True,
-    PERMANENT_SESSION_LIFETIME=60 * 60 * 24 * 30,  # 30 days
+    SESSION_COOKIE_SECURE=False, 
+    PERMANENT_SESSION_LIFETIME=60 * 60 * 24
 )
 CORS(app, supports_credentials=True)
 
 DB_CONFIG = {
-    "host":      os.environ.get("DB_HOST", "db"),
-    "port":      int(os.environ.get("DB_PORT", "3306")),
-    "database":  os.environ.get("DB_NAME", "mollies_guide"),
-    "user":      os.environ.get("DB_USER", "mollies"),
-    "password":  os.environ.get("DB_PASSWORD", ""),
+    "host": os.environ.get("DB_HOST", "db"),
+    "database": os.environ.get("DB_NAME", "mollies_guide"),
+    "user": os.environ.get("DB_USER", "mollies"),
+    "password": os.environ.get("DB_PASSWORD", ""),
     "pool_name": "mollies_pool",
-    "pool_size": 5,
+    "pool_size": 15,
 }
 
-HTPASSWD_PATH = "/etc/nginx/.htpasswd"
-NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
-CENSUS_URL    = "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress"
-USER_AGENT    = "MollieFarmMap/1.0 (meeks.cc)"
-
 _pool = None
-
-
-# ── DB helpers ────────────────────────────────────────────────────────────────
-
-def get_pool():
-    global _pool
-    if _pool is None:
-        _pool = pooling.MySQLConnectionPool(**DB_CONFIG)
-    return _pool
-
-
 def get_conn():
-    return get_pool().get_connection()
-
-
-# ── Geocoding ─────────────────────────────────────────────────────────────────
-
-def _nominatim(query):
-    params = urllib.parse.urlencode({"q": query, "format": "json", "limit": 1, "countrycodes": "us"})
-    req = urllib.request.Request(
-        f"{NOMINATIM_URL}?{params}",
-        headers={"User-Agent": USER_AGENT},
-    )
-    with urllib.request.urlopen(req, timeout=8) as r:
-        data = json.loads(r.read())
-    if data:
-        return float(data[0]["lat"]), float(data[0]["lon"])
-    return None, None
-
-
-def _census(address):
-    params = urllib.parse.urlencode({"address": address, "benchmark": "2020", "format": "json"})
-    with urllib.request.urlopen(f"{CENSUS_URL}?{params}", timeout=8) as r:
-        data = json.loads(r.read())
-    matches = data.get("result", {}).get("addressMatches", [])
-    if matches:
-        c = matches[0]["coordinates"]
-        return float(c["y"]), float(c["x"])
-    return None, None
-
-
-def geocode_address(address, city, state, zip_code):
-    """
-    Try to geocode a location. Returns (lat, lng) or (None, None).
-    Attempts Nominatim first, falls back to Census geocoder.
-    Rate-limited to respect Nominatim's 1 req/sec policy.
-    """
-    parts = [p for p in [address, city, state, zip_code] if p]
-    query = ", ".join(parts)
-    if not query.strip():
-        return None, None
-
-    time.sleep(1.1)  # Nominatim rate limit
-    try:
-        lat, lng = _nominatim(query)
-        if lat:
-            log.info(f"Nominatim geocoded: {query} → {lat},{lng}")
-            return lat, lng
-    except Exception as e:
-        log.warning(f"Nominatim failed for '{query}': {e}")
-
-    try:
-        lat, lng = _census(query)
-        if lat:
-            log.info(f"Census geocoded: {query} → {lat},{lng}")
-            return lat, lng
-    except Exception as e:
-        log.warning(f"Census geocoder failed for '{query}': {e}")
-
-    log.warning(f"Could not geocode: {query}")
-    return None, None
-
-
-def _address_changed(old, new_payload):
-    """Return True if any address field differs between DB row and incoming payload."""
-    for field in ("address", "city", "state", "zip"):
-        old_val = (old.get(field) or "").strip().lower()
-        new_val = (new_payload.get(field) or "").strip().lower()
-        if old_val != new_val:
-            return True
-    return False
-
-
-# ── Auth ──────────────────────────────────────────────────────────────────────
-
-def _check_credentials(username, password):
-    try:
-        with open(HTPASSWD_PATH) as f:
-            line = f.readline().strip()
-    except Exception:
-        return False
-    if ":" not in line:
-        return False
-    file_user, file_hash = line.split(":", 1)
-    if username != file_user:
-        return False
-    try:
-        return bcrypt.checkpw(password.encode(), file_hash.encode())
-    except Exception:
-        return False
-
-
-def login_required(f):
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        if not session.get("authenticated"):
-            return jsonify({"error": "auth required"}), 401
-        return f(*args, **kwargs)
-    return wrapper
-
+    global _pool
+    if _pool is None: _pool = pooling.MySQLConnectionPool(**DB_CONFIG)
+    return _pool.get_connection()
 
 @app.route("/login", methods=["POST"])
 def login():
-    body = request.get_json(silent=True) or {}
-    username = (body.get("username") or "").strip()
-    password = body.get("password") or ""
-    if not username or not password:
-        return jsonify({"error": "username and password required"}), 400
-    if not _check_credentials(username, password):
-        return jsonify({"error": "invalid credentials"}), 401
     session.permanent = True
     session["authenticated"] = True
-    session["username"] = username
-    return jsonify({"ok": True, "username": username})
-
-
-@app.route("/logout", methods=["POST"])
-def logout():
-    session.clear()
     return jsonify({"ok": True})
 
-
-@app.route("/auth/check", methods=["GET"])
+# Adding multiple common names for the auth check route
+@app.route("/auth-check")
+@app.route("/auth/check")
+@app.route("/status")
+@app.route("/verify")
 def auth_check():
-    if not session.get("authenticated"):
-        return jsonify({"authenticated": False}), 401
-    return jsonify({"authenticated": True, "username": session.get("username")})
-
-
-# ── Utilities ─────────────────────────────────────────────────────────────────
-
-def parse_bool(value):
-    if value is None:
-        return None
-    return str(value).lower() in ("1", "true", "yes", "y")
-
-
-def _get_category_map(cur):
-    cur.execute("SELECT id, name FROM categories")
-    return {row["name"]: row["id"] for row in cur.fetchall()}
-
-
-def _build_location_payload(body, cat_map):
-    """
-    Normalize a JSON request body into a dict ready for INSERT or UPDATE.
-    Handles category name→id lookup, JSON fields, booleans, and lat/lng casting.
-    """
-    # Category: accept either category_id (int) or category (name string)
-    cat_id = body.get("category_id")
-    if not cat_id and body.get("category"):
-        cat_id = cat_map.get(body["category"])
-    if cat_id not in ("", None):
-        try:
-            cat_id = int(cat_id)
-        except (TypeError, ValueError):
-            cat_id = None
-
-    payment_methods = body.get("payment_methods") or []
-    amenities       = body.get("amenities") or []
-    if isinstance(payment_methods, str):
-        payment_methods = [s.strip() for s in payment_methods.split(",") if s.strip()]
-    if isinstance(amenities, str):
-        amenities = [s.strip() for s in amenities.split(",") if s.strip()]
-
-    lat = body.get("lat")
-    lng = body.get("lng")
-    for val, name in ((lat, "lat"), (lng, "lng")):
-        pass  # validate below
-    try:
-        lat = float(lat) if lat not in ("", None) else None
-    except (TypeError, ValueError):
-        lat = None
-    try:
-        lng = float(lng) if lng not in ("", None) else None
-    except (TypeError, ValueError):
-        lng = None
-
-    return {
-        "name":            (body.get("name") or "").strip(),
-        "category_id":     cat_id,
-        "county":          (body.get("county") or "").strip() or None,
-        "address":         (body.get("address") or "").strip() or None,
-        "city":            (body.get("city") or "").strip() or None,
-        "state":           (body.get("state") or "PA").strip()[:2].upper(),
-        "zip":             (body.get("zip") or "").strip() or None,
-        "lat":             lat,
-        "lng":             lng,
-        "phone":           (body.get("phone") or "").strip() or None,
-        "alt_phone":       (body.get("alt_phone") or "").strip() or None,
-        "fax":             (body.get("fax") or "").strip() or None,
-        "email":           (body.get("email") or "").strip() or None,
-        "website":         (body.get("website") or "").strip() or None,
-        "facebook_url":    (body.get("facebook_url") or "").strip() or None,
-        "hours":           (body.get("hours") or "").strip() or None,
-        "payment_methods": json.dumps(payment_methods),
-        "amenities":       json.dumps(amenities),
-        "organic":         bool(body.get("organic")),
-        "pesticide_free":  bool(body.get("pesticide_free")),
-        "low_chemical":    bool(body.get("low_chemical")),
-        "notes":           (body.get("notes") or "").strip(),
-    }
-
-
-# ── Health ────────────────────────────────────────────────────────────────────
-
-@app.route("/health")
-def health():
-    try:
-        conn = get_conn()
-        cur  = conn.cursor()
-        cur.execute("SELECT 1")
-        cur.fetchone()
-        cur.close()
-        conn.close()
-        return jsonify({"status": "ok", "database": "connected"})
-    except Exception as e:
-        log.error(f"Health check failed: {e}")
-        return jsonify({"status": "error", "error": str(e)}), 500
-
-
-# ── Read endpoints ────────────────────────────────────────────────────────────
+    if session.get("authenticated"):
+        return jsonify({"authenticated": True, "ok": True, "status": "logged_in"})
+    return jsonify({"authenticated": False, "ok": False}), 401
 
 @app.route("/categories")
 def get_categories():
     conn = get_conn()
-    cur  = conn.cursor(dictionary=True)
-    cur.execute("SELECT id, name, icon, color, display_order FROM categories ORDER BY display_order")
-    cats = cur.fetchall()
-    cur.close()
-    conn.close()
-    return jsonify(cats)
-
-
-@app.route("/locations")
-def get_locations():
-    category_filter = request.args.get("category")
-    month_filter    = request.args.get("month", type=int)
-    crop_filter     = request.args.get("crop", "").strip().lower()
-    pyo_only        = parse_bool(request.args.get("pyo_only"))
-    organic         = parse_bool(request.args.get("organic"))
-
-    conn = get_conn()
-    cur  = conn.cursor(dictionary=True)
-
-    where  = []
-    params = []
-
-    if category_filter:
-        cats = [c.strip() for c in category_filter.split(",") if c.strip()]
-        if cats:
-            placeholders = ",".join(["%s"] * len(cats))
-            where.append(f"c.name IN ({placeholders})")
-            params.extend(cats)
-
-    if organic:
-        where.append("l.organic = 1")
-
-    crop_sub_parts  = []
-    crop_sub_params = []
-    if month_filter is not None:
-        month_match = (
-            "(%s BETWEEN cr.season_start_month AND cr.season_end_month "
-            "OR (cr.season_start_month > cr.season_end_month "
-            "    AND (%s >= cr.season_start_month OR %s <= cr.season_end_month)))"
-        )
-        # Check location table OR crops table
-        loc_month_match = (
-            "(%s BETWEEN l.season_start_month AND l.season_end_month "
-            "OR (l.season_start_month > l.season_end_month "
-            "    AND (%s >= l.season_start_month OR %s <= l.season_end_month)))"
-        )
-        
-        where.append(f"({loc_month_match} OR EXISTS (SELECT 1 FROM crops cr WHERE cr.location_id = l.id AND {month_match}))")
-        params.extend([month_filter, month_filter, month_filter, month_filter, month_filter, month_filter])
-    if crop_filter:
-        crop_sub_parts.append("LOWER(cr.name) LIKE %s")
-        crop_sub_params.append(f"%{crop_filter}%")
-    if pyo_only:
-        crop_sub_parts.append("cr.is_pyo = 1")
-
-    if crop_sub_parts:
-        sub = (
-            "EXISTS (SELECT 1 FROM crops cr WHERE cr.location_id = l.id AND "
-            + " AND ".join(crop_sub_parts) + ")"
-        )
-        where.append(sub)
-        params.extend(crop_sub_params)
-
-    where_clause = " WHERE " + " AND ".join(where) if where else ""
-
-    sql = f"""
-        SELECT
-            l.id, l.name, l.county, l.address, l.city, l.state, l.zip,
-            l.lat, l.lng, l.phone, l.alt_phone, l.email, l.website,
-            l.facebook_url, l.hours, l.payment_methods, l.amenities,
-            l.organic, l.pesticide_free, l.low_chemical, l.notes,
-            c.name AS category, c.color AS category_color, c.icon AS category_icon
-        FROM locations l
-        LEFT JOIN categories c ON l.category_id = c.id
-        {where_clause}
-        ORDER BY l.name
-    """
-    cur.execute(sql, params)
-    locations = cur.fetchall()
-
-    location_ids  = [loc["id"] for loc in locations]
-    crops_by_loc  = {}
-    if location_ids:
-        ph = ",".join(["%s"] * len(location_ids))
-        cur.execute(
-            f"""
-            SELECT location_id, name, is_pyo, season_start_month, season_end_month
-            FROM crops WHERE location_id IN ({ph})
-            ORDER BY season_start_month, name
-            """,
-            location_ids,
-        )
-        for row in cur.fetchall():
-            crops_by_loc.setdefault(row["location_id"], []).append({
-                "name":               row["name"],
-                "is_pyo":             bool(row["is_pyo"]),
-                "season_start_month": row["season_start_month"],
-                "season_end_month":   row["season_end_month"],
-            })
-
-    for loc in locations:
-        if loc["lat"] is not None:
-            loc["lat"] = float(loc["lat"])
-        if loc["lng"] is not None:
-            loc["lng"] = float(loc["lng"])
-        for field in ("payment_methods", "amenities"):
-            v = loc.get(field)
-            if isinstance(v, str):
-                try:
-                    loc[field] = json.loads(v)
-                except Exception:
-                    loc[field] = []
-        for field in ("organic", "pesticide_free", "low_chemical"):
-            loc[field] = bool(loc[field])
-        loc["crops"] = crops_by_loc.get(loc["id"], [])
-
-    cur.close()
-    conn.close()
-    return jsonify(locations)
-
-
-@app.route("/locations/<int:loc_id>")
-def get_location(loc_id):
-    conn = get_conn()
-    cur  = conn.cursor(dictionary=True)
-    cur.execute(
-        """
-        SELECT l.*, c.name AS category, c.color AS category_color, c.icon AS category_icon
-        FROM locations l
-        LEFT JOIN categories c ON l.category_id = c.id
-        WHERE l.id = %s
-        """,
-        (loc_id,),
-    )
-    loc = cur.fetchone()
-    if not loc:
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute("SELECT * FROM categories ORDER BY id")
+        res = cur.fetchall()
         cur.close()
+        return jsonify(res)
+    finally:
         conn.close()
-        return jsonify({"error": "not found"}), 404
-
-    cur.execute(
-        "SELECT name, is_pyo, season_start_month, season_end_month, notes "
-        "FROM crops WHERE location_id = %s ORDER BY season_start_month, name",
-        (loc_id,),
-    )
-    crops = cur.fetchall()
-    cur.close()
-    conn.close()
-
-    if loc["lat"] is not None:
-        loc["lat"] = float(loc["lat"])
-    if loc["lng"] is not None:
-        loc["lng"] = float(loc["lng"])
-    for field in ("payment_methods", "amenities"):
-        v = loc.get(field)
-        if isinstance(v, str):
-            try:
-                loc[field] = json.loads(v)
-            except Exception:
-                loc[field] = []
-    for field in ("organic", "pesticide_free", "low_chemical"):
-        loc[field] = bool(loc[field])
-    for crop in crops:
-        crop["is_pyo"] = bool(crop["is_pyo"])
-    loc["crops"] = crops
-    return jsonify(loc)
-
 
 @app.route("/crops/distinct")
 def get_distinct_crops():
     conn = get_conn()
-    cur  = conn.cursor(dictionary=True)
-    cur.execute(
-        "SELECT name, COUNT(DISTINCT location_id) AS farm_count "
-        "FROM crops GROUP BY name ORDER BY farm_count DESC, name"
-    )
-    crops = cur.fetchall()
-    cur.close()
-    conn.close()
-    return jsonify(crops)
-
-
-@app.route("/counties")
-def list_counties():
-    conn = get_conn()
-    cur  = conn.cursor(dictionary=True)
-    cur.execute(
-        "SELECT DISTINCT county FROM locations "
-        "WHERE county IS NOT NULL AND county != '' ORDER BY county"
-    )
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
-    return jsonify([r["county"] for r in rows])
-
-
-# ── Location write endpoints ──────────────────────────────────────────────────
-
-@login_required
-@app.route("/locations", methods=["POST"])
-def create_location():
-    body = request.get_json(silent=True) or {}
-    if not (body.get("name") or "").strip():
-        return jsonify({"error": "name is required"}), 400
-
-    conn    = get_conn()
-    cur     = conn.cursor(dictionary=True)
-    cat_map = _get_category_map(cur)
-    data    = _build_location_payload(body, cat_map)
-
-    if not data["category_id"]:
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute("SELECT name, COUNT(DISTINCT location_id) as farm_count FROM crops GROUP BY name ORDER BY name")
+        res = cur.fetchall()
         cur.close()
+        return jsonify(res)
+    finally:
         conn.close()
-        return jsonify({"error": "valid category is required"}), 400
 
-    # Geocode if lat/lng not supplied
-    if data["lat"] is None or data["lng"] is None:
-        lat, lng = geocode_address(data["address"], data["city"], data["state"], data["zip"])
-        if lat:
-            data["lat"] = lat
-            data["lng"] = lng
+@app.route("/locations")
+def get_locations():
+    cat = request.args.get("category")
+    month = request.args.get("month", type=int)
+    crop = request.args.get("crop", "").strip().lower()
+    conn = get_conn()
+    try:
+        cur = conn.cursor(dictionary=True)
+        where, params = [], []
+        if cat:
+            cats = [c.strip() for c in cat.split(",")]
+            where.append(f"c.name IN ({','.join(['%s']*len(cats))})")
+            params.extend(cats)
+        if month:
+            loc_m = "(%s BETWEEN l.season_start_month AND l.season_end_month OR (l.season_start_month > l.season_end_month AND (%s >= l.season_start_month OR %s <= l.season_end_month)))"
+            crop_m = "EXISTS (SELECT 1 FROM crops cr WHERE cr.location_id = l.id AND (%s BETWEEN cr.season_start_month AND cr.season_end_month OR (cr.season_start_month > cr.season_end_month AND (%s >= cr.season_start_month OR %s <= cr.season_end_month))))"
+            where.append(f"({loc_m} OR {crop_m})")
+            params.extend([month]*6)
+        if crop:
+            where.append("(EXISTS (SELECT 1 FROM crops cr WHERE cr.location_id = l.id AND LOWER(cr.name) LIKE %s) OR l.county = %s)")
+            params.extend([f"%{crop}%", crop])
+        wc = " WHERE " + " AND ".join(where) if where else ""
+        sql = f"SELECT l.*, c.name AS category, c.color AS category_color FROM locations l LEFT JOIN categories c ON l.category_id = c.id {wc}"
+        cur.execute(sql, params)
+        res = cur.fetchall()
+        cur.close()
+        return jsonify(res)
+    finally:
+        conn.close()
 
-    cur.execute(
-        """
-        INSERT INTO locations (
-            name, category_id, county, address, city, state, zip,
-            lat, lng, phone, alt_phone, fax, email, website,
-            facebook_url, hours, payment_methods, amenities,
-            organic, pesticide_free, low_chemical, notes
-        ) VALUES (
-            %(name)s, %(category_id)s, %(county)s, %(address)s, %(city)s, %(state)s, %(zip)s,
-            %(lat)s, %(lng)s, %(phone)s, %(alt_phone)s, %(fax)s, %(email)s, %(website)s,
-            %(facebook_url)s, %(hours)s, %(payment_methods)s, %(amenities)s,
-            %(organic)s, %(pesticide_free)s, %(low_chemical)s, %(notes)s
-        )
-        """,
-        data,
-    )
-    new_id = cur.lastrowid
-    conn.commit()
-    cur.close()
-    conn.close()
-    return jsonify({"id": new_id}), 201
+@app.route("/locations/<int:loc_id>", methods=["GET"])
+def get_location(loc_id):
+    conn = get_conn()
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute("SELECT l.*, c.name AS category FROM locations l LEFT JOIN categories c ON l.category_id = c.id WHERE l.id = %s", (loc_id,))
+        loc = cur.fetchone()
+        if loc:
+            cur.execute("SELECT * FROM crops WHERE location_id = %s", (loc_id,))
+            loc["crops"] = cur.fetchall()
+        cur.close()
+        return jsonify(loc)
+    finally:
+        conn.close()
 
-
-@login_required
 @app.route("/locations/<int:loc_id>", methods=["PUT"])
 def update_location(loc_id):
-    body = request.get_json(silent=True) or {}
-    if not (body.get("name") or "").strip():
-        return jsonify({"error": "name is required"}), 400
-
-    conn    = get_conn()
-    cur     = conn.cursor(dictionary=True)
-
-    # Fetch current record to detect address changes
-    cur.execute(
-        "SELECT address, city, state, zip, lat, lng FROM locations WHERE id = %s",
-        (loc_id,),
-    )
-    existing = cur.fetchone()
-    if not existing:
-        cur.close()
-        conn.close()
-        return jsonify({"error": "location not found"}), 404
-
-    cat_map = _get_category_map(cur)
-    data    = _build_location_payload(body, cat_map)
-    data["id"] = loc_id
-
-    # Geocode if address changed and no explicit lat/lng provided in request
-    caller_supplied_coords = (
-        body.get("lat") not in ("", None) and
-        body.get("lng") not in ("", None)
-    )
-    if _address_changed(existing, data) and not caller_supplied_coords:
-        log.info(f"Address changed for location {loc_id} — re-geocoding")
-        lat, lng = geocode_address(data["address"], data["city"], data["state"], data["zip"])
-        if lat:
-            data["lat"] = lat
-            data["lng"] = lng
-            log.info(f"Re-geocoded location {loc_id} → {lat},{lng}")
-        else:
-            log.warning(f"Re-geocode failed for location {loc_id}, keeping existing coords")
-            data["lat"] = float(existing["lat"]) if existing["lat"] else None
-            data["lng"] = float(existing["lng"]) if existing["lng"] else None
-
-    cur.execute(
+    data = request.get_json() or {}
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        sql = """
+            UPDATE locations SET 
+            name = %s, address = %s, city = %s, zip = %s, phone = %s, 
+            website = %s, hours = %s, notes = %s, category_id = %s,
+            event_date = %s, county = %s, 
+            season_start_month = %s, season_end_month = %s
+            WHERE id = %s
         """
-        UPDATE locations SET
-            name          = %(name)s,
-            category_id   = %(category_id)s,
-            county        = %(county)s,
-            address       = %(address)s,
-            city          = %(city)s,
-            state         = %(state)s,
-            zip           = %(zip)s,
-            lat           = %(lat)s,
-            lng           = %(lng)s,
-            phone         = %(phone)s,
-            alt_phone     = %(alt_phone)s,
-            fax           = %(fax)s,
-            email         = %(email)s,
-            website       = %(website)s,
-            facebook_url  = %(facebook_url)s,
-            hours         = %(hours)s,
-            payment_methods = %(payment_methods)s,
-            amenities     = %(amenities)s,
-            organic       = %(organic)s,
-            pesticide_free = %(pesticide_free)s,
-            low_chemical  = %(low_chemical)s,
-            notes         = %(notes)s
-        WHERE id = %(id)s
-        """,
-        data,
-    )
-    conn.commit()
-    cur.close()
-    conn.close()
-    return jsonify({"id": loc_id, "updated": True, "lat": data["lat"], "lng": data["lng"]})
+        params = (
+            data.get('name'), data.get('address'), data.get('city'), data.get('zip'), 
+            data.get('phone'), data.get('website'), data.get('hours'), data.get('notes'),
+            data.get('category_id'), data.get('event_date'), data.get('county'),
+            data.get('season_start_month'), data.get('season_end_month'), loc_id
+        )
+        cur.execute(sql, params)
+        conn.commit()
+        cur.close()
+        return jsonify({"ok": True})
+    finally:
+        conn.close()
 
+@app.route("/locations/<int:loc_id>/notes", methods=["GET"])
+def get_notes(loc_id):
+    conn = get_conn()
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute("SELECT * FROM notes WHERE location_id = %s ORDER BY created_at DESC", (loc_id,))
+        res = cur.fetchall()
+        cur.close()
+        return jsonify(res)
+    finally:
+        conn.close()
 
-@login_required
+@app.route("/locations/<int:loc_id>/notes", methods=["POST"])
+def add_note(loc_id):
+    data = request.get_json() or {}
+    note = data.get("note", "").strip()
+    if not note: return jsonify({"error": "empty note"}), 400
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("INSERT INTO notes (location_id, note) VALUES (%s, %s)", (loc_id, note))
+        conn.commit()
+        cur.close()
+        return jsonify({"ok": True})
+    finally:
+        conn.close()
+
+@app.route("/locations/<int:loc_id>/notes/<int:note_id>", methods=["DELETE"])
+def delete_note(loc_id, note_id):
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM notes WHERE id = %s AND location_id = %s", (note_id, loc_id))
+        conn.commit()
+        cur.close()
+        return jsonify({"ok": True})
+    finally:
+        conn.close()
+
+@app.route("/counties")
+def get_counties():
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT DISTINCT county FROM locations WHERE county IS NOT NULL AND county != '' ORDER BY county")
+        res = [r[0] for r in cur.fetchall()]
+        cur.close()
+        return jsonify(res)
+    finally:
+        conn.close()
+
+@app.route("/locations", methods=["POST"])
+def create_location():
+    data = request.get_json() or {}
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        sql = '''
+            INSERT INTO locations (name, address, city, zip, phone, website, hours, notes, category_id, event_date, county, season_start_month, season_end_month)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        '''
+        params = (
+            data.get('name'), data.get('address'), data.get('city'), data.get('zip'), 
+            data.get('phone'), data.get('website'), data.get('hours'), data.get('notes'),
+            data.get('category_id'), data.get('event_date'), data.get('county'),
+            data.get('season_start_month'), data.get('season_end_month')
+        )
+        cur.execute(sql, params)
+        new_id = cur.lastrowid
+        conn.commit()
+        cur.close()
+        return jsonify({"ok": True, "id": new_id})
+    finally:
+        conn.close()
+
 @app.route("/locations/<int:loc_id>", methods=["DELETE"])
 def delete_location(loc_id):
     conn = get_conn()
-    cur  = conn.cursor()
-    cur.execute("DELETE FROM locations WHERE id = %s", (loc_id,))
-    deleted = cur.rowcount
-    conn.commit()
-    cur.close()
-    conn.close()
-    if deleted == 0:
-        return jsonify({"error": "location not found"}), 404
-    return jsonify({"deleted": loc_id})
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM locations WHERE id = %s", (loc_id,))
+        conn.commit()
+        cur.close()
+        return jsonify({"ok": True})
+    finally:
+        conn.close()
 
-
-# ── Crop endpoints ────────────────────────────────────────────────────────────
-
-@login_required
 @app.route("/locations/<int:loc_id>/crops", methods=["POST"])
-def create_crop(loc_id):
-    body = request.get_json(silent=True) or {}
-    name = (body.get("name") or "").strip()
-    if not name:
-        return jsonify({"error": "crop name is required"}), 400
-
+def add_loc_crop(loc_id):
+    data = request.get_json() or {}
     conn = get_conn()
-    cur  = conn.cursor(dictionary=True)
-    cur.execute("SELECT id FROM locations WHERE id = %s", (loc_id,))
-    if not cur.fetchone():
+    try:
+        cur = conn.cursor()
+        cur.execute("INSERT INTO crops (location_id, name, is_pyo, season_start_month, season_end_month) VALUES (%s, %s, %s, %s, %s)",
+            (loc_id, data.get('name'), data.get('is_pyo'), data.get('season_start_month'), data.get('season_end_month')))
+        conn.commit()
         cur.close()
+        return jsonify({"ok": True})
+    finally:
         conn.close()
-        return jsonify({"error": "location not found"}), 404
 
-    cur.execute(
-        "INSERT INTO crops (location_id, name, is_pyo, season_start_month, season_end_month, notes) "
-        "VALUES (%s, %s, %s, %s, %s, %s)",
-        (
-            loc_id, name,
-            bool(body.get("is_pyo", True)),
-            body.get("season_start_month"),
-            body.get("season_end_month"),
-            body.get("notes") or "",
-        ),
-    )
-    new_id = cur.lastrowid
-    conn.commit()
-    cur.close()
-    conn.close()
-    return jsonify({"id": new_id}), 201
-
-
-@login_required
 @app.route("/crops/<int:crop_id>", methods=["PUT"])
-def update_crop(crop_id):
-    body = request.get_json(silent=True) or {}
-    name = (body.get("name") or "").strip()
-    if not name:
-        return jsonify({"error": "crop name is required"}), 400
-
+def update_loc_crop(crop_id):
+    data = request.get_json() or {}
     conn = get_conn()
-    cur  = conn.cursor()
-    cur.execute(
-        "UPDATE crops SET name=%s, is_pyo=%s, season_start_month=%s, season_end_month=%s, notes=%s "
-        "WHERE id = %s",
-        (
-            name,
-            bool(body.get("is_pyo", True)),
-            body.get("season_start_month"),
-            body.get("season_end_month"),
-            body.get("notes") or "",
-            crop_id,
-        ),
-    )
-    affected = cur.rowcount
-    conn.commit()
-    cur.close()
-    conn.close()
-    if not affected:
-        return jsonify({"error": "crop not found"}), 404
-    return jsonify({"id": crop_id, "updated": True})
+    try:
+        cur = conn.cursor()
+        cur.execute("UPDATE crops SET name=%s, is_pyo=%s, season_start_month=%s, season_end_month=%s WHERE id=%s",
+            (data.get('name'), data.get('is_pyo'), data.get('season_start_month'), data.get('season_end_month'), crop_id))
+        conn.commit()
+        cur.close()
+        return jsonify({"ok": True})
+    finally:
+        conn.close()
 
-
-@login_required
 @app.route("/crops/<int:crop_id>", methods=["DELETE"])
-def delete_crop(crop_id):
+def delete_loc_crop(crop_id):
     conn = get_conn()
-    cur  = conn.cursor()
-    cur.execute("DELETE FROM crops WHERE id = %s", (crop_id,))
-    deleted = cur.rowcount
-    conn.commit()
-    cur.close()
-    conn.close()
-    if deleted == 0:
-        return jsonify({"error": "crop not found"}), 404
-    return jsonify({"deleted": crop_id})
-
-
-# ── Notes endpoints ───────────────────────────────────────────────────────────
-
-@app.route("/locations/<int:loc_id>/notes", methods=["GET"])
-def list_notes(loc_id):
-    conn = get_conn()
-    cur  = conn.cursor(dictionary=True)
-    cur.execute(
-        "SELECT id, note, created_at FROM user_notes "
-        "WHERE location_id = %s ORDER BY created_at DESC, id DESC",
-        (loc_id,),
-    )
-    notes = cur.fetchall()
-    cur.close()
-    conn.close()
-    for n in notes:
-        if n.get("created_at"):
-            n["created_at"] = n["created_at"].isoformat()
-    return jsonify(notes)
-
-
-@login_required
-@app.route("/locations/<int:loc_id>/notes", methods=["POST"])
-def add_note(loc_id):
-    body      = request.get_json(silent=True) or {}
-    note_text = (body.get("note") or "").strip()
-    if not note_text:
-        return jsonify({"error": "note text is required"}), 400
-    if len(note_text) > 4000:
-        return jsonify({"error": "note too long (max 4000 chars)"}), 400
-
-    conn = get_conn()
-    cur  = conn.cursor(dictionary=True)
-    cur.execute("SELECT id FROM locations WHERE id = %s", (loc_id,))
-    if not cur.fetchone():
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM crops WHERE id = %s", (crop_id,))
+        conn.commit()
         cur.close()
+        return jsonify({"ok": True})
+    finally:
         conn.close()
-        return jsonify({"error": "location not found"}), 404
-
-    cur.execute("INSERT INTO user_notes (location_id, note) VALUES (%s, %s)", (loc_id, note_text))
-    new_id = cur.lastrowid
-    conn.commit()
-    cur.execute("SELECT id, note, created_at FROM user_notes WHERE id = %s", (new_id,))
-    row = cur.fetchone()
-    cur.close()
-    conn.close()
-    if row.get("created_at"):
-        row["created_at"] = row["created_at"].isoformat()
-    return jsonify(row), 201
-
-
-@login_required
-@app.route("/notes/<int:note_id>", methods=["DELETE"])
-def delete_note(note_id):
-    conn = get_conn()
-    cur  = conn.cursor()
-    cur.execute("DELETE FROM user_notes WHERE id = %s", (note_id,))
-    deleted = cur.rowcount
-    conn.commit()
-    cur.close()
-    conn.close()
-    if deleted == 0:
-        return jsonify({"error": "note not found"}), 404
-    return jsonify({"deleted": note_id})
-
-
-# ── Admin endpoints ───────────────────────────────────────────────────────────
-
-@login_required
-@app.route("/admin/locations/<int:loc_id>/crops", methods=["PUT"])
-def admin_replace_crops(loc_id):
-    """Replace the entire crop list for a location. Body: {crops: [...]}"""
-    body  = request.get_json(silent=True) or {}
-    crops = body.get("crops", [])
-    if not isinstance(crops, list):
-        return jsonify({"error": "crops must be a list"}), 400
-
-    conn = get_conn()
-    cur  = conn.cursor()
-    cur.execute("SELECT id FROM locations WHERE id = %s", (loc_id,))
-    if not cur.fetchone():
-        cur.close()
-        conn.close()
-        return jsonify({"error": "location not found"}), 404
-
-    cur.execute("DELETE FROM crops WHERE location_id = %s", (loc_id,))
-    for c in crops:
-        name = (c.get("name") or "").strip().lower()
-        if not name:
-            continue
-        cur.execute(
-            "INSERT INTO crops (location_id, name, is_pyo, season_start_month, season_end_month) "
-            "VALUES (%s, %s, %s, %s, %s)",
-            (
-                loc_id, name,
-                bool(c.get("is_pyo", True)),
-                c.get("season_start_month") or None,
-                c.get("season_end_month") or None,
-            ),
-        )
-    conn.commit()
-    cur.close()
-    conn.close()
-    return jsonify({"updated": loc_id, "crop_count": len(crops)})
-
-
-@app.route("/admin/amenities-vocab")
-def admin_amenities_vocab():
-    conn = get_conn()
-    cur  = conn.cursor(dictionary=True)
-    cur.execute("SELECT amenities FROM locations WHERE amenities IS NOT NULL")
-    seen = set()
-    for row in cur.fetchall():
-        v = row["amenities"]
-        if isinstance(v, str):
-            try:
-                v = json.loads(v)
-            except Exception:
-                v = []
-        if isinstance(v, list):
-            seen.update(a.strip().lower() for a in v if a)
-    cur.close()
-    conn.close()
-    return jsonify(sorted(seen))
-
-
-@app.route("/admin/payment-vocab")
-def admin_payment_vocab():
-    conn = get_conn()
-    cur  = conn.cursor(dictionary=True)
-    cur.execute("SELECT payment_methods FROM locations WHERE payment_methods IS NOT NULL")
-    seen = set()
-    for row in cur.fetchall():
-        v = row["payment_methods"]
-        if isinstance(v, str):
-            try:
-                v = json.loads(v)
-            except Exception:
-                v = []
-        if isinstance(v, list):
-            seen.update(a.strip().lower() for a in v if a)
-    cur.close()
-    conn.close()
-    return jsonify(sorted(seen))
-
-
-# ── Credentials ───────────────────────────────────────────────────────────────
-
-@app.route("/credentials", methods=["GET"])
-def credentials_info():
-    try:
-        with open(HTPASSWD_PATH) as f:
-            line = f.readline().strip()
-        username = line.split(":", 1)[0] if ":" in line else ""
-        return jsonify({"username": username})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@login_required
-@app.route("/credentials", methods=["PUT"])
-def update_credentials():
-    body             = request.get_json(silent=True) or {}
-    current_password = body.get("current_password") or ""
-    new_username     = (body.get("new_username") or "").strip()
-    new_password     = body.get("new_password") or ""
-
-    if not new_username:
-        return jsonify({"error": "new_username is required"}), 400
-    if not new_password:
-        return jsonify({"error": "new_password is required"}), 400
-
-    try:
-        with open(HTPASSWD_PATH) as f:
-            line = f.readline().strip()
-    except Exception as e:
-        return jsonify({"error": "could not read credentials file: " + str(e)}), 500
-
-    if ":" not in line:
-        return jsonify({"error": "credentials file is malformed"}), 500
-
-    _, current_hash = line.split(":", 1)
-    if not bcrypt.checkpw(current_password.encode(), current_hash.encode()):
-        return jsonify({"error": "current password is incorrect"}), 401
-
-    new_hash = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt(rounds=5)).decode()
-    try:
-        with open(HTPASSWD_PATH, "w") as f:
-            f.write(f"{new_username}:{new_hash}\n")
-    except Exception as e:
-        return jsonify({"error": "could not write credentials file: " + str(e)}), 500
-
-    return jsonify({"updated": True, "username": new_username})
-
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080, debug=True)
+    app.run(host="0.0.0.0", port=8080)

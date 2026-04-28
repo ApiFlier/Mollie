@@ -1,8 +1,5 @@
 /**
  * Mollie's Guide - Admin JavaScript
- *
- * Two modules exposed: AdminList (for /admin/index.html)
- * and AdminEdit (for /admin/edit.html).
  */
 
 const AdminAPI = (() => {
@@ -131,7 +128,7 @@ const AdminList = (() => {
     }
 
     var html = '<div style="overflow-x: auto;"><table class="locations-table"><thead><tr>';
-    html += '<th>Name</th><th>Category</th><th>County</th><th>City</th><th>Crops</th><th></th>';
+    html += '<th>Name</th><th>Category</th><th>County/Region</th><th>City</th><th>Crops</th><th></th>';
     html += '</tr></thead><tbody>';
     filtered.forEach(function(loc) {
       html += '<tr>';
@@ -159,7 +156,7 @@ const AdminEdit = (() => {
   var existingCrops = [];  // crops loaded from server (have .id)
   var newCropCounter = 0;  // for tagging unsaved crop rows
 
-  var form, pageTitle, deleteBtn, cropRowsEl;
+  var form, pageTitle, deleteBtn, cropRowsEl, categoryDropdown;
 
   function init() {
     AdminAuth.check().then(function(ok) {
@@ -173,6 +170,7 @@ const AdminEdit = (() => {
     pageTitle = document.getElementById("page-title");
     deleteBtn = document.getElementById("delete-btn");
     cropRowsEl = document.getElementById("crop-rows");
+    categoryDropdown = document.getElementById("f-category");
 
     var idStr = getQueryParam("id");
     if (idStr) {
@@ -187,10 +185,10 @@ const AdminEdit = (() => {
       addCropRow();
     });
 
+    categoryDropdown.addEventListener("change", toggleCategoryFields);
     deleteBtn.addEventListener("click", handleDelete);
     form.addEventListener("submit", handleSubmit);
 
-    // Load categories, counties, then (if editing) load existing data
     Promise.all([
       AdminAPI.listCategories(),
       AdminAPI.listCounties()
@@ -201,8 +199,8 @@ const AdminEdit = (() => {
       if (locationId) {
         return AdminAPI.getLocation(locationId).then(populateForm);
       } else {
-        // For new locations, start with one empty crop row
         addCropRow();
+        toggleCategoryFields();
       }
     }).catch(function(err) {
       console.error(err);
@@ -210,24 +208,46 @@ const AdminEdit = (() => {
     });
   }
 
+  function toggleCategoryFields() {
+    var cat = categoryDropdown.value;
+    var secEvents = document.getElementById("section-events");
+    var secCrops = document.getElementById("section-crops");
+    var secHours = document.getElementById("section-hours");
+    
+    // Hide all dynamic sections initially
+    if (secEvents) secEvents.style.display = "none";
+    if (secCrops) secCrops.style.display = "none";
+    if (secHours) secHours.style.display = "none";
+
+    // Show sections based on category
+    if (cat === "fair" || cat === "festival") {
+      if (secEvents) secEvents.style.display = "block";
+    } else if (cat === "farm" || cat === "pick-your-own") {
+      if (secCrops) secCrops.style.display = "block";
+      if (secHours) secHours.style.display = "block";
+    } else if (cat === "farmers-market") {
+      if (secHours) secHours.style.display = "block";
+    }
+  }
+
   function populateCategoryDropdown(categories) {
-    var sel = document.getElementById("f-category");
-    sel.innerHTML = "";
+    categoryDropdown.innerHTML = "";
     var blank = document.createElement("option");
     blank.value = "";
     blank.textContent = "(no category)";
-    sel.appendChild(blank);
+    categoryDropdown.appendChild(blank);
     categories.forEach(function(c) {
       var opt = document.createElement("option");
       opt.value = c.name;
       opt.textContent = c.name.replace(/-/g, " ");
-      sel.appendChild(opt);
+      categoryDropdown.appendChild(opt);
     });
   }
 
   function populateCountiesList(counties) {
     var dl = document.getElementById("counties-list");
     dl.innerHTML = "";
+    if (!counties) return;
     counties.forEach(function(name) {
       var opt = document.createElement("option");
       opt.value = name;
@@ -250,7 +270,19 @@ const AdminEdit = (() => {
     document.getElementById("f-email").value = loc.email || "";
     document.getElementById("f-website").value = loc.website || "";
     document.getElementById("f-facebook").value = loc.facebook_url || "";
-    document.getElementById("f-hours").value = loc.hours || "";
+    
+    var hoursEl = document.getElementById("f-hours");
+    if(hoursEl) hoursEl.value = loc.hours || "";
+    
+    var eventDateEl = document.getElementById("f-event_date");
+    if(eventDateEl) eventDateEl.value = loc.event_date || "";
+    
+    var startMonthEl = document.getElementById("f-season_start_month");
+    if(startMonthEl) startMonthEl.value = loc.season_start_month || "";
+    
+    var endMonthEl = document.getElementById("f-season_end_month");
+    if(endMonthEl) endMonthEl.value = loc.season_end_month || "";
+    
     document.getElementById("f-organic").checked = !!loc.organic;
     document.getElementById("f-pesticide-free").checked = !!loc.pesticide_free;
     document.getElementById("f-low-chemical").checked = !!loc.low_chemical;
@@ -263,13 +295,18 @@ const AdminEdit = (() => {
     cropRowsEl.innerHTML = "";
     existingCrops.forEach(function(c) { addCropRow(c); });
     if (existingCrops.length === 0) addCropRow();
+
+    // Now that the data is loaded, set the correct UI sections
+    toggleCategoryFields();
   }
 
   function setCheckboxGroup(groupId, values) {
     var group = document.getElementById(groupId);
     var boxes = group.querySelectorAll('input[type="checkbox"]');
     var valueSet = {};
-    values.forEach(function(v) { valueSet[v] = true; });
+    if (Array.isArray(values)) {
+      values.forEach(function(v) { valueSet[v] = true; });
+    }
     boxes.forEach(function(b) {
       b.checked = !!valueSet[b.value];
     });
@@ -322,7 +359,6 @@ const AdminEdit = (() => {
 
     cropRowsEl.appendChild(row);
 
-    // Set values after DOM is in place
     row.querySelector(".crop-name").value = crop.name || "";
     row.querySelector(".crop-pyo").checked = crop.is_pyo == null ? true : !!crop.is_pyo;
     if (crop.season_start_month) row.querySelector(".crop-start").value = String(crop.season_start_month);
@@ -338,7 +374,7 @@ const AdminEdit = (() => {
     var crops = [];
     rows.forEach(function(row) {
       var name = row.querySelector(".crop-name").value.trim();
-      if (!name) return;  // skip empty
+      if (!name) return; 
       var crop = {
         name: name,
         is_pyo: row.querySelector(".crop-pyo").checked,
@@ -356,11 +392,20 @@ const AdminEdit = (() => {
   }
 
   function readForm() {
-    var f = function(id) { return document.getElementById(id).value.trim(); };
-    var fc = function(id) { return document.getElementById(id).checked; };
+    var f = function(id) { 
+        var el = document.getElementById(id);
+        return el ? el.value.trim() : ""; 
+    };
+    var fc = function(id) { 
+        var el = document.getElementById(id);
+        return el ? el.checked : false; 
+    };
 
     var lat = f("f-lat");
     var lng = f("f-lng");
+    
+    var startMonth = f("f-season_start_month");
+    var endMonth = f("f-season_end_month");
 
     return {
       name: f("f-name"),
@@ -378,6 +423,9 @@ const AdminEdit = (() => {
       website: f("f-website") || null,
       facebook_url: f("f-facebook") || null,
       hours: f("f-hours") || null,
+      event_date: f("f-event_date") || null,
+      season_start_month: startMonth === "" ? null : parseInt(startMonth),
+      season_end_month: endMonth === "" ? null : parseInt(endMonth),
       organic: fc("f-organic"),
       pesticide_free: fc("f-pesticide-free"),
       low_chemical: fc("f-low-chemical"),
@@ -413,15 +461,12 @@ const AdminEdit = (() => {
     }
 
     savePromise.then(function(id) {
-      // Sync crops
       return syncCrops(id).then(function() { return id; });
     }).then(function(id) {
       showFlash("success", "Saved successfully", 2500);
-      // If we just created, redirect to the edit URL so subsequent saves are updates
       if (!locationId) {
         window.location.href = "/admin/edit.html?id=" + id;
       } else {
-        // Reload the form to reflect server-truth (esp. crops with new IDs)
         AdminAPI.getLocation(locationId).then(populateForm);
       }
     }).catch(function(err) {
@@ -438,7 +483,6 @@ const AdminEdit = (() => {
     var currentIds = current.filter(function(c) { return c.id; }).map(function(c) { return c.id; });
     var existingIds = existingCrops.map(function(c) { return c.id; });
 
-    // Crops to delete: were in existingCrops but no longer in form
     var toDelete = existingIds.filter(function(id) { return currentIds.indexOf(id) === -1; });
 
     var ops = [];
@@ -464,170 +508,6 @@ const AdminEdit = (() => {
     }).catch(function(err) {
       showFlash("error", "Delete failed: " + err.message);
       deleteBtn.disabled = false;
-    });
-  }
-
-  return { init: init };
-})();
-
-// ---------- CREDENTIALS PAGE ----------
-const AdminCredentials = (() => {
-  function init() {
-    var form = document.getElementById("creds-form");
-    var saveBtn = document.getElementById("save-btn");
-
-    // Pre-fill the new username with the current one
-    AdminAPI.getCredentials().then(function(info) {
-      document.getElementById("f-new-username").value = info.username || "";
-    }).catch(function(err) {
-      console.error(err);
-    });
-
-    form.addEventListener("submit", function(e) {
-      e.preventDefault();
-
-      var current = document.getElementById("f-current-password").value;
-      var newUser = document.getElementById("f-new-username").value.trim();
-      var newPass = document.getElementById("f-new-password").value;
-      var confirm = document.getElementById("f-confirm-password").value;
-
-      if (!current || !newUser || !newPass) {
-        showFlash("error", "All fields are required");
-        return;
-      }
-      if (newPass !== confirm) {
-        showFlash("error", "New password and confirm don't match");
-        return;
-      }
-
-      saveBtn.disabled = true;
-      saveBtn.textContent = "Saving...";
-
-      AdminAPI.updateCredentials({
-        current_password: current,
-        new_username: newUser,
-        new_password: newPass
-      }).then(function() {
-        showFlash("success", "Credentials updated. You may need to close and reopen your browser to log in with the new ones.");
-        document.getElementById("f-current-password").value = "";
-        document.getElementById("f-new-password").value = "";
-        document.getElementById("f-confirm-password").value = "";
-      }).catch(function(err) {
-        console.error(err);
-        showFlash("error", err.message || "Update failed");
-      }).finally(function() {
-        saveBtn.disabled = false;
-        saveBtn.textContent = "Save credentials";
-      });
-    });
-  }
-  return { init: init };
-})();
-
-// ---------- CREDENTIALS MODALS ----------
-const AdminCredsModal = (() => {
-  var mode = null;  // "username" or "password"
-  var modal, titleEl, formEl, flashEl;
-
-  function open(modeName) {
-    mode = modeName;
-    modal = document.getElementById("creds-modal");
-    titleEl = document.getElementById("modal-title");
-    formEl = document.getElementById("modal-form");
-    flashEl = document.getElementById("modal-flash");
-
-    document.getElementById("m-current-username").value = "";
-    document.getElementById("m-current-password").value = "";
-    document.getElementById("m-new-username").value = "";
-    document.getElementById("m-new-password").value = "";
-    document.getElementById("m-confirm-password").value = "";
-    flashEl.innerHTML = "";
-
-    var showFields = {
-      "field-current-username": false,
-      "field-current-password": true,
-      "field-new-username": false,
-      "field-new-password": false,
-      "field-confirm-password": false
-    };
-
-    if (mode === "username") {
-      titleEl.textContent = "Change Username";
-      showFields["field-current-username"] = true;
-      showFields["field-new-username"] = true;
-    } else if (mode === "password") {
-      titleEl.textContent = "Change Password";
-      showFields["field-new-password"] = true;
-      showFields["field-confirm-password"] = true;
-    }
-
-    Object.keys(showFields).forEach(function(id) {
-      document.getElementById(id).style.display = showFields[id] ? "" : "none";
-    });
-
-    modal.style.display = "flex";
-  }
-
-  function close() {
-    modal.style.display = "none";
-  }
-
-  function submit(e) {
-    e.preventDefault();
-    var saveBtn = document.getElementById("modal-save");
-    saveBtn.disabled = true;
-    saveBtn.textContent = "Saving...";
-
-    AdminAPI.getCredentials().then(function(info) {
-      var currentUser = info.username;
-      var currentPass = document.getElementById("m-current-password").value;
-
-      var newUser, newPass;
-
-      if (mode === "username") {
-        var typedCurrentUser = document.getElementById("m-current-username").value.trim();
-        if (typedCurrentUser !== currentUser) {
-          throw new Error("Current username doesn't match");
-        }
-        newUser = document.getElementById("m-new-username").value.trim();
-        newPass = currentPass;
-        if (!newUser) throw new Error("New username is required");
-      } else {
-        newUser = currentUser;
-        newPass = document.getElementById("m-new-password").value;
-        var confirmPass = document.getElementById("m-confirm-password").value;
-        if (newPass !== confirmPass) throw new Error("New password and confirm don't match");
-        if (!newPass) throw new Error("New password is required");
-      }
-
-      if (!currentPass) throw new Error("Current password is required");
-
-      return AdminAPI.updateCredentials({
-        current_password: currentPass,
-        new_username: newUser,
-        new_password: newPass
-      });
-    }).then(function() {
-      flashEl.innerHTML = '<div class="flash flash-success">Saved. Close and reopen browser tabs to use new credentials.</div>';
-      setTimeout(close, 2500);
-    }).catch(function(err) {
-      flashEl.innerHTML = '<div class="flash flash-error">' + escapeHtml(err.message) + '</div>';
-    }).finally(function() {
-      saveBtn.disabled = false;
-      saveBtn.textContent = "Save";
-    });
-  }
-
-  function init() {
-    var bu = document.getElementById("btn-change-username");
-    var bp = document.getElementById("btn-change-password");
-    if (bu) bu.addEventListener("click", function() { open("username"); });
-    if (bp) bp.addEventListener("click", function() { open("password"); });
-    document.getElementById("modal-close").addEventListener("click", close);
-    document.getElementById("modal-cancel").addEventListener("click", close);
-    document.getElementById("modal-form").addEventListener("submit", submit);
-    document.getElementById("creds-modal").addEventListener("click", function(e) {
-      if (e.target.id === "creds-modal") close();
     });
   }
 
@@ -675,11 +555,10 @@ const AdminLogin = (() => {
 })();
 
 // ---------- AUTH GUARD ----------
-// Runs on every admin page (except login.html). Redirects to login if not authenticated.
 const AdminAuth = (() => {
   function check() {
     if (window.location.pathname.indexOf("/admin/login") !== -1) return Promise.resolve(true);
-    return fetch("/api/auth/check", { credentials: "include" }).then(function(r) {
+    return fetch("/api/auth-check", { credentials: "include" }).then(function(r) {
       if (!r.ok) {
         window.location.href = "/admin/login.html";
         return false;
