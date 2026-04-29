@@ -28,7 +28,7 @@ echo ""
 
 # --- Check we're in the right place ---
 if [ ! -f "$MOLLIE_DIR/docker-compose.yml" ]; then
-    error "docker-compose.yml not found in $MOLLIE_DIR. Did you clone to /mollie?"
+    error "docker-compose.yml not found in $MOLLIE_DIR. Did you clone correctly?"
 fi
 
 # --- Check Docker is installed ---
@@ -47,23 +47,21 @@ if ! command -v htpasswd &> /dev/null; then
 fi
 
 echo ""
-echo "--- Step 1: Create .env file ---"
+echo "--- Step 1: Generate .env with random passwords ---"
 echo ""
 
-if [ -f "$ENV_FILE" ]; then
-    info ".env found in repo. Using existing credentials."
-else
-    FLASK_SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+MYSQL_PASS=$(python3 -c "import secrets; print(secrets.token_urlsafe(24))")
+DB_PASS=$(python3 -c "import secrets; print(secrets.token_urlsafe(24))")
+FLASK_SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
 
-    cat > "$ENV_FILE" << EOF
-MYSQL_ROOT_PASSWORD=meeks
-DB_PASSWORD=meeks
+cat > "$ENV_FILE" <<ENVEOF
+MYSQL_ROOT_PASSWORD=${MYSQL_PASS}
+DB_PASSWORD=${DB_PASS}
 FLASK_SECRET=${FLASK_SECRET}
-EOF
+ENVEOF
 
-    chmod 600 "$ENV_FILE"
-    info ".env created with default credentials (meeks/meeks). Change these in production!"
-fi
+chmod 600 "$ENV_FILE"
+info ".env generated with random passwords. Check $ENV_FILE if you need them."
 
 echo ""
 echo "--- Step 2: Create admin login (.htpasswd) ---"
@@ -72,9 +70,6 @@ echo ""
 if [ -f "$HTPASSWD_FILE" ]; then
     warn ".htpasswd already exists. Skipping. Delete it manually to reset credentials."
 else
-    # Default: meeks/meeks (bcrypt hash)
-    echo 'meeks:$2y$05$0Z1234567890123456789uQKZv1234567890123456789012345678' > "$HTPASSWD_FILE"
-    # Generate a real hash for meeks/meeks
     htpasswd -B -b -c "$HTPASSWD_FILE" meeks meeks
     chmod 600 "$HTPASSWD_FILE"
     info ".htpasswd created with default credentials meeks/meeks. Change via admin panel after login!"
@@ -102,7 +97,6 @@ echo ""
 
 BACKUP_PATH="$MOLLIE_DIR/api/data/mollies_backup.sql"
 ROOT_PASS=$(grep MYSQL_ROOT_PASSWORD "$ENV_FILE" | cut -d= -f2)
-DB_PASS=$(grep DB_PASSWORD "$ENV_FILE" | cut -d= -f2)
 
 if [ -f "$BACKUP_PATH" ]; then
     info "Found backup at $BACKUP_PATH. Restoring..."
@@ -110,11 +104,11 @@ if [ -f "$BACKUP_PATH" ]; then
         -uroot -p"${ROOT_PASS}" \
         mollies_guide < "$BACKUP_PATH"
 
-    FARM_COUNT=$(docker exec mollies-db mysql \
-        -umollies -p"${DB_PASS}" \
+    LOC_COUNT=$(docker exec mollies-db mysql \
+        -uroot -p"${ROOT_PASS}" \
         mollies_guide -se "SELECT COUNT(*) FROM locations;" 2>/dev/null)
 
-    info "Database restored. Farm count: $FARM_COUNT"
+    info "Database restored. Location count: $LOC_COUNT"
 else
     warn "No backup file found at $BACKUP_PATH."
     read -p "Enter full path to a .sql backup file (or press Enter to skip): " CUSTOM_BACKUP
@@ -124,7 +118,7 @@ else
             mollies_guide < "$CUSTOM_BACKUP"
         info "Database restored from $CUSTOM_BACKUP."
     else
-        warn "Skipping database restore. Site will work but show no farms."
+        warn "Skipping database restore. Site will work but show no locations."
     fi
 fi
 
@@ -155,11 +149,14 @@ echo "  Public map:   http://localhost:8090"
 echo "  Admin panel:  http://localhost:8090/admin/"
 echo "  API health:   http://localhost:8091/api/health"
 echo ""
+echo "  Default admin login: meeks / meeks"
+echo "  Change it at: http://localhost:8090/admin/"
+echo ""
 echo "  If using Cloudflare, point your domain at this"
 echo "  server's IP and enable the proxy for auto SSL."
 echo ""
 echo "  To take a backup anytime:"
-echo "  docker exec mollies-db mysqldump -umollies \\"
-echo "    -p\$(grep DB_PASSWORD $MOLLIE_DIR/.env | cut -d= -f2) \\"
-echo "    mollies_guide > ~/mollies_backup_\$(date +%Y%m%d).sql"
+echo "  docker exec mollies-db mysqldump -uroot \\"
+echo "    -p\$(grep MYSQL_ROOT_PASSWORD $MOLLIE_DIR/.env | cut -d= -f2) \\"
+echo "    mollies_guide > $MOLLIE_DIR/api/data/mollies_backup.sql"
 echo ""
