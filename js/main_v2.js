@@ -27,6 +27,21 @@
       html += '<div class="section"><div class="section-label">Hours</div><div>' + escapeHtml(loc.hours) + '</div></div>';
     }
 
+    if (loc.crops && loc.crops.length) {
+      var monthNames = ["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      html += '<div class="section"><div class="section-label">Crops</div>';
+      html += '<div class="crop-list">';
+      loc.crops.forEach(function(c) {
+        var label = c.name;
+        if (c.season_start_month && c.season_end_month) {
+          label += " (" + monthNames[c.season_start_month] + "–" + monthNames[c.season_end_month] + ")";
+        }
+        var cls = c.is_pyo ? "crop-tag pyo" : "crop-tag";
+        html += '<span class="' + cls + '">' + escapeHtml(label) + '</span>';
+      });
+      html += '</div></div>';
+    }
+
     if (loc.website) {
       html += '<div class="section"><div class="section-label">Website</div>';
       html += '<a href="' + escapeHtml(loc.website) + '" target="_blank">' + escapeHtml(loc.website) + '</a></div>';
