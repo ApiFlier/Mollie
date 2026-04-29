@@ -42,7 +42,6 @@ services:
       - MYSQL_PASSWORD=${DB_PASSWORD}
     volumes:
       - mollies_mysql:/var/lib/mysql
-      - ./api/data/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
