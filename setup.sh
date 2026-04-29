@@ -138,7 +138,7 @@ else
         warn "Skipping database restore. Site will work but show no locations."
     fi
 fi
-docker cp .htpasswd mollies-api:/etc/nginx/.htpasswd
+docker cp .htpasswd mollies-frontend:/etc/nginx/.htpasswd
 
 echo ""
 echo "--- Step 5: Verify ---"
