@@ -64,7 +64,7 @@ DB_PASS=$(python3 -c "import secrets; print(secrets.token_urlsafe(24))")
 FLASK_SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
 
 FRONTEND_PORT=$(find_open_port 8090)
-API_PORT=$(find_open_port 8091)
+API_PORT=$(find_open_port $((FRONTEND_PORT + 1)))
 DB_PORT=$(find_open_port 3308)
 
 cat > "$ENV_FILE" <<ENVEOF
