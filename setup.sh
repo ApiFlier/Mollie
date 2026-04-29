@@ -177,3 +177,14 @@ echo "  docker exec mollies-db mysqldump -uroot \\"
 echo "    -p\$(grep MYSQL_ROOT_PASSWORD $ENV_FILE | cut -d= -f2) \\"
 echo "    mollies_guide > $MOLLIE_DIR/api/data/mollies_backup.sql"
 echo ""
+# --- Optional cleanup ---
+echo ""
+read -p "Would you like to delete the local repo files? The site will continue running. (y/N): " CLEANUP
+if [[ "$CLEANUP" =~ ^[Yy]$ ]]; then
+    cd /
+    rm -rf "$MOLLIE_DIR"
+    echo -e "${GREEN}[INFO]${NC} Local files removed. Containers are still running."
+    echo "  To manage containers: docker ps / docker compose -p mollie down"
+else
+    echo -e "${GREEN}[INFO]${NC} Local files kept at $MOLLIE_DIR"
+fi
