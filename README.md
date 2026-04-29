@@ -1,4 +1,3 @@
-> ⚠️ BEFORE MAKING PUBLIC: Remove .env from repo and rotate all passwords/secrets.
 
 # Mollie's Guide
 
