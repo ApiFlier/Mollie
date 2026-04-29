@@ -98,7 +98,6 @@ echo ""
 
 cd "$MOLLIE_DIR"
 docker compose up -d
-docker cp .htpasswd mollies-api:/etc/nginx/.htpasswd
 info "Containers started. Waiting 20 seconds for MySQL to initialize..."
 sleep 20
 
@@ -139,6 +138,7 @@ else
         warn "Skipping database restore. Site will work but show no locations."
     fi
 fi
+docker cp .htpasswd mollies-api:/etc/nginx/.htpasswd
 
 echo ""
 echo "--- Step 5: Verify ---"
