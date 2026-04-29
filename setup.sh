@@ -51,7 +51,7 @@ echo "--- Step 1: Create .env file ---"
 echo ""
 
 if [ -f "$ENV_FILE" ]; then
-    warn ".env already exists. Skipping creation. Delete it manually if you want to regenerate."
+    info ".env found in repo. Using existing credentials."
 else
     FLASK_SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
 
@@ -132,7 +132,7 @@ echo ""
 echo "--- Step 5: Verify ---"
 echo ""
 
-sleep 3
+sleep 10
 
 if curl -s -o /dev/null -w "%{http_code}" http://localhost:8090 | grep -q "200"; then
     info "Public site is responding on port 8090."
@@ -160,6 +160,6 @@ echo "  server's IP and enable the proxy for auto SSL."
 echo ""
 echo "  To take a backup anytime:"
 echo "  docker exec mollies-db mysqldump -umollies \\"
-echo "    -p\$(grep DB_PASSWORD /mollie/.env | cut -d= -f2) \\"
+echo "    -p\$(grep DB_PASSWORD $MOLLIE_DIR/.env | cut -d= -f2) \\"
 echo "    mollies_guide > ~/mollies_backup_\$(date +%Y%m%d).sql"
 echo ""
