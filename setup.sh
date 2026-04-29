@@ -20,6 +20,15 @@ info()    { echo -e "${GREEN}[INFO]${NC} $1"; }
 warn()    { echo -e "${YELLOW}[WARN]${NC} $1"; }
 error()   { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
+# Find the next available port starting from a given port
+find_open_port() {
+    local port=$1
+    while ss -tuln | grep -q ":${port} "; do
+        port=$((port + 1))
+    done
+    echo $port
+}
+
 echo ""
 echo "================================================"
 echo "   Mollie's Guide - Setup Script"
@@ -47,21 +56,29 @@ if ! command -v htpasswd &> /dev/null; then
 fi
 
 echo ""
-echo "--- Step 1: Generate .env with random passwords ---"
+echo "--- Step 1: Generate .env with random passwords and open ports ---"
 echo ""
 
 MYSQL_PASS=$(python3 -c "import secrets; print(secrets.token_urlsafe(24))")
 DB_PASS=$(python3 -c "import secrets; print(secrets.token_urlsafe(24))")
 FLASK_SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
 
+FRONTEND_PORT=$(find_open_port 8090)
+API_PORT=$(find_open_port 8091)
+DB_PORT=$(find_open_port 3308)
+
 cat > "$ENV_FILE" <<ENVEOF
 MYSQL_ROOT_PASSWORD=${MYSQL_PASS}
 DB_PASSWORD=${DB_PASS}
 FLASK_SECRET=${FLASK_SECRET}
+FRONTEND_PORT=${FRONTEND_PORT}
+API_PORT=${API_PORT}
+DB_PORT=${DB_PORT}
 ENVEOF
 
 chmod 600 "$ENV_FILE"
-info ".env generated with random passwords. Check $ENV_FILE if you need them."
+info ".env generated with random passwords."
+info "Ports assigned — Frontend: $FRONTEND_PORT | API: $API_PORT | DB: $DB_PORT"
 
 echo ""
 echo "--- Step 2: Create admin login (.htpasswd) ---"
@@ -128,14 +145,14 @@ echo ""
 
 sleep 10
 
-if curl -s -o /dev/null -w "%{http_code}" http://localhost:8090 | grep -q "200"; then
-    info "Public site is responding on port 8090."
+if curl -s -o /dev/null -w "%{http_code}" http://localhost:${FRONTEND_PORT} | grep -q "200"; then
+    info "Public site is responding on port ${FRONTEND_PORT}."
 else
-    warn "Port 8090 not responding yet. Give it another 10 seconds and try: curl http://localhost:8090"
+    warn "Port ${FRONTEND_PORT} not responding yet. Try: curl http://localhost:${FRONTEND_PORT}"
 fi
 
-if curl -s -o /dev/null -w "%{http_code}" http://localhost:8091/api/health | grep -q "200"; then
-    info "API is healthy on port 8091."
+if curl -s -o /dev/null -w "%{http_code}" http://localhost:${API_PORT}/api/health | grep -q "200"; then
+    info "API is healthy on port ${API_PORT}."
 else
     warn "API not responding yet. Check: docker compose logs mollies-api"
 fi
@@ -145,18 +162,18 @@ echo "================================================"
 echo -e "${GREEN}   Setup complete!${NC}"
 echo "================================================"
 echo ""
-echo "  Public map:   http://localhost:8090"
-echo "  Admin panel:  http://localhost:8090/admin/"
-echo "  API health:   http://localhost:8091/api/health"
+echo "  Public map:   http://localhost:${FRONTEND_PORT}"
+echo "  Admin panel:  http://localhost:${FRONTEND_PORT}/admin/"
+echo "  API health:   http://localhost:${API_PORT}/api/health"
 echo ""
 echo "  Default admin login: meeks / meeks"
-echo "  Change it at: http://localhost:8090/admin/"
+echo "  Change it at: http://localhost:${FRONTEND_PORT}/admin/"
 echo ""
 echo "  If using Cloudflare, point your domain at this"
-echo "  server's IP and enable the proxy for auto SSL."
+echo "  server's IP and enable the Cloudflare proxy for auto SSL."
 echo ""
 echo "  To take a backup anytime:"
 echo "  docker exec mollies-db mysqldump -uroot \\"
-echo "    -p\$(grep MYSQL_ROOT_PASSWORD $MOLLIE_DIR/.env | cut -d= -f2) \\"
+echo "    -p\$(grep MYSQL_ROOT_PASSWORD $ENV_FILE | cut -d= -f2) \\"
 echo "    mollies_guide > $MOLLIE_DIR/api/data/mollies_backup.sql"
 echo ""
