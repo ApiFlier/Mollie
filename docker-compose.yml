@@ -27,7 +27,6 @@ services:
         condition: service_healthy
     volumes:
       - ./api:/app
-      - ./.htpasswd:/etc/nginx/.htpasswd
     restart: unless-stopped
 
   db:
