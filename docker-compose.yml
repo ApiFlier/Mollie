@@ -3,7 +3,7 @@ services:
     image: nginx:alpine
     container_name: mollies-frontend
     ports:
-      - "8090:80"
+      - "${FRONTEND_PORT:-8090}:80"
     volumes:
       - ./index.html:/usr/share/nginx/html/index.html:ro
       - ./robots.txt:/usr/share/nginx/html/robots.txt:ro
@@ -20,7 +20,7 @@ services:
     build: ./api
     container_name: mollies-api
     ports:
-      - "8091:8080"
+      - "${API_PORT:-8091}:8080"
     environment:
       - DB_HOST=db
       - DB_PORT=3306
@@ -40,7 +40,7 @@ services:
     image: mysql:8.0
     container_name: mollies-db
     ports:
-      - "3308:3306"
+      - "${DB_PORT:-3308}:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
       - MYSQL_DATABASE=mollies_guide
