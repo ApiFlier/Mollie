@@ -2,8 +2,8 @@
 
 A pick-your-own farm and farmers market map covering Pennsylvania, Ohio, and West Virginia. Shows 180+ locations on a hybrid aerial map with filtering by crop, month, category, and growing practices.
 
-**Live site:** https://meeks.cc  
-**Admin panel:** https://meeks.cc/admin/
+**Live site:** https://IP:Port  
+**Admin panel:** https://IP:Port/admin/
 
 ---
 
