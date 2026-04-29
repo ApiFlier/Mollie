@@ -1,3 +1,5 @@
+> ⚠️ BEFORE MAKING PUBLIC: Remove .env from repo and rotate all passwords/secrets.
+
 # Mollie's Guide
 
 A pick-your-own farm map for Pennsylvania, built for Mollie. Shows 90+ farms on a hybrid aerial map with filtering by crop, month, category, and growing practices.
