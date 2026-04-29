@@ -196,7 +196,7 @@
     },
     {
       "name": "Triple B Farms",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Allegheny",
       "address": "823 Berry Lane",
       "city": "Monongahela",
@@ -275,7 +275,7 @@
     },
     {
       "name": "Sacred Gate Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Armstrong",
       "address": "942 Old State Road",
       "city": "Apollo",
@@ -372,7 +372,7 @@
     },
     {
       "name": "Ambrose Farms",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Butler",
       "address": "991 Bear Creek Road",
       "city": "Cabot",
@@ -415,7 +415,7 @@
     },
     {
       "name": "Bowser's Blueberries",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Butler",
       "address": "143 McCalmont Road",
       "city": "Renfrew",
@@ -472,7 +472,7 @@
     },
     {
       "name": "Ben's Strawberries",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Indiana",
       "address": "1565 Campground Rd",
       "city": "Indiana",
@@ -492,7 +492,7 @@
     },
     {
       "name": "Pollock and Yarnick Strawberries",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Indiana",
       "address": "155 Thomas Covered Bridge Road",
       "city": "Indiana",
@@ -575,7 +575,7 @@
     },
     {
       "name": "Stutzman Farms (Berry Hill)",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Indiana",
       "address": "8690 Highway 422 East",
       "city": "Penn Run",
@@ -608,7 +608,7 @@
     },
     {
       "name": "Blueberry Hill Farm (Jefferson)",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Jefferson",
       "address": "10160 Route 322",
       "city": "Reynoldsville",
@@ -635,7 +635,7 @@
     },
     {
       "name": "Blueberry Hill Farm (Lawrence)",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Lawrence",
       "address": "1640 Wampum Mount Air Rd",
       "city": "Enon Valley",
@@ -655,7 +655,7 @@
     },
     {
       "name": "Gary's Berries",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Lawrence",
       "address": "412 George Washington Rd",
       "city": "Volant",
@@ -681,7 +681,7 @@
     },
     {
       "name": "Skyview Lab Blueberry Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Somerset",
       "address": "480 Willison Road",
       "city": "Boswell",
@@ -712,7 +712,7 @@
     },
     {
       "name": "Bedner's Farm and Greenhouse",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Washington",
       "address": "315 Coleman Road",
       "city": "McDonald",
@@ -810,7 +810,7 @@
     },
     {
       "name": "Simmons Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Washington",
       "address": "17170 Simmons Rd",
       "city": "McMurray",
@@ -879,7 +879,7 @@
     },
     {
       "name": "Trax Farms",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Washington",
       "address": "528 Trax Road",
       "city": "Finleyville",
@@ -949,7 +949,7 @@
     },
     {
       "name": "Morris Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Westmoreland",
       "address": "110 Slebodnik Road",
       "city": "Irwin",
@@ -1052,7 +1052,7 @@
     },
     {
       "name": "Sarver Hill Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Westmoreland",
       "address": "438 Old State Rte. 66",
       "city": "Greensburg",
@@ -1109,7 +1109,7 @@
     },
     {
       "name": "PYO Berries",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Elk",
       "address": "409 Cory Road",
       "city": "Wilcox",
@@ -1138,7 +1138,7 @@
     },
     {
       "name": "Berries & Blooms",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Erie",
       "address": "5255 Wheelertown Road",
       "city": "Waterford",
@@ -1199,7 +1199,7 @@
     },
     {
       "name": "Clorley Farms (Conn's Blueberry)",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Erie",
       "address": "9069 Route 89",
       "city": "North East",
@@ -1228,7 +1228,7 @@
     },
     {
       "name": "Finnell Farms",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Erie",
       "address": "7840 Buffalo Road",
       "city": "Harborcreek",
@@ -1255,7 +1255,7 @@
     },
     {
       "name": "Hirtzel Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Erie",
       "address": "1740 Hirtzel Road",
       "city": "North East",
@@ -1282,7 +1282,7 @@
     },
     {
       "name": "Hulings Blueberries and Farm Market",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Erie",
       "address": "5095 Old State Road",
       "city": "Edinboro",
@@ -1337,7 +1337,7 @@
     },
     {
       "name": "Mason Farms",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Erie",
       "address": "8603 West Lake Road",
       "city": "Lake City",
@@ -1531,14 +1531,14 @@
     },
     {
       "name": "Troyer's Strawberry Acres",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Erie",
       "address": "13021 Flatts Road",
       "city": "Waterford",
       "state": "PA",
       "zip": "16441",
       "phone": "814-796-2641",
-      "website": "https://www.troyersfarm.com/pick-your-own",
+      "website": "https://www.troyersfarm.com/farm",
       "facebook_url": "https://www.facebook.com/Troyers-Strawberry-Acres-120111614694880",
       "hours": "Mon-Fri 8am-8pm; Sat 8am-7pm; closed Sun",
       "payment_methods": [
@@ -1638,7 +1638,7 @@
     },
     {
       "name": "Blueberry Hill Farm (McKean)",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "McKean",
       "address": "46 Blueberry Hill Lane",
       "city": "Smethport",
@@ -1672,7 +1672,7 @@
     },
     {
       "name": "Bozberry Farms",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "McKean",
       "address": "1699 Rock Run Road",
       "city": "Turtlepoint",
@@ -1708,7 +1708,7 @@
     },
     {
       "name": "Ferris Farm Produce",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Mercer",
       "address": "83 Ferris Road",
       "city": "New Wilmington",
@@ -1792,7 +1792,7 @@
     },
     {
       "name": "Pete's Berry Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Mercer",
       "address": "2803 Winner Road",
       "city": "Clark",
@@ -1853,7 +1853,7 @@
     },
     {
       "name": "Nordland Farms Produce",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Warren",
       "address": "131 East Main Street",
       "city": "Columbus",
@@ -2141,7 +2141,7 @@
     },
     {
       "name": "Triple B Farms",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Allegheny",
       "address": "823 Berry Lane",
       "city": "Monongahela",
@@ -2220,7 +2220,7 @@
     },
     {
       "name": "Sacred Gate Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Armstrong",
       "address": "942 Old State Road",
       "city": "Apollo",
@@ -2317,7 +2317,7 @@
     },
     {
       "name": "Ambrose Farms",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Butler",
       "address": "991 Bear Creek Road",
       "city": "Cabot",
@@ -2360,7 +2360,7 @@
     },
     {
       "name": "Bowser's Blueberries",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Butler",
       "address": "143 McCalmont Road",
       "city": "Renfrew",
@@ -2417,7 +2417,7 @@
     },
     {
       "name": "Ben's Strawberries",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Indiana",
       "address": "1565 Campground Rd",
       "city": "Indiana",
@@ -2437,7 +2437,7 @@
     },
     {
       "name": "Pollock and Yarnick Strawberries",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Indiana",
       "address": "155 Thomas Covered Bridge Road",
       "city": "Indiana",
@@ -2520,7 +2520,7 @@
     },
     {
       "name": "Stutzman Farms (Berry Hill)",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Indiana",
       "address": "8690 Highway 422 East",
       "city": "Penn Run",
@@ -2553,7 +2553,7 @@
     },
     {
       "name": "Blueberry Hill Farm (Jefferson)",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Jefferson",
       "address": "10160 Route 322",
       "city": "Reynoldsville",
@@ -2580,7 +2580,7 @@
     },
     {
       "name": "Blueberry Hill Farm (Lawrence)",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Lawrence",
       "address": "1640 Wampum Mount Air Rd",
       "city": "Enon Valley",
@@ -2600,7 +2600,7 @@
     },
     {
       "name": "Gary's Berries",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Lawrence",
       "address": "412 George Washington Rd",
       "city": "Volant",
@@ -2626,7 +2626,7 @@
     },
     {
       "name": "Skyview Lab Blueberry Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Somerset",
       "address": "480 Willison Road",
       "city": "Boswell",
@@ -2657,7 +2657,7 @@
     },
     {
       "name": "Bedner's Farm and Greenhouse",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Washington",
       "address": "315 Coleman Road",
       "city": "McDonald",
@@ -2755,7 +2755,7 @@
     },
     {
       "name": "Simmons Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Washington",
       "address": "17170 Simmons Rd",
       "city": "McMurray",
@@ -2824,7 +2824,7 @@
     },
     {
       "name": "Trax Farms",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Washington",
       "address": "528 Trax Road",
       "city": "Finleyville",
@@ -2894,7 +2894,7 @@
     },
     {
       "name": "Morris Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Westmoreland",
       "address": "110 Slebodnik Road",
       "city": "Irwin",
@@ -2997,7 +2997,7 @@
     },
     {
       "name": "Sarver Hill Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Westmoreland",
       "address": "438 Old State Rte. 66",
       "city": "Greensburg",
@@ -3054,7 +3054,7 @@
     },
     {
       "name": "PYO Berries",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Elk",
       "address": "409 Cory Road",
       "city": "Wilcox",
@@ -3083,7 +3083,7 @@
     },
     {
       "name": "Berries & Blooms",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Erie",
       "address": "5255 Wheelertown Road",
       "city": "Waterford",
@@ -3144,7 +3144,7 @@
     },
     {
       "name": "Clorley Farms (Conn's Blueberry)",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Erie",
       "address": "9069 Route 89",
       "city": "North East",
@@ -3173,7 +3173,7 @@
     },
     {
       "name": "Finnell Farms",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Erie",
       "address": "7840 Buffalo Road",
       "city": "Harborcreek",
@@ -3200,7 +3200,7 @@
     },
     {
       "name": "Hirtzel Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Erie",
       "address": "1740 Hirtzel Road",
       "city": "North East",
@@ -3227,7 +3227,7 @@
     },
     {
       "name": "Hulings Blueberries and Farm Market",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Erie",
       "address": "5095 Old State Road",
       "city": "Edinboro",
@@ -3282,7 +3282,7 @@
     },
     {
       "name": "Mason Farms",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Erie",
       "address": "8603 West Lake Road",
       "city": "Lake City",
@@ -3476,14 +3476,14 @@
     },
     {
       "name": "Troyer's Strawberry Acres",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Erie",
       "address": "13021 Flatts Road",
       "city": "Waterford",
       "state": "PA",
       "zip": "16441",
       "phone": "814-796-2641",
-      "website": "https://www.troyersfarm.com/pick-your-own",
+      "website": "https://www.troyersfarm.com/farm",
       "facebook_url": "https://www.facebook.com/Troyers-Strawberry-Acres-120111614694880",
       "hours": "Mon-Fri 8am-8pm; Sat 8am-7pm; closed Sun",
       "payment_methods": [
@@ -3583,7 +3583,7 @@
     },
     {
       "name": "Blueberry Hill Farm (McKean)",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "McKean",
       "address": "46 Blueberry Hill Lane",
       "city": "Smethport",
@@ -3617,7 +3617,7 @@
     },
     {
       "name": "Bozberry Farms",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "McKean",
       "address": "1699 Rock Run Road",
       "city": "Turtlepoint",
@@ -3653,7 +3653,7 @@
     },
     {
       "name": "Ferris Farm Produce",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Mercer",
       "address": "83 Ferris Road",
       "city": "New Wilmington",
@@ -3737,7 +3737,7 @@
     },
     {
       "name": "Pete's Berry Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Mercer",
       "address": "2803 Winner Road",
       "city": "Clark",
@@ -3798,7 +3798,7 @@
     },
     {
       "name": "Nordland Farms Produce",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Warren",
       "address": "131 East Main Street",
       "city": "Columbus",
@@ -3893,7 +3893,7 @@
     },
     {
       "name": "Blueberry Mountain Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Bradford",
       "address": "Mile Lane Road",
       "city": "Sayre",
@@ -3933,7 +3933,7 @@
         "fresh pressed cider",
         "school tours"
       ],
-      "notes": "Pick-Your-Own apples and pears will only be available to those families purchasing a membership.",
+      "notes": "farm apples and pears will only be available to those families purchasing a membership.",
       "crops": [
         {
           "name": "apples",
@@ -3990,7 +3990,7 @@
     },
     {
       "name": "Neuber Strawberry Patch",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Bradford",
       "address": "3877 Sugar Hill Rd",
       "city": "Sugar Run",
@@ -4010,7 +4010,7 @@
     },
     {
       "name": "Berried Treasures Farm Market",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Lycoming",
       "address": "35 Riverview Rd",
       "city": "Linden",
@@ -4048,7 +4048,7 @@
     },
     {
       "name": "The Green Barn Berry Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Lycoming",
       "address": "7299 Armstrong Road",
       "city": "Muncy",
@@ -4109,7 +4109,7 @@
     },
     {
       "name": "Shirey's Blueberry Hill",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Lycoming",
       "address": "194 Northway Road",
       "city": "Linden",
@@ -4158,7 +4158,7 @@
     },
     {
       "name": "Murphy's Blueberry Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Tioga",
       "address": "383 Mulberry Hill Road",
       "city": "Mansfield",
@@ -4323,7 +4323,7 @@
     },
     {
       "name": "K and J Farm Market",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Adams",
       "address": "4 Irishtown Rd",
       "city": "Hanover",
@@ -4368,7 +4368,7 @@
     },
     {
       "name": "Yellow Hill Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Adams",
       "address": "670 Yellow Hill Road",
       "city": "Biglerville",
@@ -4418,7 +4418,7 @@
     },
     {
       "name": "Bee Tree Berry Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Centre",
       "address": "494 Benner Road",
       "city": "Bellefonte",
@@ -4509,7 +4509,7 @@
     },
     {
       "name": "Sengle Mountainhome PYO Blueberry Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Centre",
       "address": "605 Sengle Lane",
       "city": "Julian",
@@ -4539,7 +4539,7 @@
     },
     {
       "name": "Van Cise's Blueberry Hill",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Centre",
       "address": "101 Dawn Avenue",
       "city": "Julian",
@@ -4646,7 +4646,7 @@
     },
     {
       "name": "BC Berries",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Bedford",
       "address": "692 Wissinger Road",
       "city": "Alum Bank",
@@ -4832,7 +4832,7 @@
     },
     {
       "name": "Blue Barn Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Blair",
       "address": "615 Flowing Spring Road",
       "city": "Williamsburg",
@@ -4921,7 +4921,7 @@
     },
     {
       "name": "Country Creek Produce Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Franklin",
       "address": "3746 Etter Road",
       "city": "Chambersburg",
@@ -4979,7 +4979,7 @@
     },
     {
       "name": "JB Tree Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Huntingdon",
       "address": "8100 JB Tree Farm Lane",
       "city": "Alexandria",
@@ -5062,7 +5062,7 @@
     },
     {
       "name": "The Minestream Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Huntingdon",
       "address": "12437 Minestream Lane",
       "city": "Shade Gap",
@@ -5124,7 +5124,7 @@
     },
     {
       "name": "Campbell Blueberry Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Columbia",
       "address": "290 Nursery Rd",
       "city": "Berwick",
@@ -5145,7 +5145,7 @@
     },
     {
       "name": "D and F Farms",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Columbia",
       "address": "788 Southern Drive",
       "city": "Catawissa",
@@ -5173,7 +5173,7 @@
     },
     {
       "name": "Rohrbach's Farm Market, Bakery and Gift Shop",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Columbia",
       "address": "240 Southern Drive",
       "city": "Catawissa",
@@ -5289,7 +5289,7 @@
     },
     {
       "name": "Owens Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Northumberland",
       "address": "2611 Mile Post Road",
       "city": "Sunbury",
@@ -5335,7 +5335,7 @@
     },
     {
       "name": "Stahl's Plants and Produce",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Northumberland",
       "address": "4760 State Route 61",
       "city": "Paxinos",
@@ -5488,7 +5488,7 @@
     },
     {
       "name": "Wiseguys",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Snyder",
       "address": "17540 Fairview Rd",
       "city": "Mc Clure",
@@ -5551,7 +5551,7 @@
     },
     {
       "name": "Bridge Avenue Berries",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Union",
       "address": "62 Bridge Avenue",
       "city": "Allenwood",
@@ -5587,7 +5587,7 @@
     },
     {
       "name": "Weaver Berries LLC",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Union",
       "address": "381 Hill School Road",
       "city": "Lewisburg",
@@ -5616,7 +5616,7 @@
     },
     {
       "name": "Barefoot Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "York",
       "address": "6621 Bluebird Lane",
       "city": "Dover",
@@ -5690,7 +5690,7 @@
     },
     {
       "name": "Blueberry Hill",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "York",
       "address": "557 Heffner Road",
       "city": "Red Lion",
@@ -5785,7 +5785,7 @@
     },
     {
       "name": "Family Tree Flowing Springs Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "York",
       "address": "4802 Dairy Road",
       "city": "Red Lion",
@@ -5993,7 +5993,7 @@
     },
     {
       "name": "Narrow Path Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "York",
       "address": "2286 Conewago Road",
       "city": "Dover",
@@ -6095,7 +6095,7 @@
     },
     {
       "name": "Raven's Berry Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "York",
       "address": "137 Butter Road",
       "city": "York",
@@ -6127,7 +6127,7 @@
     },
     {
       "name": "Rentzel's Blueberry Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "York",
       "address": "137 Butter Rd",
       "city": "York",
@@ -6181,7 +6181,7 @@
     },
     {
       "name": "The Truck Patch",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "York",
       "address": "445 Shorbs Hill Rd",
       "city": "Hanover",
@@ -6229,7 +6229,7 @@
     },
     {
       "name": "Blueberry Farm and Railroad",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Ashtabula",
       "address": "2663 West St",
       "city": "Geneva",
@@ -6265,7 +6265,7 @@
     },
     {
       "name": "Covered Bridge Farms",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Ashtabula",
       "address": "1517 Lafevre Road",
       "city": "Geneva",
@@ -6304,7 +6304,7 @@
     },
     {
       "name": "Grabelsek Vineyards",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Ashtabula",
       "address": "5825 State Route 307 West",
       "city": "Geneva",
@@ -6376,7 +6376,7 @@
     },
     {
       "name": "North Ridge Blueberries",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Ashtabula",
       "address": "497 West Main Road",
       "city": "Conneaut",
@@ -6456,7 +6456,7 @@
     },
     {
       "name": "Ellsworth Berry Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Mahoning",
       "address": "5921 Gault Road",
       "city": "North Jackson",
@@ -6489,7 +6489,7 @@
     },
     {
       "name": "Molnar Farms",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Mahoning",
       "address": "3115 E Western Reserve Rd",
       "city": "Poland",
@@ -6570,7 +6570,7 @@
     },
     {
       "name": "Fresh Blueberries in Trumbull County Ohio",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Trumbull",
       "address": "4833 Herner County Line Rd",
       "city": "Southington",
@@ -6591,7 +6591,7 @@
     },
     {
       "name": "Matwichs Berry Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Trumbull",
       "address": "6648 Kale Adams Road",
       "city": "Leavittsburg",
@@ -6646,7 +6646,7 @@
     },
     {
       "name": "Burkhart's Blueberries",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Berkeley",
       "address": "780 Poor House Rd.",
       "city": "Martinsburg",
@@ -6779,7 +6779,7 @@
     },
     {
       "name": "Garden by the Woods",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Berkeley",
       "address": "1210 Bedington Road",
       "city": "Martinsburg",
@@ -6808,7 +6808,7 @@
     },
     {
       "name": "Thornbrook Berries",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Berkeley",
       "address": "2528 Dominion Rd",
       "city": "Gerrardstown",
@@ -6830,7 +6830,7 @@
     },
     {
       "name": "Capon Crossing Farm Market",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Hampshire",
       "address": "Hc 64 Box 232 A",
       "city": "Wardensville",
@@ -6954,7 +6954,7 @@
     },
     {
       "name": "Church View Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Hampshire",
       "address": "HC 64 Box 2027",
       "city": "Romney",
@@ -7008,7 +7008,7 @@
     },
     {
       "name": "Country Family Farms",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Hampshire",
       "address": "27117 Northwestern Pike",
       "city": "Romney",
@@ -7034,7 +7034,7 @@
     },
     {
       "name": "Seeds of Grace Acres",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Hampshire",
       "address": "178 Crestview Mountain Rd",
       "city": "Augusta",
@@ -7248,7 +7248,7 @@
     },
     {
       "name": "Buena Vista Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Hardy",
       "address": "4975 US 220 North",
       "city": "Old Fields",
@@ -7359,7 +7359,7 @@
     },
     {
       "name": "Cold Run Valley Berry Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Morgan",
       "address": "4262 Cold Run Valley Road",
       "city": "Berkeley Springs",
@@ -7408,7 +7408,7 @@
     },
     {
       "name": "Burkhart's Blueberries",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Berkeley",
       "address": "780 Poor House Rd.",
       "city": "Martinsburg",
@@ -7458,7 +7458,7 @@
     },
     {
       "name": "Garden by the Woods",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Berkeley",
       "address": "1210 Bedington Road",
       "city": "Martinsburg",
@@ -7477,7 +7477,7 @@
     },
     {
       "name": "Thornbrook Berries",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Berkeley",
       "address": "2528 Dominion Rd",
       "city": "Gerrardstown",
@@ -7494,7 +7494,7 @@
     },
     {
       "name": "You Pick You Eat Berry Patch",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Doddridge",
       "address": "302 Skelton Run Road",
       "city": "Salem",
@@ -7517,7 +7517,7 @@
     },
     {
       "name": "Capon Crossing Farm Market",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Hampshire",
       "address": "Hc 64 Box 232 A",
       "city": "Wardensville",
@@ -7552,7 +7552,7 @@
     },
     {
       "name": "Church View Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Hampshire",
       "address": "HC 64 Box 2027",
       "city": "Romney",
@@ -7576,7 +7576,7 @@
     },
     {
       "name": "Country Family Farms",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Hampshire",
       "address": "27117 Northwestern Pike",
       "city": "Romney",
@@ -7595,7 +7595,7 @@
     },
     {
       "name": "Seeds of Grace Acres",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Hampshire",
       "address": "178 Crestview Mountain Rd",
       "city": "Augusta",
@@ -7645,7 +7645,7 @@
     },
     {
       "name": "Buena Vista Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Hardy",
       "address": "4975 US 220 North",
       "city": "Old Fields",
@@ -7676,7 +7676,7 @@
     },
     {
       "name": "Blueberry Ridge Farms",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Marion",
       "address": "288 Tom Moran Lane",
       "city": "Fairmont",
@@ -7695,7 +7695,7 @@
     },
     {
       "name": "Stone House Lavender",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Marion",
       "address": "227 Lanham Lane",
       "city": "Fairmont",
@@ -7715,7 +7715,7 @@
     },
     {
       "name": "Stern's Berry Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Monongalia",
       "address": "340 Old Sawmill Road",
       "city": "Independence",
@@ -7733,7 +7733,7 @@
     },
     {
       "name": "Cold Run Valley Berry Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Morgan",
       "address": "4262 Cold Run Valley Road",
       "city": "Berkeley Springs",
@@ -7756,7 +7756,7 @@
     },
     {
       "name": "Floral Acres",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Upshur",
       "address": "RR 1 Box 26E",
       "city": "French Creek",
@@ -7776,7 +7776,7 @@
     },
     {
       "name": "Kilgore Fruit Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Belmont",
       "address": "56448 Kilgore Road",
       "city": "Bellaire",
@@ -7795,7 +7795,7 @@
     },
     {
       "name": "Spring Hill Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Carroll",
       "address": "2054 Laramie Road NW",
       "city": "Carrollton",
@@ -7813,7 +7813,7 @@
     },
     {
       "name": "Dillon Fruit Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Columbiana",
       "address": "36108 Kelch Road",
       "city": "Lisbon",
@@ -7878,7 +7878,7 @@
     },
     {
       "name": "County Line U-pick",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Harrison",
       "address": "74105 Edwards Rd",
       "city": "Saint Clairsville",
@@ -7897,7 +7897,7 @@
     },
     {
       "name": "Zimm's Raspberry Patch",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Jefferson",
       "address": "17125 State Route 152",
       "city": "Toronto",
@@ -7915,7 +7915,7 @@
     },
     {
       "name": "Harvest Barn",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Tuscarawas",
       "address": "420 Dutch Valley Drive NE",
       "city": "Sugarcreek",
@@ -7979,7 +7979,7 @@
     },
     {
       "name": "Wagner Farms",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Washington",
       "address": "2505 Brownrigg Rd",
       "city": "Waterford",
@@ -8005,7 +8005,7 @@
     },
     {
       "name": "Stacy Family Farm",
-      "category": "pick-your-own",
+      "category": "farm",
       "county": "Washington",
       "address": "135 BF Goodrich Road",
       "city": "Marietta",

@@ -222,7 +222,7 @@ const AdminEdit = (() => {
     // Show sections based on category
     if (cat === "fair" || cat === "festival") {
       if (secEvents) secEvents.style.display = "block";
-    } else if (cat === "farm" || cat === "pick-your-own") {
+    } else if (cat === "farm") {
       if (secCrops) secCrops.style.display = "block";
       if (secHours) secHours.style.display = "block";
     } else if (cat === "farmers-market") {
