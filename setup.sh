@@ -152,10 +152,10 @@ else
     warn "Port ${FRONTEND_PORT} not responding yet. Try: curl http://localhost:${FRONTEND_PORT}"
 fi
 
-if curl -s -o /dev/null -w "%{http_code}" http://localhost:${API_PORT}/api/health | grep -q "200"; then
-    info "API is healthy on port ${API_PORT}."
+if curl -s -o /dev/null -w "%{http_code}" http://localhost:${FRONTEND_PORT}/api/health | grep -q "200"; then
+    info "API is safely responding through Nginx."
 else
-    warn "API not responding yet. Check: docker compose logs mollies-api"
+    warn "API not responding via Nginx yet. Check: docker compose logs mollies-api"
 fi
 
 echo ""
@@ -165,7 +165,7 @@ echo "================================================"
 echo ""
 echo "  Public map:   http://localhost:${FRONTEND_PORT}"
 echo "  Admin panel:  http://localhost:${FRONTEND_PORT}/admin/"
-echo "  API health:   http://localhost:${API_PORT}/api/health"
+echo "  API health:   http://localhost:${FRONTEND_PORT}/api/health"
 echo ""
 echo "  Default admin login: meeks / meeks"
 echo "  Change it at: http://localhost:${FRONTEND_PORT}/admin/"
