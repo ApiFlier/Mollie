@@ -27,7 +27,7 @@ docker --version && docker compose version
 ### Part 2 — Clone and run
 
 ```bash
-git clone https://github.com/ApiFlier/Mollie.git ./mollie && cd ./mollie && chmod +x setup.sh && ./setup.sh
+git clone https://github.com/ApiFlier/mollie.git ./mollie && cd ./mollie && chmod +x setup.sh && ./setup.sh
 ```
 
 That's it. The setup script generates a `.env` with random passwords, creates the admin login, starts Docker containers, and restores the database automatically.
