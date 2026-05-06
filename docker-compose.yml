@@ -1,19 +1,11 @@
 services:
-  frontend:
+  app:
     build:
       context: .
-      dockerfile: Dockerfile.nginx
-    container_name: mollies-frontend
+      dockerfile: api/Dockerfile
+    container_name: mollies-app
     ports:
-      - "${FRONTEND_PORT:-8090}:80"
-    depends_on:
-      - api
-    restart: unless-stopped
-
-  api:
-    build: ./api
-    container_name: mollies-api
-    # PORTS REMOVED! Only accessible internally by Nginx now.
+      - "${APP_PORT:-${FRONTEND_PORT:-8090}}:8080"
     environment:
       - DB_HOST=db
       - DB_PORT=3306
@@ -29,7 +21,6 @@ services:
   db:
     image: mysql:8.0
     container_name: mollies-db
-    # PORTS REMOVED! Only accessible internally by the API now.
     environment:
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
       - MYSQL_DATABASE=mollies_guide

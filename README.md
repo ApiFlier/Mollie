@@ -30,7 +30,14 @@ docker --version && docker compose version
 git clone https://github.com/ApiFlier/Mollie.git ./mollie && cd ./mollie && chmod +x setup.sh && ./setup.sh
 ```
 
-That's it. The setup script generates a `.env` with random passwords, creates the admin login, starts Docker containers, and restores the database automatically.
+That's it. The setup script:
+1.  Automatically finds an available host port (starting at 8090).
+2.  Generates a `.env` with random passwords and the selected port.
+3.  Creates the admin login.
+4.  Starts Docker containers.
+5.  Restores the database automatically.
+
+The final URL will be printed at the end of the script.
 
 ---
 
@@ -63,9 +70,8 @@ cd /mollie && git add api/data/mollies_backup.sql && git commit -m "db backup $(
 ## Tech Stack
 
 - **Frontend:** Leaflet.js + Esri World Imagery tiles (no API key required)
-- **Backend:** Flask (Python) REST API
+- **Backend/Server:** Flask (Python) serving both REST API and static files
 - **Database:** MySQL 8.0
-- **Server:** nginx (reverse proxy + static files)
 - **Infrastructure:** Docker Compose
 - **DNS/SSL:** Cloudflare (proxied)
 
@@ -76,8 +82,6 @@ cd /mollie && git add api/data/mollies_backup.sql && git commit -m "db backup $(
 ```
 /mollie/
 ├── docker-compose.yml        # Container orchestration
-├── nginx.conf                # nginx config
-├── proxy_pass.conf           # nginx proxy headers
 ├── setup.sh                  # Fresh deployment script
 ├── robots.txt
 ├── index.html                # Public map app
@@ -96,7 +100,7 @@ cd /mollie && git add api/data/mollies_backup.sql && git commit -m "db backup $(
 └── api/
     ├── Dockerfile
     ├── requirements.txt
-    ├── app.py                # Flask API
+    ├── app.py                # Flask API + Static server
     └── data/
         ├── schema.sql        # DB schema
         ├── mollies_backup.sql # Full DB backup
@@ -111,19 +115,19 @@ All public endpoints require no authentication.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/health` | Health check |
-| GET | `/api/locations` | All locations (supports filters) |
-| GET | `/api/locations/<id>` | Single location with crops |
-| GET | `/api/categories` | All categories |
-| GET | `/api/counties` | All counties |
-| GET | `/api/crops/distinct` | Distinct crop names |
-| GET | `/api/locations/<id>/notes` | Notes for a location |
-| POST | `/api/login` | Admin login |
-| POST | `/api/logout` | Admin logout |
+| GET | `/health` | Health check |
+| GET | `/locations` | All locations (supports filters) |
+| GET | `/locations/<id>` | Single location with crops |
+| GET | `/categories` | All categories |
+| GET | `/counties` | All counties |
+| GET | `/crops/distinct` | Distinct crop names |
+| GET | `/locations/<id>/notes` | Notes for a location |
+| POST | `/login` | Admin login |
+| POST | `/logout` | Admin logout |
 
-Auth-required endpoints (POST/PUT/DELETE for locations, crops, notes, and credentials) require a valid session cookie from `/api/login`.
+*Note: All endpoints also support the `/api/` prefix for backward compatibility (e.g. `/api/locations`).*
 
-### Filter parameters for `/api/locations`
+### Filter parameters for `/locations`
 
 | Param | Example | Description |
 |-------|---------|-------------|
@@ -139,9 +143,8 @@ Auth-required endpoints (POST/PUT/DELETE for locations, crops, notes, and creden
 
 | Port | Service |
 |------|---------|
-| 8090 | nginx (public frontend) |
-| 8091 | Flask API (internal, proxied through nginx) |
-| 3308 | MySQL (host-side, for local access) |
+| 8090 | App (Frontend + API) |
+| 3308 | MySQL (host-side, for local access if enabled) |
 
 ---
 

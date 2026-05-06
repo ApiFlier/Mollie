@@ -9,8 +9,7 @@
  */
 
 const MolliesAPI = (() => {
-  // When served by nginx, the API lives at /api/* (proxied to Flask).
-  // For local dev pointing at Flask directly, set this to http://localhost:8091
+  // API lives at /api/*
   const BASE = "/api";
 
   async function request(path, params = null) {

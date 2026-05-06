@@ -59,26 +59,34 @@ echo ""
 echo "--- Step 1: Generate .env with random passwords and open ports ---"
 echo ""
 
-MYSQL_PASS=$(python3 -c "import secrets; print(secrets.token_urlsafe(24))")
-DB_PASS=$(python3 -c "import secrets; print(secrets.token_urlsafe(24))")
-FLASK_SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+# Load existing .env if it exists to preserve ports
+if [ -f "$ENV_FILE" ]; then
+    export $(grep -v '^#' "$ENV_FILE" | xargs)
+fi
 
-FRONTEND_PORT=$(find_open_port 8090)
-API_PORT=$(find_open_port $((FRONTEND_PORT + 1)))
-DB_PORT=$(find_open_port 3308)
+MYSQL_PASS=${MYSQL_ROOT_PASSWORD:-$(python3 -c "import secrets; print(secrets.token_urlsafe(24))")}
+DB_PASS=${DB_PASSWORD:-$(python3 -c "import secrets; print(secrets.token_urlsafe(24))")}
+FLASK_SECRET=${FLASK_SECRET:-$(python3 -c "import secrets; print(secrets.token_hex(32))")}
+
+# Standardize on APP_PORT, fallback to FRONTEND_PORT, then 8090
+PREF_APP_PORT=${APP_PORT:-${FRONTEND_PORT:-8090}}
+ACTUAL_APP_PORT=$(find_open_port $PREF_APP_PORT)
+
+PREF_DB_PORT=${DB_PORT:-3308}
+ACTUAL_DB_PORT=$(find_open_port $PREF_DB_PORT)
 
 cat > "$ENV_FILE" <<ENVEOF
 MYSQL_ROOT_PASSWORD=${MYSQL_PASS}
 DB_PASSWORD=${DB_PASS}
 FLASK_SECRET=${FLASK_SECRET}
-FRONTEND_PORT=${FRONTEND_PORT}
-API_PORT=${API_PORT}
-DB_PORT=${DB_PORT}
+APP_PORT=${ACTUAL_APP_PORT}
+FRONTEND_PORT=${ACTUAL_APP_PORT}
+DB_PORT=${ACTUAL_DB_PORT}
 ENVEOF
 
 chmod 600 "$ENV_FILE"
-info ".env generated with random passwords."
-info "Ports assigned — Frontend: $FRONTEND_PORT | API: $API_PORT | DB: $DB_PORT"
+info ".env updated with random passwords and available ports."
+info "Port assigned — App (Frontend + API): $ACTUAL_APP_PORT | DB (Host access): $ACTUAL_DB_PORT"
 
 echo ""
 echo "--- Step 2: Create admin login (.htpasswd) ---"
@@ -98,7 +106,6 @@ echo ""
 
 cd "$MOLLIE_DIR"
 docker compose up -d
-docker cp .htpasswd mollies-frontend:/etc/nginx/.htpasswd
 info "Containers started. Waiting 20 seconds for MySQL to initialize..."
 sleep 20
 
@@ -146,16 +153,24 @@ echo ""
 
 sleep 10
 
-if curl -s -o /dev/null -w "%{http_code}" http://localhost:${FRONTEND_PORT} | grep -q "200"; then
-    info "Public site is responding on port ${FRONTEND_PORT}."
+if curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:${ACTUAL_APP_PORT} | grep -q "200"; then
+    info "App is responding on port ${ACTUAL_APP_PORT}."
 else
-    warn "Port ${FRONTEND_PORT} not responding yet. Try: curl http://localhost:${FRONTEND_PORT}"
+    warn "Port ${ACTUAL_APP_PORT} not responding yet. Try: curl http://localhost:${ACTUAL_APP_PORT}"
 fi
 
-if curl -s -o /dev/null -w "%{http_code}" http://localhost:${FRONTEND_PORT}/api/health | grep -q "200"; then
-    info "API is safely responding through Nginx."
+# Health check - try /health then /api/health
+HEALTH_OK=0
+if curl -s http://127.0.0.1:${ACTUAL_APP_PORT}/health | grep -q '"ok":.*true'; then
+    HEALTH_OK=1
+elif curl -s http://127.0.0.1:${ACTUAL_APP_PORT}/api/health | grep -q '"ok":.*true'; then
+    HEALTH_OK=1
+fi
+
+if [ $HEALTH_OK -eq 1 ]; then
+    info "API health check passed."
 else
-    warn "API not responding via Nginx yet. Check: docker compose logs mollies-api"
+    warn "API health check failed. Check: docker compose logs app"
 fi
 
 echo ""
@@ -163,12 +178,12 @@ echo "================================================"
 echo -e "${GREEN}   Setup complete!${NC}"
 echo "================================================"
 echo ""
-echo "  Public map:   http://localhost:${FRONTEND_PORT}"
-echo "  Admin panel:  http://localhost:${FRONTEND_PORT}/admin/"
-echo "  API health:   http://localhost:${FRONTEND_PORT}/api/health"
+echo "  Public map:   http://localhost:${ACTUAL_APP_PORT}"
+echo "  Admin panel:  http://localhost:${ACTUAL_APP_PORT}/admin/"
+echo "  API health:   http://localhost:${ACTUAL_APP_PORT}/health"
 echo ""
 echo "  Default admin login: meeks / meeks"
-echo "  Change it at: http://localhost:${FRONTEND_PORT}/admin/"
+echo "  Change it at: http://localhost:${ACTUAL_APP_PORT}/admin/"
 echo ""
 echo "  If using Cloudflare, point your domain at this"
 echo "  server's IP and enable the Cloudflare proxy for auto SSL."
