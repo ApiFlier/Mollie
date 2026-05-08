@@ -1,5 +1,5 @@
 /**
- * Map setup and pin rendering for Mollie's Guide.
+ * Map setup and pin rendering for Event Map.
  * Uses Leaflet with Esri World Imagery (aerial) plus a labels overlay.
  */
 

@@ -1,5 +1,5 @@
 /**
- * Filter UI for Mollie's Guide.
+ * Filter UI for Event Map.
  *
  * Farm-only controls (crop, PYO, organic) are hidden when a non-farm
  * category is active. Month filter stays visible for all categories

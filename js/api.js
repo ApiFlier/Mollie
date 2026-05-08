@@ -1,11 +1,6 @@
 /**
- * API abstraction layer for Mollie's Guide.
- *
- * All backend calls route through this module. If we ever swap the
- * Flask API for a SQLite-backed Android build, only this file changes.
- *
- * Frontend code should never hit fetch() directly - always go through
- * MolliesAPI.
+ * API abstraction layer for Event Map.
+ * All backend calls route through MolliesAPI — do not call fetch() directly.
  */
 
 const MolliesAPI = (() => {

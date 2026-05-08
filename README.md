@@ -1,110 +1,114 @@
-# Mollie's Guide
+# Event Map
 
-A pick-your-own farm and farmers market map covering Pennsylvania, Ohio, and West Virginia. Shows 180+ locations on a hybrid aerial map with filtering by crop, month, category, and growing practices.
-
-**Live site:** https://IP:Port  
-**Admin panel:** https://IP:Port/admin/
+A self-hosted event discovery map for regional farms, farmers markets, festivals, and local destinations. Displays 180+ locations on a hybrid aerial/satellite map with filtering by category, month, crop, and growing practices.
 
 ---
 
-## Deploy
-
-### Part 1 — Install Docker (skip if already installed)
+## Quick Start
 
 ```bash
-sudo apt update && sudo apt upgrade -y && sudo apt install -y git curl apache2-utils
-curl -fsSL https://get.docker.com | sh && sudo usermod -aG docker $USER
+git clone https://github.com/ApiFlier/event-map.git event-map
+cd event-map
+chmod +x setup.sh
+./setup.sh
 ```
 
-**Log out and back in** after this so the docker group takes effect, then verify:
+`setup.sh` will:
+- Generate `.env` automatically with random passwords and secrets
+- Create an admin login with a randomly generated password (shown once during setup)
+- Find an available host port automatically (starting at 8090)
+- Build and start the Docker containers
+- Create or reuse a persistent Docker-managed database volume (`event_map_db_data`)
+- Load the seed dataset (180+ geocoded locations)
+- Print the local URL when done
 
-```bash
-docker --version && docker compose version
-```
+No external API keys required.
 
 ---
 
-### Part 2 — Clone and run
+## What Event Map Does
 
-```bash
-git clone https://github.com/ApiFlier/event-map.git ./mollie && cd ./mollie && chmod +x setup.sh && ./setup.sh
-```
+Event Map is a browser-based geospatial tool for discovering regional farms, farmers markets, fairs, and festivals. Visitors browse a satellite map, click map pins for location details, and filter results by category, season, and crop type.
 
-That's it. The setup script:
-1.  Automatically finds an available host port (starting at 8090).
-2.  Generates a `.env` with random passwords and the selected port.
-3.  Creates the admin login.
-4.  Starts Docker containers.
-5.  Restores the database automatically.
-
-The final URL will be printed at the end of the script.
+It includes a password-protected admin panel for managing locations, crops, and site content — with no coding required after setup.
 
 ---
 
-### After setup
+## Key Features
 
-- **Default admin login:** meeks / meeks — change it at `/admin/` immediately
-- **Passwords:** stored in `/mollie/.env` — check there if you need them
-- **Point your domain:** add an A record to your server IP, enable Cloudflare proxy for auto SSL
+- **Satellite/hybrid map** — Leaflet.js with Esri World Imagery tiles (no API key)
+- **Category filtering** — farms, farmers markets, festivals, fairs
+- **Month and crop filtering** — see what is in season right now
+- **Pick-your-own (PYO) toggle** — filter to PYO-only locations
+- **Organic / growing practices filter**
+- **Location detail panel** — address, hours, phone, website, crops, amenities
+- **Geolocation** — browser blue-dot (requires HTTPS; works via Cloudflare)
+- **Admin panel** — add/edit/delete locations and crops via web UI
+- **Credential management** — change admin username and password from the UI
 
 ---
 
-## Taking a Backup
+## Architecture
 
-Run this before making major changes:
-
-```bash
-docker exec mollies-db mysqldump -uroot \
-  -p$(grep MYSQL_ROOT_PASSWORD /mollie/.env | cut -d= -f2) \
-  mollies_guide > /mollie/api/data/mollies_backup.sql
+```
+Browser  →  Flask (port 8080, internal)  →  MySQL 8.0
+              ├── REST API (/locations, /categories, ...)
+              └── Static files (index.html, admin/, css/, js/)
 ```
 
-Commit it to keep the repo backup current:
+Docker Compose manages two containers:
 
-```bash
-cd /mollie && git add api/data/mollies_backup.sql && git commit -m "db backup $(date +%Y-%m-%d)" && git push
-```
+| Container | Role |
+|-----------|------|
+| `event-map-app` | Flask API + static file server |
+| `event-map-db`  | MySQL 8.0 database |
+
+A named Docker volume (`event_map_db_data`) provides persistent storage.
 
 ---
 
 ## Tech Stack
 
-- **Frontend:** Leaflet.js + Esri World Imagery tiles (no API key required)
-- **Backend/Server:** Flask (Python) serving both REST API and static files
-- **Database:** MySQL 8.0
-- **Infrastructure:** Docker Compose
-- **DNS/SSL:** Cloudflare (proxied)
+| Layer | Technology |
+|-------|-----------|
+| Frontend | HTML/CSS/JS, Leaflet.js, Esri World Imagery |
+| Backend | Flask (Python 3.12) |
+| Database | MySQL 8.0 |
+| Auth | bcrypt-hashed credentials via `.htpasswd` |
+| Infrastructure | Docker Compose |
+| DNS / SSL | Cloudflare proxied (optional) |
 
 ---
 
-## Project Structure
+## Data Sources
 
-```
-/mollie/
-├── docker-compose.yml        # Container orchestration
-├── setup.sh                  # Fresh deployment script
-├── robots.txt
-├── index.html                # Public map app
-├── css/styles.css
-├── js/
-│   ├── api.js                # API abstraction layer
-│   ├── map.js                # Leaflet map logic
-│   ├── filters.js            # Filter UI
-│   └── main.js               # App entry point
-├── admin/
-│   ├── admin.css
-│   ├── admin.js              # Admin UI + auth logic
-│   ├── login.html            # Admin login page
-│   ├── index.html            # Farm list/search
-│   └── edit.html             # Add/edit farm form
-└── api/
-    ├── Dockerfile
-    ├── requirements.txt
-    ├── app.py                # Flask API + Static server
-    └── data/
-        ├── schema.sql        # DB schema
-        ├── mollies_backup.sql # Full DB backup
-        └── scripts/          # Data import/maintenance scripts
+The seed dataset (`api/data/seed.sql`) contains 180+ geocoded locations covering Pennsylvania, Ohio, and West Virginia sourced from public directories and geocoded via the US Census Geocoder API.
+
+Source JSON files used to build the dataset are in `api/data/`:
+- `mollie_farms.json` — pick-your-own farms and farm stands
+- `mollie_markets.json` — farmers markets
+- `mollie_festivals.json` — county fairs and festivals
+
+Import and geocoding scripts are in `api/scripts/`.
+
+---
+
+## Runtime State and Persistence
+
+| Item | Location |
+|------|----------|
+| Database | Docker volume `event_map_db_data` |
+| Admin credentials | `.htpasswd` (host filesystem, bind-mounted into app container) |
+| Secrets | `.env` (auto-generated, not committed) |
+
+`.env` and `.htpasswd` are gitignored. Re-running `setup.sh` preserves existing passwords if `.env` already exists.
+
+To take a manual backup at any time:
+
+```bash
+docker exec event-map-db mysqldump -uroot \
+  -p$(grep MYSQL_ROOT_PASSWORD .env | cut -d= -f2) \
+  event_map > api/data/seed.sql
 ```
 
 ---
@@ -120,12 +124,12 @@ All public endpoints require no authentication.
 | GET | `/locations/<id>` | Single location with crops |
 | GET | `/categories` | All categories |
 | GET | `/counties` | All counties |
-| GET | `/crops/distinct` | Distinct crop names |
+| GET | `/crops/distinct` | Distinct crop names with counts |
 | GET | `/locations/<id>/notes` | Notes for a location |
 | POST | `/login` | Admin login |
 | POST | `/logout` | Admin logout |
 
-*Note: All endpoints also support the `/api/` prefix for backward compatibility (e.g. `/api/locations`).*
+All endpoints also respond under the `/api/` prefix (e.g. `/api/locations`).
 
 ### Filter parameters for `/locations`
 
@@ -139,26 +143,64 @@ All public endpoints require no authentication.
 
 ---
 
-## Ports
-
-| Port | Service |
-|------|---------|
-| 8090 | App (Frontend + API) |
-| 3308 | MySQL (host-side, for local access if enabled) |
-
----
-
 ## Admin Panel
 
 - **Login:** `/admin/login.html`
 - **Location list:** `/admin/`
-- **Edit/add location:** `/admin/edit.html?id=N`
+- **Edit / add location:** `/admin/edit.html?id=N`
 
-Sessions last 30 days.
+**Default local admin login:**
+```
+username: meeks
+password: meeks
+```
+
+> **Change these immediately after first login.** Use the Change Username / Change Password buttons in the admin panel header. Do not expose the admin interface publicly without setting a strong password.
+
+Credentials are stored as a bcrypt hash in `.htpasswd` on the host filesystem. Sessions last 24 hours.
 
 ---
 
-## Notes
+## Testing
 
-- Map default center: Verona, PA (40.5061, -79.8389), zoom 9
-- Geolocation (blue dot) requires HTTPS — works automatically via Cloudflare
+```bash
+# Health check
+curl http://localhost:8090/health
+
+# Location count
+curl http://localhost:8090/locations | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d), 'locations')"
+
+# Container status
+docker compose ps
+
+# Logs
+docker compose logs event-map-app
+docker compose logs event-map-db
+```
+
+---
+
+## Deployment Notes
+
+- **Port:** setup.sh finds the next available port starting at 8090. The assigned port is written to `.env`.
+- **HTTPS:** point a domain at the server IP and enable the Cloudflare proxy for automatic SSL. Geolocation (browser blue dot) requires HTTPS.
+- **Existing volumes:** if a `event_map_db_data` volume already exists (prior install), the database is reused and the seed step is skipped if the `locations` table is already populated.
+- **Re-running setup:** safe to re-run — passwords and credentials are preserved if `.env` and `.htpasswd` already exist.
+
+---
+
+## Known Limitations
+
+- Admin panel auth is session-based with bcrypt-verified credentials — no rate limiting on login attempts.
+- Map default center is set to western Pennsylvania (40.5061, -79.8389, zoom 9). Adjust in `js/main_v2.js` for other regions.
+- Geolocation requires HTTPS. On plain HTTP it silently does nothing.
+
+---
+
+## Roadmap / Future Work
+
+- Location search by address or name
+- User-submitted event suggestions with moderation queue
+- Public event submission form
+- Export to iCal / Google Calendar for events and fairs
+- Mobile-optimized detail panel

@@ -3,16 +3,18 @@ services:
     build:
       context: .
       dockerfile: api/Dockerfile
-    container_name: mollies-app
+    container_name: event-map-app
     ports:
-      - "${APP_PORT:-${FRONTEND_PORT:-8090}}:8080"
+      - "${APP_PORT:-8090}:8080"
     environment:
       - DB_HOST=db
       - DB_PORT=3306
-      - DB_NAME=mollies_guide
-      - DB_USER=mollies
+      - DB_NAME=event_map
+      - DB_USER=event_map
       - DB_PASSWORD=${DB_PASSWORD}
       - FLASK_SECRET=${FLASK_SECRET}
+    volumes:
+      - ./.htpasswd:/app/.htpasswd
     depends_on:
       db:
         condition: service_healthy
@@ -20,14 +22,14 @@ services:
 
   db:
     image: mysql:8.0
-    container_name: mollies-db
+    container_name: event-map-db
     environment:
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
-      - MYSQL_DATABASE=mollies_guide
-      - MYSQL_USER=mollies
+      - MYSQL_DATABASE=event_map
+      - MYSQL_USER=event_map
       - MYSQL_PASSWORD=${DB_PASSWORD}
     volumes:
-      - mollies_mysql:/var/lib/mysql
+      - event_map_db_data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
@@ -36,4 +38,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  mollies_mysql:
+  event_map_db_data:
+    name: event_map_db_data

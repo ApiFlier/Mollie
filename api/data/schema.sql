@@ -1,4 +1,4 @@
--- Mollie's Guide schema
+-- Event Map schema
 -- Charset/collation handled by MySQL container env vars
 
 CREATE TABLE IF NOT EXISTS categories (

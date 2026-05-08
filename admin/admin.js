@@ -1,5 +1,5 @@
 /**
- * Mollie's Guide - Admin JavaScript
+ * Event Map - Admin JavaScript
  */
 
 const AdminAPI = (() => {
@@ -577,4 +577,92 @@ const AdminAuth = (() => {
   }
 
   return { check: check, logout: logout };
+})();
+
+// ---------- CREDENTIALS MODAL ----------
+const AdminCredsModal = (() => {
+  var mode = null;
+  var modal, form, titleEl, flashEl;
+
+  function init() {
+    modal = document.getElementById("creds-modal");
+    if (!modal) return;
+    form = document.getElementById("modal-form");
+    titleEl = document.getElementById("modal-title");
+    flashEl = document.getElementById("modal-flash");
+
+    var btnUser = document.getElementById("btn-change-username");
+    var btnPass = document.getElementById("btn-change-password");
+    if (btnUser) btnUser.addEventListener("click", function() { open("username"); });
+    if (btnPass) btnPass.addEventListener("click", function() { open("password"); });
+
+    var closeBtn = document.getElementById("modal-close");
+    var cancelBtn = document.getElementById("modal-cancel");
+    if (closeBtn) closeBtn.addEventListener("click", close);
+    if (cancelBtn) cancelBtn.addEventListener("click", close);
+
+    modal.addEventListener("click", function(e) { if (e.target === modal) close(); });
+    form.addEventListener("submit", handleSubmit);
+  }
+
+  function open(m) {
+    mode = m;
+    flashEl.innerHTML = "";
+    form.reset();
+    titleEl.textContent = m === "username" ? "Change Username" : "Change Password";
+
+    document.getElementById("field-current-username").style.display = "none";
+    document.getElementById("field-new-username").style.display = m === "username" ? "" : "none";
+    document.getElementById("field-new-password").style.display = m === "password" ? "" : "none";
+    document.getElementById("field-confirm-password").style.display = m === "password" ? "" : "none";
+
+    modal.style.display = "";
+  }
+
+  function close() {
+    if (modal) modal.style.display = "none";
+    if (form) form.reset();
+    if (flashEl) flashEl.innerHTML = "";
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    flashEl.innerHTML = "";
+    var currentPassword = document.getElementById("m-current-password").value;
+    var payload = { current_password: currentPassword };
+
+    if (mode === "username") {
+      payload.new_username = document.getElementById("m-new-username").value.trim();
+      if (!payload.new_username) {
+        flashEl.innerHTML = '<div class="flash flash-error">New username is required.</div>';
+        return;
+      }
+    } else {
+      var newPw = document.getElementById("m-new-password").value;
+      var confirmPw = document.getElementById("m-confirm-password").value;
+      if (!newPw) {
+        flashEl.innerHTML = '<div class="flash flash-error">New password is required.</div>';
+        return;
+      }
+      if (newPw !== confirmPw) {
+        flashEl.innerHTML = '<div class="flash flash-error">Passwords do not match.</div>';
+        return;
+      }
+      payload.new_password = newPw;
+    }
+
+    var saveBtn = document.getElementById("modal-save");
+    saveBtn.disabled = true;
+
+    AdminAPI.updateCredentials(payload).then(function() {
+      flashEl.innerHTML = '<div class="flash flash-success">Updated successfully.</div>';
+      setTimeout(close, 2000);
+    }).catch(function(err) {
+      flashEl.innerHTML = '<div class="flash flash-error">' + escapeHtml(err.message) + '</div>';
+    }).finally(function() {
+      saveBtn.disabled = false;
+    });
+  }
+
+  return { init: init, open: open, close: close };
 })();
