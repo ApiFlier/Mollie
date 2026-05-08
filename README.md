@@ -27,7 +27,7 @@ docker --version && docker compose version
 ### Part 2 — Clone and run
 
 ```bash
-git clone https://github.com/ApiFlier/Mollie.git ./mollie && cd ./mollie && chmod +x setup.sh && ./setup.sh
+git clone https://github.com/ApiFlier/event-map.git ./mollie && cd ./mollie && chmod +x setup.sh && ./setup.sh
 ```
 
 That's it. The setup script:
