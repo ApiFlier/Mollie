@@ -383,5 +383,5 @@ table.locations-table {
 }
 .modal-close:hover { background: var(--bg); }
 
-/* Fix 3: Touch Targets (Admin) */
+/* Minimum 44px touch target for crop delete button */
 .crop-row .delete-cell button { width: 44px !important; height: 44px !important; }

@@ -1,6 +1,6 @@
 -- MySQL dump 10.13  Distrib 8.0.46, for Linux (x86_64)
 --
--- Host: localhost    Database: mollies_guide
+-- Host: localhost    Database: event_map
 -- ------------------------------------------------------
 -- Server version	8.0.46
 

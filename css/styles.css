@@ -152,12 +152,12 @@ h1 .subtitle {
   background: #1a1a1a;
 }
 
-.mollies-pin {
+.map-pin {
   background: transparent !important;
   border: none !important;
 }
 
-.mollies-pin svg {
+.map-pin svg {
   filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4));
 }
 
@@ -422,7 +422,7 @@ h1 .subtitle {
   font-style: italic;
 }
 
-/* Fix 1: Desktop Side Panel */
+/* Desktop: side panel instead of bottom sheet */
 @media (min-width: 768px) {
   .detail-panel {
     left: auto;
@@ -434,10 +434,10 @@ h1 .subtitle {
   }
 }
 
-/* Fix 3: Touch Targets (Public Site) */
+/* Minimum 44px touch targets on mobile */
 .detail-panel .close-btn { width: 44px !important; height: 44px !important; }
 .note-card .note-delete { width: 44px !important; height: 44px !important; }
 
-/* Fix 4: Hide Scrollbars on Filter Chips */
+/* Hide scrollbar on filter chip row — scrollable but visually clean */
 .chip-row::-webkit-scrollbar { display: none; }
 .chip-row { -ms-overflow-style: none; scrollbar-width: none; }

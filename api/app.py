@@ -1,4 +1,5 @@
 import os
+import json
 import bcrypt
 from flask import Flask, jsonify, request, session, send_from_directory
 from flask_cors import CORS
@@ -216,23 +217,47 @@ def get_location(loc_id):
 @app.route("/locations/<int:loc_id>", methods=["PUT"])
 @app.route("/api/locations/<int:loc_id>", methods=["PUT"])
 def update_location(loc_id):
+    err = _require_auth()
+    if err: return err
     data = request.get_json() or {}
     conn = get_conn()
     try:
-        cur = conn.cursor()
+        cur = conn.cursor(dictionary=True)
+        # Accept category by name (from admin form) or by id
+        category_id = data.get('category_id')
+        if not category_id and data.get('category'):
+            cur.execute("SELECT id FROM categories WHERE name = %s", (data.get('category'),))
+            row = cur.fetchone()
+            if row:
+                category_id = row['id']
+
+        pm = data.get('payment_methods')
+        am = data.get('amenities')
         sql = """
             UPDATE locations SET
-            name = %s, address = %s, city = %s, zip = %s, phone = %s,
-            website = %s, hours = %s, notes = %s, category_id = %s,
-            event_date = %s, county = %s,
-            season_start_month = %s, season_end_month = %s
+            name = %s, address = %s, city = %s, state = %s, zip = %s,
+            lat = %s, lng = %s, phone = %s, alt_phone = %s, email = %s,
+            website = %s, facebook_url = %s, hours = %s, notes = %s,
+            category_id = %s, event_date = %s, county = %s,
+            season_start_month = %s, season_end_month = %s,
+            organic = %s, pesticide_free = %s, low_chemical = %s,
+            payment_methods = %s, amenities = %s
             WHERE id = %s
         """
         params = (
-            data.get('name'), data.get('address'), data.get('city'), data.get('zip'),
-            data.get('phone'), data.get('website'), data.get('hours'), data.get('notes'),
-            data.get('category_id'), data.get('event_date'), data.get('county'),
-            data.get('season_start_month'), data.get('season_end_month'), loc_id
+            data.get('name'), data.get('address'), data.get('city'),
+            data.get('state', 'PA'), data.get('zip'),
+            data.get('lat'), data.get('lng'),
+            data.get('phone'), data.get('alt_phone'), data.get('email'),
+            data.get('website'), data.get('facebook_url'),
+            data.get('hours'), data.get('notes'),
+            category_id, data.get('event_date'), data.get('county'),
+            data.get('season_start_month'), data.get('season_end_month'),
+            bool(data.get('organic')), bool(data.get('pesticide_free')),
+            bool(data.get('low_chemical')),
+            json.dumps(pm) if pm is not None else None,
+            json.dumps(am) if am is not None else None,
+            loc_id
         )
         cur.execute(sql, params)
         conn.commit()
@@ -299,19 +324,52 @@ def get_counties():
 @app.route("/locations", methods=["POST"])
 @app.route("/api/locations", methods=["POST"])
 def create_location():
+    err = _require_auth()
+    if err: return err
     data = request.get_json() or {}
     conn = get_conn()
     try:
-        cur = conn.cursor()
-        sql = '''
-            INSERT INTO locations (name, address, city, zip, phone, website, hours, notes, category_id, event_date, county, season_start_month, season_end_month)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        '''
+        cur = conn.cursor(dictionary=True)
+        # Accept category by name (from admin form) or by id
+        category_id = data.get('category_id')
+        if not category_id and data.get('category'):
+            cur.execute("SELECT id FROM categories WHERE name = %s", (data.get('category'),))
+            row = cur.fetchone()
+            if row:
+                category_id = row['id']
+
+        pm = data.get('payment_methods')
+        am = data.get('amenities')
+        sql = """
+            INSERT INTO locations (
+                name, address, city, state, zip, lat, lng,
+                phone, alt_phone, email, website, facebook_url,
+                hours, notes, category_id, event_date, county,
+                season_start_month, season_end_month,
+                organic, pesticide_free, low_chemical,
+                payment_methods, amenities
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s,
+                %s, %s,
+                %s, %s, %s,
+                %s, %s
+            )
+        """
         params = (
-            data.get('name'), data.get('address'), data.get('city'), data.get('zip'),
-            data.get('phone'), data.get('website'), data.get('hours'), data.get('notes'),
-            data.get('category_id'), data.get('event_date'), data.get('county'),
-            data.get('season_start_month'), data.get('season_end_month')
+            data.get('name'), data.get('address'), data.get('city'),
+            data.get('state', 'PA'), data.get('zip'),
+            data.get('lat'), data.get('lng'),
+            data.get('phone'), data.get('alt_phone'), data.get('email'),
+            data.get('website'), data.get('facebook_url'),
+            data.get('hours'), data.get('notes'),
+            category_id, data.get('event_date'), data.get('county'),
+            data.get('season_start_month'), data.get('season_end_month'),
+            bool(data.get('organic')), bool(data.get('pesticide_free')),
+            bool(data.get('low_chemical')),
+            json.dumps(pm) if pm is not None else None,
+            json.dumps(am) if am is not None else None
         )
         cur.execute(sql, params)
         new_id = cur.lastrowid
@@ -324,6 +382,8 @@ def create_location():
 @app.route("/locations/<int:loc_id>", methods=["DELETE"])
 @app.route("/api/locations/<int:loc_id>", methods=["DELETE"])
 def delete_location(loc_id):
+    err = _require_auth()
+    if err: return err
     conn = get_conn()
     try:
         cur = conn.cursor()
@@ -337,6 +397,8 @@ def delete_location(loc_id):
 @app.route("/locations/<int:loc_id>/crops", methods=["POST"])
 @app.route("/api/locations/<int:loc_id>/crops", methods=["POST"])
 def add_loc_crop(loc_id):
+    err = _require_auth()
+    if err: return err
     data = request.get_json() or {}
     conn = get_conn()
     try:
@@ -352,6 +414,8 @@ def add_loc_crop(loc_id):
 @app.route("/crops/<int:crop_id>", methods=["PUT"])
 @app.route("/api/crops/<int:crop_id>", methods=["PUT"])
 def update_loc_crop(crop_id):
+    err = _require_auth()
+    if err: return err
     data = request.get_json() or {}
     conn = get_conn()
     try:
@@ -367,6 +431,8 @@ def update_loc_crop(crop_id):
 @app.route("/crops/<int:crop_id>", methods=["DELETE"])
 @app.route("/api/crops/<int:crop_id>", methods=["DELETE"])
 def delete_loc_crop(crop_id):
+    err = _require_auth()
+    if err: return err
     conn = get_conn()
     try:
         cur = conn.cursor()

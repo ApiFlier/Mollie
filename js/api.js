@@ -1,10 +1,9 @@
 /**
- * API abstraction layer for Event Map.
- * All backend calls route through MolliesAPI — do not call fetch() directly.
+ * API layer for Event Map.
+ * All backend calls route through EventMapAPI — do not call fetch() directly from other modules.
  */
 
-const MolliesAPI = (() => {
-  // API lives at /api/*
+const EventMapAPI = (() => {
   const BASE = "/api";
 
   async function request(path, params = null) {
@@ -49,8 +48,8 @@ const MolliesAPI = (() => {
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return await r.json();
     },
-    deleteNote: async (noteId) => {
-      const r = await fetch(`/api/notes/${noteId}`, { method: "DELETE" });
+    deleteNote: async (locId, noteId) => {
+      const r = await fetch(`/api/locations/${locId}/notes/${noteId}`, { method: "DELETE" });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return await r.json();
     }

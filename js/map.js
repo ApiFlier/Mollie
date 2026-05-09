@@ -3,7 +3,7 @@
  * Uses Leaflet with Esri World Imagery (aerial) plus a labels overlay.
  */
 
-const MolliesMap = (() => {
+const EventMapMap = (() => {
   const DEFAULT_CENTER = [40.5061, -79.8389];
   const DEFAULT_ZOOM = 9;
 
@@ -45,7 +45,7 @@ const MolliesMap = (() => {
     svg += '</svg>';
     return L.divIcon({
       html: svg,
-      className: "mollies-pin",
+      className: "map-pin",
       iconSize: [28, 38],
       iconAnchor: [14, 38],
       popupAnchor: [0, -34]

@@ -6,7 +6,7 @@
  * since markets and festivals have season_start_month set.
  */
 
-const MolliesFilters = (() => {
+const EventMapFilters = (() => {
   const FARM_CATEGORIES = ["farm", "pick-your-own", ""];  // "" = All
 
   const state = {
@@ -154,8 +154,8 @@ const MolliesFilters = (() => {
     }
 
     Promise.all([
-      MolliesAPI.getCategories(),
-      MolliesAPI.getDistinctCrops()
+      EventMapAPI.getCategories(),
+      EventMapAPI.getDistinctCrops()
     ]).then(function(results) {
       buildCategoryChips(results[0]);
       buildCropDropdown(results[1]);

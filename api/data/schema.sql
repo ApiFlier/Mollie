@@ -65,7 +65,7 @@ INSERT INTO categories (name, icon, color, display_order) VALUES
     ('fair', 'ferris-wheel', '#5d3a6b', 40),
     ('other', 'pin', '#c4633a', 50);
 
-CREATE TABLE IF NOT EXISTS user_notes (
+CREATE TABLE IF NOT EXISTS notes (
     id INT AUTO_INCREMENT PRIMARY KEY,
     location_id INT NOT NULL,
     note TEXT NOT NULL,

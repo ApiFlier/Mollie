@@ -1,6 +1,6 @@
 (function() {
   var detailPanel, detailContent, resultCount;
-  function escapeHtml(s) { return s ? String(s).replace(/&/g, "&").replace(/</g, "<").replace(/>/g, ">") : ""; }
+  function escapeHtml(s) { return s ? String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") : ""; }
 
   function renderDetail(loc) {
     var html = '<h2>' + escapeHtml(loc.name) + '</h2>';
@@ -62,35 +62,34 @@
       var ta = document.getElementById("note-input-" + loc.id);
       var txt = ta.value.trim();
       if(!txt) return;
-      MolliesAPI.addNote(loc.id, txt).then(function() {
+      EventMapAPI.addNote(loc.id, txt).then(function() {
         ta.value = "";
         loadNotes(loc.id);
       });
     };
   }
 
-  // New delete function that talks to our new Python route
   window.deleteNote = function(locId, noteId) {
     if (!confirm("Are you sure you want to delete this note?")) return;
-    fetch('/api/locations/' + locId + '/notes/' + noteId, { method: 'DELETE' })
+    EventMapAPI.deleteNote(locId, noteId)
       .then(function() { loadNotes(locId); })
       .catch(function(err) { console.error(err); alert("Failed to delete note."); });
   };
 
-  // Updated loadNotes to display timestamp and delete button
   window.loadNotes = function(id) {
     var el = document.getElementById("notes-list-" + id);
-    MolliesAPI.getNotes(id).then(function(notes) {
+    EventMapAPI.getNotes(id).then(function(notes) {
       if (!notes.length) {
         el.innerHTML = '<div style="color:#999; font-size:12px;">No personal notes yet.</div>';
         return;
       }
       var html = "";
       notes.forEach(function(n) {
-        // Parse the SQL timestamp into a friendly local date/time
         var d = new Date(n.created_at);
-        var dateStr = !isNaN(d.getTime()) ? d.toLocaleDateString() + ' at ' + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Unknown Date';
-        
+        var dateStr = !isNaN(d.getTime())
+          ? d.toLocaleDateString() + ' at ' + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+          : 'Unknown Date';
+
         html += '<div class="note-card" style="background:#f9f9f9; padding:8px 24px 8px 8px; margin-bottom:5px; border-radius:4px; font-size:13px; position:relative;">';
         html += '<div style="color:#888; font-size:11px; margin-bottom:4px;">Added on ' + dateStr + '</div>';
         html += '<div style="white-space:pre-wrap;">' + escapeHtml(n.note) + '</div>';
@@ -108,13 +107,13 @@
     detailContent = document.getElementById("detail-content");
     resultCount = document.getElementById("result-count");
     document.getElementById("detail-close").onclick = function() { detailPanel.classList.remove("open"); };
-    
-    MolliesMap.init("map");
-    MolliesMap.setOnMarkerClick(function(loc) { 
-      MolliesAPI.getLocation(loc.id).then(renderDetail); 
+
+    EventMapMap.init("map");
+    EventMapMap.setOnMarkerClick(function(loc) {
+      EventMapAPI.getLocation(loc.id).then(renderDetail);
     });
 
-    MolliesFilters.init({
+    EventMapFilters.init({
       categories: document.getElementById("category-chips"),
       crop: document.getElementById("crop-select"),
       month: document.getElementById("month-select"),
@@ -122,12 +121,12 @@
       organic: document.getElementById("organic-toggle")
     }, {
       onChange: function(f) {
-        MolliesAPI.getLocations(f).then(function(ls) {
-          MolliesMap.renderLocations(ls);
+        EventMapAPI.getLocations(f).then(function(ls) {
+          EventMapMap.renderLocations(ls);
           if(resultCount) resultCount.textContent = ls.length + " item" + (ls.length === 1 ? "" : "s");
         });
       },
-      onReady: function() { MolliesAPI.getLocations({}).then(MolliesMap.renderLocations); }
+      onReady: function() { EventMapAPI.getLocations({}).then(EventMapMap.renderLocations); }
     });
   });
 })();
