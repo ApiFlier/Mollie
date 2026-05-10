@@ -13,3 +13,5 @@ deploy.env
 backups/
 logs/
 reports/
+# Local neutral backups live outside the repo at ~/.event-map/backups/ — no entry needed here.
+# scripts/find-duplicates.py output goes to stdout; no files to ignore.
