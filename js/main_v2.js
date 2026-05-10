@@ -1,6 +1,39 @@
 (function() {
   var detailPanel, detailContent, resultCount;
+  var currentLocations = [];
+  var currentView = "map";
+  var listEmptyReason = "";
+  var miniMap = null;
+  var miniMapMarker = null;
+  var detailFromList = false;
+
   function escapeHtml(s) { return s ? String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") : ""; }
+
+  // ── Mini-map ─────────────────────────────────────────────────────────────────
+
+  function updateMiniMap(lat, lng, color) {
+    var container = document.getElementById("detail-minimap");
+    if (!miniMap) {
+      miniMap = L.map(container, {
+        zoomControl: false,
+        dragging: false,
+        scrollWheelZoom: false,
+        doubleClickZoom: false,
+        touchZoom: false,
+        keyboard: false,
+        attributionControl: false
+      });
+      var base = "https://server.arcgisonline.com/ArcGIS/rest/services/";
+      L.tileLayer(base + "World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19 }).addTo(miniMap);
+      L.tileLayer(base + "Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19 }).addTo(miniMap);
+    }
+    miniMap.setView([lat, lng], 14);
+    if (miniMapMarker) miniMap.removeLayer(miniMapMarker);
+    miniMapMarker = L.marker([lat, lng], { icon: EventMapMap.makeIcon(color || "#8b2331") }).addTo(miniMap);
+    miniMap.invalidateSize();
+  }
+
+  // ── Detail panel ─────────────────────────────────────────────────────────────
 
   function renderDetail(loc) {
     var html = '<h2>' + escapeHtml(loc.name) + '</h2>';
@@ -55,13 +88,24 @@
     html += '<button class="add-btn" id="add-note-btn-' + loc.id + '" style="margin-top:5px;">Add Note</button></div></div>';
 
     detailContent.innerHTML = html;
-    detailPanel.classList.add("open");
+
+    // Mini-map
+    var minimapEl = document.getElementById("detail-minimap");
+    if (loc.lat != null && loc.lng != null) {
+      minimapEl.style.display = "";
+      detailPanel.classList.add("open");
+      setTimeout(function() { updateMiniMap(loc.lat, loc.lng, loc.category_color); }, 60);
+    } else {
+      minimapEl.style.display = "none";
+      detailPanel.classList.add("open");
+    }
+
     loadNotes(loc.id);
 
     document.getElementById("add-note-btn-" + loc.id).onclick = function() {
       var ta = document.getElementById("note-input-" + loc.id);
       var txt = ta.value.trim();
-      if(!txt) return;
+      if (!txt) return;
       EventMapAPI.addNote(loc.id, txt).then(function() {
         ta.value = "";
         loadNotes(loc.id);
@@ -102,31 +146,135 @@
     });
   };
 
+  // ── List view ─────────────────────────────────────────────────────────────────
+
+  function renderListView(locations) {
+    var listEl = document.getElementById("list-view");
+    if (!locations.length) {
+      var msg = listEmptyReason === "no-categories"
+        ? "Select at least one category to see places here."
+        : "No places match the current filters.";
+      listEl.innerHTML = '<div class="list-empty">' + msg + '</div>';
+      return;
+    }
+
+    var html = '<div class="list-grid">';
+    locations.forEach(function(loc, idx) {
+      var desc = "";
+      if (loc.event_date) desc = loc.event_date;
+      else if (loc.notes)  desc = loc.notes.length > 110 ? loc.notes.substring(0, 110) + "…" : loc.notes;
+      else if (loc.hours)  desc = loc.hours;
+
+      var location = "";
+      if (loc.city && loc.county) location = loc.city + " · " + loc.county + " Co.";
+      else if (loc.city)          location = loc.city;
+      else if (loc.county)        location = loc.county + " County";
+
+      var color = loc.category_color || "#8b2331";
+
+      html += '<div class="list-card" data-id="' + loc.id + '" data-idx="' + idx + '">';
+      html += '<div class="list-card-header">';
+      html += '<span class="list-card-name">' + escapeHtml(loc.name) + '</span>';
+      html += '<span class="list-card-cat" style="background:' + escapeHtml(color) + '">' + escapeHtml(loc.category || "") + '</span>';
+      html += '</div>';
+      if (location) html += '<div class="list-card-location">' + escapeHtml(location) + '</div>';
+      if (desc)     html += '<div class="list-card-desc">'     + escapeHtml(desc) + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+    listEl.innerHTML = html;
+
+    listEl.querySelectorAll(".list-card").forEach(function(card) {
+      card.addEventListener("click", function() {
+        var id  = parseInt(card.dataset.id, 10);
+        var idx = parseInt(card.dataset.idx, 10);
+        var listLoc = currentLocations[idx];
+        EventMapAPI.getLocation(id).then(function(fullLoc) {
+          if (listLoc) fullLoc.category_color = listLoc.category_color;
+          document.getElementById("detail-back").style.display = "";
+          renderDetail(fullLoc);
+        });
+      });
+    });
+  }
+
+  // ── View toggle ───────────────────────────────────────────────────────────────
+
+  function setView(view) {
+    currentView = view;
+    var mapEl  = document.getElementById("map");
+    var listEl = document.getElementById("list-view");
+    var btnMap  = document.getElementById("toggle-map");
+    var btnList = document.getElementById("toggle-list");
+
+    btnMap.classList.toggle("view-btn-active",  view === "map");
+    btnList.classList.toggle("view-btn-active", view === "list");
+    btnMap.setAttribute("aria-pressed",  String(view === "map"));
+    btnList.setAttribute("aria-pressed", String(view === "list"));
+
+    if (view === "map") {
+      mapEl.style.display  = "";
+      listEl.style.display = "none";
+      EventMapMap.invalidateSize();
+    } else {
+      mapEl.style.display  = "none";
+      listEl.style.display = "";
+      renderListView(currentLocations);
+    }
+  }
+
+  // ── Bootstrap ─────────────────────────────────────────────────────────────────
+
   document.addEventListener("DOMContentLoaded", function() {
-    detailPanel = document.getElementById("detail-panel");
+    detailPanel  = document.getElementById("detail-panel");
     detailContent = document.getElementById("detail-content");
-    resultCount = document.getElementById("result-count");
-    document.getElementById("detail-close").onclick = function() { detailPanel.classList.remove("open"); };
+    resultCount  = document.getElementById("result-count");
+
+    document.getElementById("detail-close").onclick = function() {
+      detailPanel.classList.remove("open");
+    };
+
+    document.getElementById("detail-back").onclick = function() {
+      detailPanel.classList.remove("open");
+    };
+
+    document.getElementById("toggle-map").onclick  = function() { setView("map"); };
+    document.getElementById("toggle-list").onclick = function() { setView("list"); };
 
     EventMapMap.init("map");
+
     EventMapMap.setOnMarkerClick(function(loc) {
-      EventMapAPI.getLocation(loc.id).then(renderDetail);
+      document.getElementById("detail-back").style.display = "none";
+      EventMapAPI.getLocation(loc.id).then(function(fullLoc) {
+        fullLoc.category_color = loc.category_color;
+        renderDetail(fullLoc);
+      });
     });
 
     EventMapFilters.init({
       categories: document.getElementById("category-chips"),
-      crop: document.getElementById("crop-select"),
-      month: document.getElementById("month-select"),
-      pyo: document.getElementById("pyo-toggle"),
-      organic: document.getElementById("organic-toggle")
+      crop:       document.getElementById("crop-select"),
+      month:      document.getElementById("month-select"),
+      pyo:        document.getElementById("pyo-toggle"),
+      organic:    document.getElementById("organic-toggle")
     }, {
       onChange: function(f) {
+        if (f._empty) {
+          listEmptyReason   = "no-categories";
+          currentLocations  = [];
+          EventMapMap.renderLocations([]);
+          if (resultCount) resultCount.textContent = "0 items";
+          if (currentView === "list") renderListView([]);
+          return;
+        }
         EventMapAPI.getLocations(f).then(function(ls) {
+          listEmptyReason  = ls.length === 0 ? "no-results" : "";
+          currentLocations = ls;
           EventMapMap.renderLocations(ls);
-          if(resultCount) resultCount.textContent = ls.length + " item" + (ls.length === 1 ? "" : "s");
+          if (resultCount) resultCount.textContent = ls.length + " item" + (ls.length === 1 ? "" : "s");
+          if (currentView === "list") renderListView(ls);
         });
-      },
-      onReady: function() { EventMapAPI.getLocations({}).then(EventMapMap.renderLocations); }
+      }
     });
   });
 })();

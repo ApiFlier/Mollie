@@ -8,3 +8,8 @@ node_modules/
 .htpasswd
 deploy.env
 *_backup_*.sql
+*.sqlite
+*.db
+backups/
+logs/
+reports/

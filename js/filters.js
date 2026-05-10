@@ -1,16 +1,15 @@
 /**
  * Filter UI for Event Map.
  *
- * Farm-only controls (crop, PYO, organic) are hidden when a non-farm
- * category is active. Month filter stays visible for all categories
- * since markets and festivals have season_start_month set.
+ * Categories are multi-select toggles. Farm-only controls (crop, PYO, organic)
+ * are visible whenever the "farm" category is selected.
  */
 
 const EventMapFilters = (() => {
-  const FARM_CATEGORIES = ["farm", "pick-your-own", ""];  // "" = All
+  const DEFAULT_SELECTED = new Set(["farm", "festival", "fair"]);
 
   const state = {
-    category: "",
+    categories: new Set(DEFAULT_SELECTED),
     crop: "",
     month: "",
     pyo_only: false,
@@ -19,12 +18,29 @@ const EventMapFilters = (() => {
 
   let onChangeHandler = null;
   let categoriesEl, cropEl, monthEl, pyoEl, organicEl;
-  let pyoLabel, organicLabel;  // the wrapping <label> elements
+  let pyoLabel, organicLabel;
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
-  function isFarm(cat) {
-    return FARM_CATEGORIES.includes(cat);
+  function isLightColor(hex) {
+    if (!hex || hex.length < 7) return false;
+    var r = parseInt(hex.slice(1, 3), 16);
+    var g = parseInt(hex.slice(3, 5), 16);
+    var b = parseInt(hex.slice(5, 7), 16);
+    return (r * 299 + g * 587 + b * 114) / 1000 > 160;
+  }
+
+  function setChipActive(btn, active) {
+    var color = btn.dataset.color || "#8b2331";
+    if (active) {
+      btn.style.background = color;
+      btn.style.borderColor = color;
+      btn.style.color = isLightColor(color) ? "#333" : "#fff";
+    } else {
+      btn.style.background = "";
+      btn.style.borderColor = color;
+      btn.style.color = "";
+    }
   }
 
   function setFarmControlsVisible(visible) {
@@ -34,31 +50,10 @@ const EventMapFilters = (() => {
     if (organicLabel) organicLabel.style.display = d;
   }
 
-  function emitChange() {
-    if (!onChangeHandler) return;
-    var p = {};
-    if (state.category) p.category  = state.category;
-    if (state.crop)     p.crop      = state.crop;
-    if (state.month)    p.month     = state.month;
-    if (state.pyo_only) p.pyo_only  = "true";
-    if (state.organic)  p.organic   = "true";
-    onChangeHandler(p);
-  }
-
-  // ── Category selection ───────────────────────────────────────────────────────
-
-  function selectCategory(value) {
-    state.category = value;
-
-    categoriesEl.querySelectorAll(".chip").forEach(function(c) {
-      c.classList.toggle("chip-active", c.dataset.value === value);
-    });
-
-    var farm = isFarm(value);
-    setFarmControlsVisible(farm);
-
-    // Reset farm-only state when leaving farm context
-    if (!farm) {
+  function updateFarmControls() {
+    var farmSelected = state.categories.has("farm");
+    setFarmControlsVisible(farmSelected);
+    if (!farmSelected) {
       state.crop     = "";
       state.pyo_only = false;
       state.organic  = false;
@@ -66,7 +61,37 @@ const EventMapFilters = (() => {
       if (pyoEl)     pyoEl.checked     = false;
       if (organicEl) organicEl.checked = false;
     }
+  }
 
+  function emitChange() {
+    if (!onChangeHandler) return;
+    if (state.categories.size === 0) {
+      onChangeHandler({ _empty: true });
+      return;
+    }
+    var p = {};
+    p.category = Array.from(state.categories).join(",");
+    if (state.crop)     p.crop      = state.crop;
+    if (state.month)    p.month     = state.month;
+    if (state.pyo_only) p.pyo_only  = "true";
+    if (state.organic)  p.organic   = "true";
+    onChangeHandler(p);
+  }
+
+  // ── Category toggle ──────────────────────────────────────────────────────────
+
+  function toggleCategory(value) {
+    if (state.categories.has(value)) {
+      state.categories.delete(value);
+    } else {
+      state.categories.add(value);
+    }
+
+    categoriesEl.querySelectorAll(".chip").forEach(function(c) {
+      setChipActive(c, state.categories.has(c.dataset.value));
+    });
+
+    updateFarmControls();
     emitChange();
   }
 
@@ -74,21 +99,14 @@ const EventMapFilters = (() => {
 
   function buildCategoryChips(categories) {
     categoriesEl.innerHTML = "";
-
-    var allBtn = document.createElement("button");
-    allBtn.className = "chip chip-active";
-    allBtn.textContent = "All";
-    allBtn.dataset.value = "";
-    allBtn.onclick = function() { selectCategory(""); };
-    categoriesEl.appendChild(allBtn);
-
     categories.forEach(function(c) {
       var btn = document.createElement("button");
       btn.className = "chip";
       btn.textContent = c.name.charAt(0).toUpperCase() + c.name.slice(1).replace(/-/g, " ");
       btn.dataset.value = c.name;
-      btn.style.borderColor = c.color;
-      btn.onclick = function() { selectCategory(c.name); };
+      btn.dataset.color = c.color || "#8b2331";
+      setChipActive(btn, state.categories.has(c.name));
+      btn.onclick = function() { toggleCategory(c.name); };
       categoriesEl.appendChild(btn);
     });
   }
@@ -134,12 +152,9 @@ const EventMapFilters = (() => {
 
     onChangeHandler = callbacks.onChange;
 
-    // Grab the wrapping <label> for pyo and organic so we hide the
-    // whole label+checkbox unit, not just the checkbox
     if (pyoEl)     pyoLabel     = pyoEl.closest("label")     || pyoEl.parentElement;
     if (organicEl) organicLabel = organicEl.closest("label") || organicEl.parentElement;
 
-    // Wire up toggles
     if (pyoEl) {
       pyoEl.onchange = function() {
         state.pyo_only = pyoEl.checked;
@@ -161,10 +176,8 @@ const EventMapFilters = (() => {
       buildCropDropdown(results[1]);
       buildMonthDropdown();
 
-      // Start in "All" context — farm controls visible by default
-      setFarmControlsVisible(true);
-
-      if (callbacks.onReady) callbacks.onReady();
+      updateFarmControls();
+      emitChange();  // trigger initial load with default-selected categories
     }).catch(function(err) {
       console.error("Filters init failed:", err);
     });

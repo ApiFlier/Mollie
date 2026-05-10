@@ -103,6 +103,8 @@ const EventMapMap = (() => {
     renderLocations: renderLocations,
     fitToMarkers: fitToMarkers,
     panTo: panTo,
-    showUserLocation: showUserLocation
+    showUserLocation: showUserLocation,
+    makeIcon: makeIcon,
+    invalidateSize: function() { if (map) map.invalidateSize(); }
   };
 })();
