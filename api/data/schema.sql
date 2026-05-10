@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS crops (
 
 -- Seed categories
 INSERT INTO categories (name, icon, color, display_order) VALUES
-    ('farm', 'apple', '#8b2331', 10),
+    ('farm', 'apple', '#2e6b3e', 10),
     ('farmers-market', 'basket', '#7a8b5a', 20),
     ('festival', 'party', '#5d3a6b', 30),
     ('fair', 'ferris-wheel', '#5d3a6b', 40),
