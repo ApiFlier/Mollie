@@ -193,18 +193,25 @@ h1 .subtitle {
   position: absolute;
   top: 8px;
   right: 8px;
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: transparent;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  background: var(--bg-panel);
   font-size: 20px;
   color: var(--ink-soft);
   cursor: pointer;
   border-radius: 50%;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  box-shadow: 0 1px 4px rgba(58,40,32,0.10);
 }
 
 .detail-panel .close-btn:hover {
   background: var(--bg);
+  color: var(--ink);
 }
 
 .detail-panel h2 {
@@ -435,24 +442,19 @@ h1 .subtitle {
 }
 
 /* Minimum 44px touch targets on mobile */
-.detail-panel .close-btn { width: 44px !important; height: 44px !important; }
+.detail-panel .close-btn { width: 44px !important; height: 44px !important; z-index: 900 !important; }
 .note-card .note-delete { width: 44px !important; height: 44px !important; }
 
 /* Hide scrollbar on filter chip row — scrollable but visually clean */
 .chip-row::-webkit-scrollbar { display: none; }
 .chip-row { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* ── Header top row (title + view toggle) ───────────────────────────────────── */
-.header-top {
+/* ── View-toggle row (inside .filters, below h1) ────────────────────────────── */
+.view-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
-.header-top h1 {
-  margin: 0;
+  gap: 8px;
 }
 
 /* ── Map / List view toggle ─────────────────────────────────────────────────── */
