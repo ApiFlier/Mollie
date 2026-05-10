@@ -571,6 +571,35 @@ h1 .subtitle {
   margin-bottom: 14px;
   border: 1px solid var(--line);
   flex-shrink: 0;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+#detail-minimap:hover {
+  opacity: 0.9;
+}
+
+/* ── Directions button in detail panel ───────────────────────────────────────── */
+.directions-btn {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  background: var(--berry);
+  color: #fff !important;
+  text-align: center;
+  text-decoration: none !important;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  margin-top: 16px;
+  border: none;
+  cursor: pointer;
+  transition: filter 0.2s ease;
+}
+
+.directions-btn:hover {
+  filter: brightness(1.1);
+  border-bottom: none !important;
 }
 
 /* ── Back-to-list button in detail panel ────────────────────────────────────── */

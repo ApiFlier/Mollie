@@ -167,8 +167,11 @@ The **Season / Schedule** section appears in the admin form for:
 | festival | Yes | Controls month filter visibility |
 | fair | Yes | Controls month filter visibility |
 | other | Yes | Controls month filter visibility |
+| butcher | Yes | Year-round businesses should set Jan (start) → Dec (end) |
 
 **Active Month Start** and **Active Month End** define the range of months this item appears in when a month filter is active. Leave both blank if the schedule is unknown — the item will still appear when no month filter is active.
+
+For year-round businesses (butchers), set Jan (start) and Dec (end) so they appear in all month-filtered results.
 
 For a single-month event, set both start and end to the same month.
 

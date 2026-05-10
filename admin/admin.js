@@ -223,14 +223,14 @@ const AdminEdit = (() => {
     if (secHours) secHours.style.display = "none";
 
     // Show sections based on category
-    if (cat === "fair" || cat === "festival" || cat === "farmers-market" || cat === "other") {
+    if (cat === "fair" || cat === "festival" || cat === "farmers-market" || cat === "other" || cat === "butcher") {
       if (secSchedule) secSchedule.style.display = "block";
     }
     if (cat === "farm") {
       if (secCrops) secCrops.style.display = "block";
       if (secHours) secHours.style.display = "block";
     }
-    if (cat === "farmers-market") {
+    if (cat === "farmers-market" || cat === "butcher") {
       if (secHours) secHours.style.display = "block";
     }
   }

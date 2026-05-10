@@ -2,6 +2,7 @@
   var detailPanel, detailContent, resultCount;
   var currentLocations = [];
   var currentView = "map";
+  var currentDetailLoc = null;
   var listEmptyReason = "";
   var listSearchTerm = "";
   var miniMap = null;
@@ -36,6 +37,7 @@
   // ── Detail panel ─────────────────────────────────────────────────────────────
 
   function renderDetail(loc, source) {
+    currentDetailLoc = loc;
     var html = '<h2>' + escapeHtml(loc.name) + '</h2>';
     var cty = loc.county ? ' · ' + escapeHtml(loc.county) + ' County' : '';
     html += '<div class="meta">' + escapeHtml(loc.category) + cty + '</div>';
@@ -50,10 +52,23 @@
       html += '<div style="white-space:pre-wrap; font-size:14px; color: #555;">' + escapeHtml(loc.notes) + '</div></div>';
     }
 
+    var fullAddr = "";
     if (loc.address) {
-      var addr = loc.address + ", " + (loc.city || "") + ", " + (loc.state || "") + " " + (loc.zip || "");
+      fullAddr = loc.address + ", " + (loc.city || "") + ", " + (loc.state || "") + " " + (loc.zip || "");
       html += '<div class="section"><div class="section-label">Address</div>';
-      html += '<a href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(addr) + '" target="_blank">' + escapeHtml(addr) + '</a></div>';
+      html += '<a href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(fullAddr) + '" target="_blank">' + escapeHtml(fullAddr) + '</a></div>';
+    }
+
+    // Directions button
+    var directionsUrl = "";
+    if (loc.lat != null && loc.lng != null) {
+      directionsUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + loc.lat + ',' + loc.lng;
+    } else if (fullAddr) {
+      directionsUrl = 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(fullAddr);
+    }
+
+    if (directionsUrl) {
+      html += '<a href="' + directionsUrl + '" class="directions-btn" target="_blank" rel="noopener noreferrer">Get directions</a>';
     }
 
     if (loc.hours && loc.hours !== loc.event_date) {
@@ -281,6 +296,14 @@
 
     document.getElementById("detail-back").onclick = function() {
       detailPanel.classList.remove("open");
+    };
+
+    document.getElementById("detail-minimap").onclick = function() {
+      if (currentDetailLoc && currentDetailLoc.lat != null && currentDetailLoc.lng != null) {
+        setView("map");
+        EventMapMap.panTo(currentDetailLoc.lat, currentDetailLoc.lng, 15);
+        detailPanel.classList.remove("open");
+      }
     };
 
     document.getElementById("toggle-map").onclick  = function() { setView("map"); };

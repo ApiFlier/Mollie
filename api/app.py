@@ -369,6 +369,34 @@ def create_location():
     conn = get_conn()
     try:
         cur = conn.cursor(dictionary=True)
+
+        # Duplicate check
+        name = data.get('name', '').strip()
+        city = data.get('city', '').strip()
+        address = data.get('address', '').strip()
+
+        if name and city:
+            # Look for exact name/city/address match
+            check_sql = "SELECT id, name, city, address FROM locations WHERE name = %s AND city = %s"
+            check_params = [name, city]
+            if address:
+                check_sql += " AND address = %s"
+                check_params.append(address)
+            else:
+                check_sql += " AND (address IS NULL OR address = '')"
+            
+            check_sql += " LIMIT 1"
+
+            cur.execute(check_sql, tuple(check_params))
+            existing = cur.fetchone()
+            if existing:
+                cur.close()
+                return jsonify({
+                    "error": "Location already exists",
+                    "existing_id": existing['id'],
+                    "message": f"A location with name '{name}' already exists in {city} (ID: {existing['id']})."
+                }), 409
+
         # Accept category by name (from admin form) or by id
         category_id = data.get('category_id')
         if not category_id and data.get('category'):

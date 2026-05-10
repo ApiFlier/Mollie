@@ -69,7 +69,8 @@ INSERT INTO categories (name, icon, color, display_order) VALUES
     ('farmers-market', 'basket', '#7a8b5a', 20),
     ('festival', 'party', '#5d3a6b', 30),
     ('fair', 'ferris-wheel', '#5d3a6b', 40),
-    ('other', 'pin', '#c4633a', 50);
+    ('other', 'pin', '#c4633a', 50),
+    ('butcher', 'shop', '#7f1d1d', 55);
 
 CREATE TABLE IF NOT EXISTS notes (
     id INT AUTO_INCREMENT PRIMARY KEY,
