@@ -596,3 +596,31 @@ h1 .subtitle {
 .chip-active {
   font-weight: 600;
 }
+
+/* ── List search box ────────────────────────────────────────────────────────── */
+.list-search-wrap {
+  max-width: 720px;
+  margin: 0 auto 8px auto;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg);
+  padding: 4px 0 4px 0;
+}
+
+.list-search {
+  width: 100%;
+  padding: 9px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg-panel);
+  color: var(--ink);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  -webkit-appearance: none;
+}
+
+.list-search:focus {
+  border-color: var(--berry);
+}

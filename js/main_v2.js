@@ -3,9 +3,9 @@
   var currentLocations = [];
   var currentView = "map";
   var listEmptyReason = "";
+  var listSearchTerm = "";
   var miniMap = null;
   var miniMapMarker = null;
-  var detailFromList = false;
 
   function escapeHtml(s) { return s ? String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") : ""; }
 
@@ -149,20 +149,39 @@
     });
   };
 
+  // ── List search ───────────────────────────────────────────────────────────────
+
+  function matchesSearch(loc, term) {
+    if (!term) return true;
+    var t = term.toLowerCase();
+    return [loc.name, loc.category, loc.city, loc.county,
+            loc.address, loc.state, loc.notes, loc.hours, loc.event_date]
+      .some(function(f) { return f && String(f).toLowerCase().indexOf(t) !== -1; });
+  }
+
   // ── List view ─────────────────────────────────────────────────────────────────
 
-  function renderListView(locations) {
-    var listEl = document.getElementById("list-view");
+  function renderListCards(locations, gridEl) {
+    var term     = listSearchTerm;
+    var filtered = term
+      ? locations.filter(function(loc) { return matchesSearch(loc, term); })
+      : locations;
+
     if (!locations.length) {
       var msg = listEmptyReason === "no-categories"
         ? "Select at least one category to see places here."
         : "No places match the current filters.";
-      listEl.innerHTML = '<div class="list-empty">' + msg + '</div>';
+      gridEl.innerHTML = '<div class="list-empty">' + msg + '</div>';
+      return;
+    }
+
+    if (!filtered.length) {
+      gridEl.innerHTML = '<div class="list-empty">No matching places found.</div>';
       return;
     }
 
     var html = '<div class="list-grid">';
-    locations.forEach(function(loc, idx) {
+    filtered.forEach(function(loc) {
       var desc = "";
       if (loc.event_date) desc = loc.event_date;
       else if (loc.notes)  desc = loc.notes.length > 110 ? loc.notes.substring(0, 110) + "…" : loc.notes;
@@ -175,7 +194,7 @@
 
       var color = loc.category_color || "#8b2331";
 
-      html += '<div class="list-card" data-id="' + loc.id + '" data-idx="' + idx + '">';
+      html += '<div class="list-card" data-id="' + loc.id + '">';
       html += '<div class="list-card-header">';
       html += '<span class="list-card-name">' + escapeHtml(loc.name) + '</span>';
       html += '<span class="list-card-cat" style="background:' + escapeHtml(color) + '">' + escapeHtml(loc.category || "") + '</span>';
@@ -185,19 +204,43 @@
       html += '</div>';
     });
     html += '</div>';
-    listEl.innerHTML = html;
+    gridEl.innerHTML = html;
 
-    listEl.querySelectorAll(".list-card").forEach(function(card) {
+    gridEl.querySelectorAll(".list-card").forEach(function(card) {
       card.addEventListener("click", function() {
-        var id  = parseInt(card.dataset.id, 10);
-        var idx = parseInt(card.dataset.idx, 10);
-        var listLoc = currentLocations[idx];
+        var id      = parseInt(card.dataset.id, 10);
+        var listLoc = currentLocations.find(function(l) { return l.id === id; });
         EventMapAPI.getLocation(id).then(function(fullLoc) {
           if (listLoc) fullLoc.category_color = listLoc.category_color;
           renderDetail(fullLoc, "list");
         });
       });
     });
+  }
+
+  function renderListView(locations) {
+    var listEl = document.getElementById("list-view");
+
+    // Rebuild shell: sticky search box + grid container
+    listEl.innerHTML =
+      '<div class="list-search-wrap">' +
+        '<input type="search" id="list-search" class="list-search" ' +
+               'placeholder="Search places, towns, crops…" autocomplete="off">' +
+      '</div>' +
+      '<div id="list-grid-container"></div>';
+
+    var searchInput = document.getElementById("list-search");
+    var gridEl      = document.getElementById("list-grid-container");
+
+    // Restore any active search term (preserved across filter changes)
+    searchInput.value = listSearchTerm;
+
+    searchInput.addEventListener("input", function() {
+      listSearchTerm = this.value;
+      renderListCards(locations, gridEl);
+    });
+
+    renderListCards(locations, gridEl);
   }
 
   // ── View toggle ───────────────────────────────────────────────────────────────
