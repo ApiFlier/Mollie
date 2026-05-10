@@ -193,6 +193,23 @@ table.locations-table {
 }
 .form-grid .field-full { grid-column: 1 / -1; }
 
+/* Lat/lng pair: always side-by-side, responsive on narrow screens */
+.field-pair {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 14px;
+}
+.field-pair .field { flex: 1 1 0; min-width: 0; }
+@media (max-width: 360px) {
+  .field-pair { flex-direction: column; }
+}
+
+.field-hint {
+  color: var(--ink-soft);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 .field {
   display: flex;
   flex-direction: column;

@@ -19,7 +19,7 @@ chmod +x setup.sh
 - Find an available host port automatically (starting at 8090)
 - Build and start the Docker containers
 - Create or reuse a persistent Docker-managed database volume (`event_map_db_data`)
-- Load the seed dataset (180+ geocoded locations)
+- Detect available backups and ask which to restore (repo baseline, local backup, or fresh)
 - Print the local URL when done
 
 No external API keys required.
@@ -98,13 +98,129 @@ The source JSON files used to build the dataset are in `api/data/` (farms, marke
 
 `.env` and `.htpasswd` are gitignored. Re-running `setup.sh` preserves existing passwords if `.env` already exists.
 
-To take a manual backup at any time:
+---
+
+## Database Backup and Restore
+
+### Local backup (neutral path outside the repo)
 
 ```bash
-docker exec event-map-db mysqldump -uroot \
-  -p$(grep MYSQL_ROOT_PASSWORD .env | cut -d= -f2) \
-  event_map > api/data/seed.sql
+./scripts/backup-db.sh
 ```
+
+Saves a compressed backup to `~/.event-map/backups/event-map-latest.sql.gz`. Each run **replaces** the previous latest backup — no accumulating timestamped files.
+
+### Refresh the repo baseline seed file
+
+```bash
+./scripts/backup-db.sh --update-seed
+```
+
+This replaces `api/data/seed.sql` with a fresh dump of the live database. Stage and commit the file when you intentionally want to record a new baseline.
+
+### How setup.sh chooses what to restore
+
+When setting up a fresh database `setup.sh` checks for:
+
+| Condition | Behavior |
+|-----------|----------|
+| Both repo baseline (`api/data/seed.sql`) and local backup (`~/.event-map/backups/event-map-latest.sql.gz`) exist | Asks which to use (1 = repo baseline, 2 = local backup, 3 = fresh) |
+| Only local backup exists | Offers to restore from it |
+| Only repo baseline exists | Loads the repo baseline automatically |
+| Neither exists | Starts with an empty database |
+| Database already has data | Skips restore entirely |
+
+### Manual restore from local backup
+
+```bash
+zcat ~/.event-map/backups/event-map-latest.sql.gz | \
+  docker exec -i event-map-db mysql -uroot \
+  -p$(grep MYSQL_ROOT_PASSWORD .env | cut -d= -f2) event_map
+```
+
+---
+
+## Month Filtering Behavior
+
+Month filtering uses structured `season_start_month` / `season_end_month` fields stored on each location and each crop row.
+
+**Rules:**
+- When a month filter is active, only locations whose structured month range **overlaps** the selected month are shown.
+- If an item has **no** structured month data (both fields are `NULL`), it is treated as **schedule unknown** and is **excluded** from month-filtered results.
+- Farms may match via their crop-level season months even if the location-level season fields are blank.
+- When **no month filter is active**, all items matching the other active filters are shown — schedule-unknown items appear normally.
+
+### Why free-text dates are not used for filtering
+
+The original `event_date` field (e.g., "July 6-11") is free text and cannot be reliably parsed for month comparisons. It is preserved in the database for existing records but is no longer shown as an editable field in the admin form. Month filtering uses only the structured month fields. Event-specific details (exact date, "second weekend") should go in the **Description / Site Info** field.
+
+---
+
+## Admin Schedule / Month Fields
+
+The **Season / Schedule** section appears in the admin form for:
+
+| Category | Season / Schedule section | Notes |
+|----------|--------------------------|-------|
+| farm | No (uses crop-level season months) | Crops have their own start/end months |
+| farmers-market | Yes | Controls month filter visibility |
+| festival | Yes | Controls month filter visibility |
+| fair | Yes | Controls month filter visibility |
+| other | Yes | Controls month filter visibility |
+
+**Active Month Start** and **Active Month End** define the range of months this item appears in when a month filter is active. Leave both blank if the schedule is unknown — the item will still appear when no month filter is active.
+
+For a single-month event, set both start and end to the same month.
+
+---
+
+## Crop Selection (Admin)
+
+When adding or editing a farm's crops, the crop name field shows suggestions from all crop names already used in the database (via a `<datalist>`). You can select an existing name or type a new one.
+
+Crop names are normalized on save:
+- Leading/trailing whitespace is removed
+- Consecutive spaces are collapsed
+- Names are lowercased to match the existing database convention
+
+This prevents obvious duplicates like "Apple" vs "apple" or "blueberries " (trailing space).
+
+---
+
+## Address and Coordinate Behavior
+
+| Case | Behavior |
+|------|----------|
+| Lat/lng provided | Those coordinates are used. Takes priority over address geocoding. |
+| Lat/lng missing, address present | Backend attempts geocoding via Nominatim (OpenStreetMap). If successful, coordinates are stored. If geocoding fails or the service is unavailable, the record is saved without coordinates (no crash). |
+| Lat/lng provided, no address | Saved normally. The item is mappable. |
+| Neither coordinates nor address | Saved without coordinates. The item will not appear on the map but will appear in list view. |
+
+Map markers are placed using stored coordinates. Raw address text is never used directly for map positioning.
+
+---
+
+## Duplicate Detection
+
+Run the duplicate report script to identify likely duplicate records:
+
+```bash
+python3 scripts/find-duplicates.py
+```
+
+**This script is read-only.** It does not modify or delete any data.
+
+The report identifies groups of records that match on:
+- Category + normalized name + city
+- Category + normalized name + county (catches city spelling variants)
+- Category + address + city (catches renamed locations)
+
+To investigate a flagged record, open:
+```
+http://localhost:<PORT>/admin/edit.html?id=<ID>
+```
+
+Do not run DELETE queries without verifying each record individually.
 
 ---
 

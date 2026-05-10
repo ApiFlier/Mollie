@@ -172,30 +172,83 @@ echo "--- Step 6: Load seed data ---"
 echo ""
 
 SEED_PATH="$APP_DIR/api/data/seed.sql"
+LOCAL_BACKUP="$HOME/.event-map/backups/event-map-latest.sql.gz"
 ROOT_PASS=$(grep "^MYSQL_ROOT_PASSWORD=" "$ENV_FILE" | cut -d= -f2-)
 
-# Check if the database already has locations before loading seed data.
-# The seed file is a full mysqldump (includes DROP TABLE) so we skip it
-# if data already exists to avoid overwriting any user-added content.
+# Check if the database already has data before offering restore.
 EXISTING=$(docker exec event-map-db mysql \
     -uroot -p"${ROOT_PASS}" \
     event_map -se "SELECT COUNT(*) FROM locations;" 2>/dev/null || echo "0")
 
-if [ "${EXISTING:-0}" -eq 0 ] 2>/dev/null; then
-    if [ -f "$SEED_PATH" ]; then
-        info "Loading seed data..."
-        docker exec -i event-map-db mysql \
-            -uroot -p"${ROOT_PASS}" \
-            event_map < "$SEED_PATH"
-        LOC_COUNT=$(docker exec event-map-db mysql \
-            -uroot -p"${ROOT_PASS}" \
-            event_map -se "SELECT COUNT(*) FROM locations;" 2>/dev/null || echo "?")
-        info "Seed data loaded. Locations: $LOC_COUNT"
-    else
-        warn "No seed file found at $SEED_PATH. Site will start with an empty map."
-    fi
+if [ "${EXISTING:-0}" -gt 0 ] 2>/dev/null; then
+    info "Database already has ${EXISTING} locations — skipping seed/restore."
 else
-    info "Database already has ${EXISTING} locations — skipping seed load."
+    HAS_SEED=false
+    HAS_LOCAL=false
+    [ -f "$SEED_PATH" ]   && HAS_SEED=true
+    [ -f "$LOCAL_BACKUP" ] && HAS_LOCAL=true
+
+    RESTORE_SOURCE=""
+
+    if [ "$HAS_SEED" = true ] && [ "$HAS_LOCAL" = true ]; then
+        echo ""
+        echo "  Two backups are available:"
+        echo "    [1] Repo baseline:  $SEED_PATH"
+        echo "    [2] Local backup:   $LOCAL_BACKUP"
+        echo "    [3] Fresh (empty database)"
+        echo ""
+        printf "  Which would you like to restore? [1/2/3, default 1]: "
+        RESTORE_CHOICE=""
+        read -r RESTORE_CHOICE < /dev/tty || true
+        RESTORE_CHOICE="${RESTORE_CHOICE:-1}"
+        case "$RESTORE_CHOICE" in
+            2) RESTORE_SOURCE="local" ;;
+            3) RESTORE_SOURCE="fresh" ;;
+            *) RESTORE_SOURCE="seed" ;;
+        esac
+    elif [ "$HAS_LOCAL" = true ]; then
+        echo ""
+        echo "  A local backup is available: $LOCAL_BACKUP"
+        printf "  Restore from local backup? [Y/n]: "
+        LOCAL_OK=""
+        read -r LOCAL_OK < /dev/tty || true
+        if [[ ! "$LOCAL_OK" =~ ^[Nn]$ ]]; then
+            RESTORE_SOURCE="local"
+        else
+            RESTORE_SOURCE="fresh"
+        fi
+    elif [ "$HAS_SEED" = true ]; then
+        RESTORE_SOURCE="seed"
+    fi
+
+    case "$RESTORE_SOURCE" in
+        seed)
+            info "Loading repo baseline seed data..."
+            docker exec -i event-map-db mysql \
+                -uroot -p"${ROOT_PASS}" \
+                event_map < "$SEED_PATH"
+            LOC_COUNT=$(docker exec event-map-db mysql \
+                -uroot -p"${ROOT_PASS}" \
+                event_map -se "SELECT COUNT(*) FROM locations;" 2>/dev/null || echo "?")
+            info "Seed data loaded. Locations: $LOC_COUNT"
+            ;;
+        local)
+            info "Restoring from local backup: $LOCAL_BACKUP"
+            zcat "$LOCAL_BACKUP" | docker exec -i event-map-db mysql \
+                -uroot -p"${ROOT_PASS}" \
+                event_map
+            LOC_COUNT=$(docker exec event-map-db mysql \
+                -uroot -p"${ROOT_PASS}" \
+                event_map -se "SELECT COUNT(*) FROM locations;" 2>/dev/null || echo "?")
+            info "Local backup restored. Locations: $LOC_COUNT"
+            ;;
+        fresh)
+            info "Starting with an empty database."
+            ;;
+        *)
+            warn "No seed file found and no local backup. Site will start with an empty map."
+            ;;
+    esac
 fi
 
 # ---------------------------------------------------------------------------
@@ -245,10 +298,11 @@ echo ""
 echo "  Point a domain at this server's IP and enable"
 echo "  Cloudflare proxy for automatic HTTPS."
 echo ""
-echo "  To take a database backup:"
-echo "  docker exec event-map-db mysqldump -uroot \\"
-echo "    -p\$(grep MYSQL_ROOT_PASSWORD $ENV_FILE | cut -d= -f2) \\"
-echo "    event_map > $APP_DIR/api/data/seed.sql"
+echo "  To take a local backup (saves to ~/.event-map/backups/):"
+echo "    ./scripts/backup-db.sh"
+echo ""
+echo "  To also refresh the repo baseline seed file:"
+echo "    ./scripts/backup-db.sh --update-seed"
 echo ""
 
 # ---------------------------------------------------------------------------

@@ -37,6 +37,7 @@ const AdminAPI = (() => {
     deleteLocation: (id) => jsonRequest("/locations/" + id, "DELETE"),
     listCategories: () => request("/categories"),
     listCounties: () => request("/counties"),
+    listDistinctCrops: () => request("/crops/distinct"),
     addCrop: (locId, data) => jsonRequest("/locations/" + locId + "/crops", "POST", data),
     updateCrop: (cropId, data) => jsonRequest("/crops/" + cropId, "PUT", data),
     deleteCrop: (cropId) => jsonRequest("/crops/" + cropId, "DELETE"),
@@ -191,10 +192,12 @@ const AdminEdit = (() => {
 
     Promise.all([
       AdminAPI.listCategories(),
-      AdminAPI.listCounties()
+      AdminAPI.listCounties(),
+      AdminAPI.listDistinctCrops()
     ]).then(function(results) {
       populateCategoryDropdown(results[0]);
       populateCountiesList(results[1]);
+      populateCropNamesList(results[2]);
 
       if (locationId) {
         return AdminAPI.getLocation(locationId).then(populateForm);
@@ -210,22 +213,24 @@ const AdminEdit = (() => {
 
   function toggleCategoryFields() {
     var cat = categoryDropdown.value;
-    var secEvents = document.getElementById("section-events");
+    var secSchedule = document.getElementById("section-schedule");
     var secCrops = document.getElementById("section-crops");
     var secHours = document.getElementById("section-hours");
-    
+
     // Hide all dynamic sections initially
-    if (secEvents) secEvents.style.display = "none";
+    if (secSchedule) secSchedule.style.display = "none";
     if (secCrops) secCrops.style.display = "none";
     if (secHours) secHours.style.display = "none";
 
     // Show sections based on category
-    if (cat === "fair" || cat === "festival") {
-      if (secEvents) secEvents.style.display = "block";
-    } else if (cat === "farm") {
+    if (cat === "fair" || cat === "festival" || cat === "farmers-market" || cat === "other") {
+      if (secSchedule) secSchedule.style.display = "block";
+    }
+    if (cat === "farm") {
       if (secCrops) secCrops.style.display = "block";
       if (secHours) secHours.style.display = "block";
-    } else if (cat === "farmers-market") {
+    }
+    if (cat === "farmers-market") {
       if (secHours) secHours.style.display = "block";
     }
   }
@@ -251,6 +256,17 @@ const AdminEdit = (() => {
     counties.forEach(function(name) {
       var opt = document.createElement("option");
       opt.value = name;
+      dl.appendChild(opt);
+    });
+  }
+
+  function populateCropNamesList(crops) {
+    var dl = document.getElementById("crop-names-list");
+    if (!dl || !crops) return;
+    dl.innerHTML = "";
+    crops.forEach(function(c) {
+      var opt = document.createElement("option");
+      opt.value = c.name;
       dl.appendChild(opt);
     });
   }
@@ -339,7 +355,7 @@ const AdminEdit = (() => {
     row.innerHTML =
       '<div class="field field-name">' +
         '<label>Crop name</label>' +
-        '<input type="text" class="crop-name" placeholder="e.g. blueberries">' +
+        '<input type="text" class="crop-name" placeholder="e.g. blueberries" list="crop-names-list" autocomplete="off">' +
       '</div>' +
       '<div class="pyo-cell">' +
         '<input type="checkbox" class="crop-pyo" id="' + rowId + '-pyo">' +
@@ -369,12 +385,18 @@ const AdminEdit = (() => {
     });
   }
 
+  function normalizeCropName(name) {
+    if (!name) return name;
+    // trim, collapse repeated spaces, lowercase to match DB convention
+    return name.trim().replace(/\s+/g, " ").toLowerCase();
+  }
+
   function readCropRows() {
     var rows = cropRowsEl.querySelectorAll(".crop-row");
     var crops = [];
     rows.forEach(function(row) {
-      var name = row.querySelector(".crop-name").value.trim();
-      if (!name) return; 
+      var name = normalizeCropName(row.querySelector(".crop-name").value);
+      if (!name) return;
       var crop = {
         name: name,
         is_pyo: row.querySelector(".crop-pyo").checked,

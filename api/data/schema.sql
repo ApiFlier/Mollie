@@ -27,6 +27,11 @@ CREATE TABLE IF NOT EXISTS locations (
     website VARCHAR(512),
     facebook_url VARCHAR(512),
     hours VARCHAR(512),
+    -- event_date is legacy free-text; preserved for existing data but not shown in admin form.
+    -- Use season_start_month / season_end_month for structured month filtering.
+    event_date VARCHAR(255),
+    season_start_month TINYINT,
+    season_end_month TINYINT,
     payment_methods JSON,
     amenities JSON,
     organic BOOLEAN DEFAULT FALSE,
@@ -40,7 +45,8 @@ CREATE TABLE IF NOT EXISTS locations (
     FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
     INDEX idx_category (category_id),
     INDEX idx_county (county),
-    INDEX idx_geo (lat, lng)
+    INDEX idx_geo (lat, lng),
+    INDEX idx_season (season_start_month, season_end_month)
 );
 
 CREATE TABLE IF NOT EXISTS crops (

@@ -1,6 +1,7 @@
 import os
 import json
 import bcrypt
+import requests as http_requests
 from flask import Flask, jsonify, request, session, send_from_directory
 from flask_cors import CORS
 import mysql.connector
@@ -34,6 +35,33 @@ def get_conn():
     global _pool
     if _pool is None: _pool = pooling.MySQLConnectionPool(**DB_CONFIG)
     return _pool.get_connection()
+
+def _try_geocode(address, city, state, zip_code):
+    """Geocode an address via Nominatim. Returns (lat, lng) or (None, None) on failure."""
+    parts = [p for p in [address, city, state, zip_code] if p and str(p).strip()]
+    if not parts:
+        return None, None
+    query = ", ".join(str(p).strip() for p in parts)
+    try:
+        resp = http_requests.get(
+            "https://nominatim.openstreetmap.org/search",
+            params={"q": query, "format": "json", "limit": 1},
+            headers={"User-Agent": "EventMapApp/1.0 (self-hosted local app)"},
+            timeout=5
+        )
+        if resp.ok:
+            data = resp.json()
+            if data:
+                return float(data[0]["lat"]), float(data[0]["lon"])
+    except Exception as e:
+        print(f"[geocode] Failed for '{query}': {e}")
+    return None, None
+
+def _normalize_crop_name(name):
+    """Trim, collapse spaces, lowercase to match DB naming convention."""
+    if not name:
+        return name
+    return " ".join(name.strip().lower().split())
 
 def _read_htpasswd():
     if not os.path.exists(HTPASSWD_FILE):
@@ -231,6 +259,17 @@ def update_location(loc_id):
             if row:
                 category_id = row['id']
 
+        lat = data.get('lat')
+        lng = data.get('lng')
+        # If coords missing but address present, attempt geocoding
+        if (lat is None or lng is None) and any([data.get('address'), data.get('city')]):
+            geo_lat, geo_lng = _try_geocode(
+                data.get('address'), data.get('city'),
+                data.get('state'), data.get('zip')
+            )
+            if geo_lat is not None:
+                lat, lng = geo_lat, geo_lng
+
         pm = data.get('payment_methods')
         am = data.get('amenities')
         sql = """
@@ -247,7 +286,7 @@ def update_location(loc_id):
         params = (
             data.get('name'), data.get('address'), data.get('city'),
             data.get('state', 'PA'), data.get('zip'),
-            data.get('lat'), data.get('lng'),
+            lat, lng,
             data.get('phone'), data.get('alt_phone'), data.get('email'),
             data.get('website'), data.get('facebook_url'),
             data.get('hours'), data.get('notes'),
@@ -338,6 +377,17 @@ def create_location():
             if row:
                 category_id = row['id']
 
+        lat = data.get('lat')
+        lng = data.get('lng')
+        # If coords missing but address present, attempt geocoding
+        if (lat is None or lng is None) and any([data.get('address'), data.get('city')]):
+            geo_lat, geo_lng = _try_geocode(
+                data.get('address'), data.get('city'),
+                data.get('state'), data.get('zip')
+            )
+            if geo_lat is not None:
+                lat, lng = geo_lat, geo_lng
+
         pm = data.get('payment_methods')
         am = data.get('amenities')
         sql = """
@@ -360,7 +410,7 @@ def create_location():
         params = (
             data.get('name'), data.get('address'), data.get('city'),
             data.get('state', 'PA'), data.get('zip'),
-            data.get('lat'), data.get('lng'),
+            lat, lng,
             data.get('phone'), data.get('alt_phone'), data.get('email'),
             data.get('website'), data.get('facebook_url'),
             data.get('hours'), data.get('notes'),
@@ -404,7 +454,8 @@ def add_loc_crop(loc_id):
     try:
         cur = conn.cursor()
         cur.execute("INSERT INTO crops (location_id, name, is_pyo, season_start_month, season_end_month) VALUES (%s, %s, %s, %s, %s)",
-            (loc_id, data.get('name'), data.get('is_pyo'), data.get('season_start_month'), data.get('season_end_month')))
+            (loc_id, _normalize_crop_name(data.get('name')), data.get('is_pyo'),
+             data.get('season_start_month'), data.get('season_end_month')))
         conn.commit()
         cur.close()
         return jsonify({"ok": True})
@@ -421,7 +472,8 @@ def update_loc_crop(crop_id):
     try:
         cur = conn.cursor()
         cur.execute("UPDATE crops SET name=%s, is_pyo=%s, season_start_month=%s, season_end_month=%s WHERE id=%s",
-            (data.get('name'), data.get('is_pyo'), data.get('season_start_month'), data.get('season_end_month'), crop_id))
+            (_normalize_crop_name(data.get('name')), data.get('is_pyo'),
+             data.get('season_start_month'), data.get('season_end_month'), crop_id))
         conn.commit()
         cur.close()
         return jsonify({"ok": True})

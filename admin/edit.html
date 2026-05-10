@@ -63,28 +63,25 @@
           <input type="text" id="f-zip" name="zip" maxlength="10">
         </div>
 
-        <div class="field">
-          <label for="f-lat">Latitude</label>
-          <input type="number" id="f-lat" name="lat" step="0.0000001">
-        </div>
-
-        <div class="field">
-          <label for="f-lng">Longitude</label>
-          <input type="number" id="f-lng" name="lng" step="0.0000001">
+        <div class="field-pair">
+          <div class="field">
+            <label for="f-lat">Latitude</label>
+            <input type="number" id="f-lat" name="lat" step="0.0000001">
+          </div>
+          <div class="field">
+            <label for="f-lng">Longitude</label>
+            <input type="number" id="f-lng" name="lng" step="0.0000001">
+          </div>
         </div>
       </div>
 
-      <div id="section-events" style="display:none;">
-        <h3 class="section-title">Events / Fairs</h3>
+      <div id="section-schedule" style="display:none;">
+        <h3 class="section-title">Season / Schedule</h3>
         <div class="form-grid">
-          <div class="field field-full">
-            <label for="f-event_date">Date / Schedule (e.g. July 6-11)</label>
-            <input type="text" id="f-event_date" name="event_date">
-          </div>
           <div class="field">
-            <label for="f-season_start_month">Event Month (Start)</label>
+            <label for="f-season_start_month">Active Month Start</label>
             <select id="f-season_start_month" name="season_start_month">
-              <option value="">--</option>
+              <option value="">-- unknown --</option>
               <option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option>
               <option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option>
               <option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>
@@ -92,16 +89,20 @@
             </select>
           </div>
           <div class="field">
-            <label for="f-season_end_month">Event Month (End)</label>
+            <label for="f-season_end_month">Active Month End</label>
             <select id="f-season_end_month" name="season_end_month">
-              <option value="">--</option>
+              <option value="">-- unknown --</option>
               <option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option>
               <option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option>
               <option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>
               <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
             </select>
+          </div>
+          <div class="field field-full">
+            <small class="field-hint">Controls which months this place appears in month-filtered results. Leave blank if the schedule is unknown. For single-month events, set both start and end to the same month. Use the description field for exact dates or notes like "second weekend of July."</small>
           </div>
         </div>
+        <input type="hidden" id="f-event_date" name="event_date">
       </div>
 
       <h3 class="section-title">Contact & Description</h3>
@@ -189,6 +190,8 @@
         </div>
       </div>
 
+      <datalist id="crop-names-list"></datalist>
+
       <div id="section-crops" style="display:none;">
         <h3 class="section-title">Crops</h3>
         <div class="crop-rows" id="crop-rows"></div>
@@ -205,7 +208,7 @@
     </form>
   </main>
 
-  <script src="/admin/admin.js?v=20260428d"></script>
+  <script src="/admin/admin.js?v=20260510a"></script>
   <script>AdminEdit.init();</script>
   <script>
     (function() {
