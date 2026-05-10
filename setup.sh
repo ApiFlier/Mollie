@@ -253,13 +253,16 @@ echo ""
 
 # ---------------------------------------------------------------------------
 echo ""
-read -p "Delete local source files now? [y/N]: " CLEANUP
-if [[ "$CLEANUP" =~ ^[Yy]$ ]]; then
-    cd /
-    rm -rf "$APP_DIR"
-    echo -e "${GREEN}[INFO]${NC} Local files removed. Containers and data volumes are still running."
-    echo "  To stop:   docker stop event-map-app event-map-db"
-    echo "  To remove: docker rm event-map-app event-map-db"
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Offer to remove local source files (the running app and volumes are unaffected)
+printf "Delete local source files now? [y/N] "
+DEL_CHOICE=""
+read -r DEL_CHOICE < /dev/tty || true
+if [ "${DEL_CHOICE}" = "y" ] || [ "${DEL_CHOICE}" = "Y" ]; then
+    echo "==> Removing local source files..."
+    cd "$HOME" 2>/dev/null || cd / 2>/dev/null || true
+    rm -rf "$REPO_DIR"
+    echo "    Done. The running app and Docker volumes are preserved."
 else
-    echo -e "${GREEN}[INFO]${NC} Local files kept at $APP_DIR"
+    echo "    Source files preserved."
 fi
