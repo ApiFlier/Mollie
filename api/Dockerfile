@@ -11,6 +11,7 @@ COPY api/ .
 
 # Copy frontend files to static/ directory for Flask to serve
 COPY index.html ./static/
+COPY map.html ./static/
 COPY css ./static/css
 COPY js ./static/js
 COPY admin ./static/admin

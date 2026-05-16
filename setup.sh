@@ -157,7 +157,15 @@ echo "--- Step 5: Start Docker containers ---"
 echo ""
 
 cd "$APP_DIR"
-docker compose up -d --build
+if ! docker compose up -d --build; then
+    echo ""
+    echo -e "${RED}[ERROR]${NC} Docker could not pull/build required images."
+    echo "  This is usually a temporary network or Docker Hub issue."
+    echo "  Try:  docker pull mysql:8.0"
+    echo "  Then re-run: ./setup.sh"
+    echo "  Your existing data and .env are unchanged."
+    exit 1
+fi
 info "Containers started. Waiting for MySQL to initialize..."
 sleep 20
 
@@ -308,7 +316,12 @@ echo ""
 # ---------------------------------------------------------------------------
 echo ""
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Offer to remove local source files (the running app and volumes are unaffected)
+# Offer to remove local source files (the running app and volumes are unaffected,
+# but .env, .htpasswd, docker-compose.yml, and scripts/ live here too — warn the user).
+echo "  WARNING: This deletes ALL files in $REPO_DIR, including .env,"
+echo "           .htpasswd, docker-compose.yml, and scripts/."
+echo "           You will not be able to restart, update, or back up the"
+echo "           app without re-cloning the repo and re-running setup.sh."
 printf "Delete local source files now? [y/N] "
 DEL_CHOICE=""
 read -r DEL_CHOICE < /dev/tty || true

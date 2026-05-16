@@ -4,51 +4,46 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#8b2331">
-  <title>Event Map</title>
+  <title>Mollie Events</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="/css/styles.css?v=20260510c">
+  <link rel="stylesheet" href="/css/styles.css?v=20260516f">
 </head>
 <body>
-  <a href="/admin/" style="position: absolute; top: 15px; right: 15px; background: #ffffff; color: #333333; padding: 6px 14px; text-decoration: none; border-radius: 20px; font-size: 13px; font-weight: 600; z-index: 9999; box-shadow: 0 2px 6px rgba(0,0,0,0.2); border: 1px solid #e0e0e0; font-family: sans-serif; transition: background 0.2s;">Admin Panel</a>
-  <div id="app">
-    <header>
-      <h1>Event Map<span class="subtitle">regional farms &amp; local events</span></h1>
-      <div class="filters">
-        <div class="view-row">
-          <div class="view-toggle">
-            <button id="toggle-map" class="view-btn view-btn-active" aria-pressed="true">Map</button>
-            <button id="toggle-list" class="view-btn" aria-pressed="false">List</button>
-          </div>
-          <span class="result-count" id="result-count"></span>
+  <div class="top-nav">
+    <a href="/" class="top-nav-link top-nav-active">Events</a>
+    <a href="/map" class="top-nav-link">Map</a>
+    <a href="/admin/" class="top-nav-link top-nav-admin">Admin</a>
+  </div>
+
+  <div id="events-app">
+    <header class="events-header">
+      <h1 class="events-title">Mollie Events</h1>
+      <p class="events-subtitle">Local things to do, within an hour's drive.</p>
+
+      <div class="events-controls">
+        <div class="events-filter-row">
+          <button class="ev-filter-btn" data-filter="">All</button>
+          <button class="ev-filter-btn" data-filter="this_weekend">This Weekend</button>
+          <button class="ev-filter-btn" data-filter="drive30" data-max-drive="30">Within 30 min</button>
+          <button class="ev-filter-btn ev-filter-active" data-filter="drive60" data-max-drive="60">Within 60 min</button>
+          <button class="ev-filter-btn" data-filter="saved">Saved</button>
         </div>
-        <div class="chip-row" id="category-chips"></div>
-        <div class="dropdown-row">
-          <select id="month-select"></select>
-          <select id="crop-select"></select>
+        <div class="events-sort-row">
+          <span class="ev-sort-label">Sort:</span>
+          <button class="ev-sort-btn ev-sort-active" data-sort="soonest">Soonest</button>
+          <button class="ev-sort-btn" data-sort="closest">Closest</button>
         </div>
       </div>
     </header>
 
-    <div id="map"></div>
-    <div id="list-view" style="display:none;"></div>
-
-    <div class="detail-panel" id="detail-panel">
-      <button class="close-btn" id="detail-close" aria-label="Close">&times;</button>
-      <button class="back-btn" id="detail-back" style="display:none;">&#8592; Back to list</button>
-      <div id="detail-minimap" style="display:none;"></div>
-      <div id="detail-content"></div>
-    </div>
+    <div id="events-status" class="events-status" style="display:none;"></div>
+    <div id="events-list" class="events-list"></div>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/js/api.js?v=20260510c"></script>
-  <script src="/js/map.js?v=20260510c"></script>
-  <script src="/js/filters.js?v=20260510c"></script>
-  <script src="/js/main_v2.js?v=20260510c"></script>
+  <script src="/js/events.js?v=20260516f"></script>
 </body>
 </html>

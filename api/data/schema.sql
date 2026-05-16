@@ -81,3 +81,54 @@ CREATE TABLE IF NOT EXISTS notes (
     INDEX idx_location (location_id),
     INDEX idx_created (created_at)
 );
+
+CREATE TABLE IF NOT EXISTS event_sources (
+    id               INT AUTO_INCREMENT PRIMARY KEY,
+    source_key       VARCHAR(64) NOT NULL UNIQUE,
+    display_name     VARCHAR(128) NOT NULL,
+    enabled          BOOLEAN DEFAULT TRUE,
+    last_success_at  DATETIME,
+    last_attempt_at  DATETIME,
+    last_error       TEXT,
+    created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS external_events (
+    id                      INT AUTO_INCREMENT PRIMARY KEY,
+    source_key              VARCHAR(64) NOT NULL,
+    source_event_id         VARCHAR(255),
+    source_url              VARCHAR(1024),
+    official_url            VARCHAR(1024),
+    title                   VARCHAR(512) NOT NULL,
+    description_short       TEXT,
+    start_datetime          DATETIME,
+    end_datetime            DATETIME,
+    date_label              VARCHAR(128),
+    venue_name              VARCHAR(255),
+    address                 VARCHAR(255),
+    city                    VARCHAR(128),
+    state                   CHAR(2),
+    postal_code             VARCHAR(10),
+    latitude                DECIMAL(10,7),
+    longitude               DECIMAL(10,7),
+    category                VARCHAR(64),
+    image_url               VARCHAR(1024),
+    admission               VARCHAR(255),
+    distance_miles          DECIMAL(6,2),
+    estimated_drive_minutes INT,
+    direction_bucket        VARCHAR(16),
+    normalized_fingerprint  VARCHAR(64),
+    raw_source_json         MEDIUMTEXT,
+    hidden                  BOOLEAN DEFAULT FALSE,
+    saved                   BOOLEAN DEFAULT FALSE,
+    first_seen_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_seen_at            TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_at              TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at              TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_source        (source_key),
+    INDEX idx_fingerprint   (normalized_fingerprint),
+    INDEX idx_start         (start_datetime),
+    INDEX idx_hidden        (hidden),
+    INDEX idx_saved         (saved)
+);

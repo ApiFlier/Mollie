@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#8b2331">
+  <title>Event Map — Map</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="/css/styles.css?v=20260516f">
+</head>
+<body>
+  <div class="top-nav">
+    <a href="/" class="top-nav-link">Events</a>
+    <a href="/map" class="top-nav-link top-nav-active">Map</a>
+    <a href="/admin/" class="top-nav-link top-nav-admin">Admin</a>
+  </div>
+  <div id="app">
+    <header>
+      <h1>Event Map<span class="subtitle">regional farms &amp; local events</span></h1>
+      <div class="filters">
+        <div class="view-row">
+          <div class="view-toggle">
+            <button id="toggle-map" class="view-btn view-btn-active" aria-pressed="true">Map</button>
+            <button id="toggle-list" class="view-btn" aria-pressed="false">List</button>
+          </div>
+          <span class="result-count" id="result-count"></span>
+        </div>
+        <div class="chip-row" id="category-chips"></div>
+        <div class="dropdown-row">
+          <select id="month-select"></select>
+          <select id="crop-select"></select>
+        </div>
+      </div>
+    </header>
+
+    <div id="map"></div>
+    <div id="list-view" style="display:none;"></div>
+
+    <div class="detail-panel" id="detail-panel">
+      <button class="close-btn" id="detail-close" aria-label="Close">&times;</button>
+      <button class="back-btn" id="detail-back" style="display:none;">&#8592; Back to list</button>
+      <div id="detail-minimap" style="display:none;"></div>
+      <div id="detail-content"></div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/js/api.js?v=20260516e"></script>
+  <script src="/js/map.js?v=20260516e"></script>
+  <script src="/js/filters.js?v=20260516e"></script>
+  <script src="/js/main_v2.js?v=20260516e"></script>
+</body>
+</html>

@@ -15,7 +15,7 @@ chmod +x setup.sh
 
 `setup.sh` will:
 - Generate `.env` automatically with random passwords and secrets
-- Create an admin login with a randomly generated password (shown once during setup)
+- Create a default admin account (`meeks` / `meeks`) — **change the password at first login**
 - Find an available host port automatically (starting at 8090)
 - Build and start the Docker containers
 - Create or reuse a persistent Docker-managed database volume (`event_map_db_data`)

@@ -7,6 +7,13 @@ from flask_cors import CORS
 import mysql.connector
 from mysql.connector import pooling
 
+import events as _events
+from adapters.positively_pgh import PositivelyPgh
+from adapters.visit_pittsburgh import VisitPittsburgh
+
+_events.register_adapter(PositivelyPgh())
+_events.register_adapter(VisitPittsburgh())
+
 app = Flask(__name__, static_url_path='', static_folder='static')
 app.secret_key = os.environ.get("FLASK_SECRET") or os.urandom(32)
 
@@ -527,9 +534,107 @@ def delete_loc_crop(crop_id):
 def index():
     return app.send_static_file("index.html")
 
+@app.route("/map")
+@app.route("/map/")
+def map_view():
+    return app.send_static_file("map.html")
+
 @app.route("/admin/")
 def admin_index():
     return app.send_static_file("admin/index.html")
 
+
+# ── External events API ────────────────────────────────────────────────────────
+
+@app.route("/events")
+@app.route("/api/events")
+def get_events():
+    filter_type  = request.args.get("filter")        # upcoming|this_weekend
+    sort         = request.args.get("sort", "soonest")  # soonest|closest
+    saved_only   = request.args.get("saved") == "1"
+    max_drive    = request.args.get("max_drive", type=int)
+    limit        = request.args.get("limit", type=int, default=100)
+    offset       = request.args.get("offset", type=int, default=0)
+
+    conn = get_conn()
+    try:
+        stale = _events.any_source_stale(conn)
+        if stale:
+            _events.trigger_background_refresh(get_conn)
+
+        evs = _events.get_events(
+            conn,
+            filter_type=filter_type,
+            sort=sort,
+            saved_only=saved_only,
+            max_drive_min=max_drive,
+            limit=limit,
+            offset=offset,
+        )
+        return jsonify({
+            "events": evs,
+            "count": len(evs),
+            "limit": limit,
+            "offset": offset,
+            "cache_stale": stale,
+        })
+    finally:
+        conn.close()
+
+
+@app.route("/events/refresh", methods=["POST"])
+@app.route("/api/events/refresh", methods=["POST"])
+def refresh_events():
+    err = _require_auth()
+    if err:
+        return err
+    source = request.args.get("source")  # optional: refresh single source
+    conn = get_conn()
+    try:
+        if source:
+            count = _events.refresh_source(conn, source)
+            results = {source: count}
+        else:
+            results = _events.refresh_all(conn)
+        return jsonify({"ok": True, "refreshed": results})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    finally:
+        conn.close()
+
+
+@app.route("/events/<int:ev_id>/save", methods=["POST"])
+@app.route("/api/events/<int:ev_id>/save", methods=["POST"])
+def save_event(ev_id):
+    data = request.get_json() or {}
+    saved = data.get("saved", True)
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("UPDATE external_events SET saved=%s WHERE id=%s", (saved, ev_id))
+        conn.commit()
+        cur.close()
+        return jsonify({"ok": True})
+    finally:
+        conn.close()
+
+
+@app.route("/events/<int:ev_id>/hide", methods=["POST"])
+@app.route("/api/events/<int:ev_id>/hide", methods=["POST"])
+def hide_event(ev_id):
+    data = request.get_json() or {}
+    hidden = data.get("hidden", True)
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute("UPDATE external_events SET hidden=%s WHERE id=%s", (hidden, ev_id))
+        conn.commit()
+        cur.close()
+        return jsonify({"ok": True})
+    finally:
+        conn.close()
+
+
 if __name__ == "__main__":
+    _events.ensure_tables(get_conn())
     app.run(host="0.0.0.0", port=8080)
