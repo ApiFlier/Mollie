@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/css/styles.css?v=20260516r">
+  <link rel="stylesheet" href="/css/styles.css?v=20260516t">
 </head>
 <body>
   <div class="top-nav">
@@ -21,17 +21,12 @@
 
   <div id="events-app">
     <header class="events-header">
-      <h1 class="events-title">Mollie Events</h1>
-      <p class="events-subtitle">Local things to do, within an hour's drive.</p>
-
-      <div class="ev-topbar">
+      <!-- Compact toolbar: title · summary · Filters (mobile) | title · search · summary (desktop) -->
+      <div class="ev-headerbar">
+        <span class="events-title">Mollie Events</span>
         <span class="ev-filter-summary" id="ev-filter-summary">This weekend · 30 mi · Soonest</span>
         <button class="ev-filters-toggle-btn" id="ev-filters-toggle"
                 aria-expanded="false" aria-controls="ev-filters-panel">Filters</button>
-      </div>
-
-      <!-- Search — always visible -->
-      <div class="ev-search-row">
         <div class="ev-search-wrap">
           <input type="search" id="ev-search-input" class="ev-search-input"
                  placeholder="Search events, venues, cities…" autocomplete="off" spellcheck="false">
@@ -75,6 +70,12 @@
           </div>
         </div>
 
+        <!-- Source filter (chips built dynamically by JS from /api/sources) -->
+        <div class="ev-filter-group" id="source-filter-group">
+          <span class="ev-group-label">Sources</span>
+          <div class="ev-filter-row" id="source-chip-row"></div>
+        </div>
+
         <!-- Saved + Sort -->
         <div class="ev-quick-sort-row">
           <button class="ev-filter-btn ev-saved-btn" data-quick="saved">Saved</button>
@@ -92,6 +93,6 @@
     <div id="events-list" class="events-list"></div>
   </div>
 
-  <script src="/js/events.js?v=20260516r"></script>
+  <script src="/js/events.js?v=20260516t"></script>
 </body>
 </html>

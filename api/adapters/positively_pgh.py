@@ -16,8 +16,8 @@ _MAX_PAGES = 8   # fetch up to 200 events per refresh
 _TIMEOUT = 15    # seconds
 
 # Pittsburgh-area center coordinates used for the CitySpark query.
-# If HOME_LAT / HOME_LNG are set, use those instead so results are
-# sorted by distance from home (server-to-server only, never exposed to browser).
+# HOME_LAT / HOME_LNG drive the per-query sort; distance is recalculated
+# server-side using the same env vars so cards always show miles from home.
 _DEFAULT_LAT = 40.4383392333984
 _DEFAULT_LNG = -79.9974670410156
 
@@ -25,15 +25,64 @@ _QUERY_LAT = float(os.environ.get("HOME_LAT", str(_DEFAULT_LAT)))
 _QUERY_LNG = float(os.environ.get("HOME_LNG", str(_DEFAULT_LNG)))
 
 
+def _fmt_price(val):
+    """Format a price value cleanly: integer if whole-number, 2dp otherwise.
+    Returns None for non-numeric strings like 'General Admission'."""
+    if val is None:
+        return None
+    if isinstance(val, (int, float)):
+        if float(val) == int(val):
+            return str(int(val))
+        return f"{val:.2f}"
+    # String: strip leading $ and try numeric conversion
+    try:
+        f = float(str(val).lstrip("$").strip())
+        if f == int(f):
+            return str(int(f))
+        return f"{f:.2f}"
+    except (ValueError, TypeError):
+        return None  # non-numeric string — discard
+
+
 def _parse_price(ev):
+    """Return a clean admission string or None."""
     if ev.get("Free"):
         return "Free"
-    price = ev.get("Price") or ev.get("PriceText")
-    high = ev.get("PriceHigh")
-    if price and high and price != high:
-        return f"${price}–${high}"
-    if price:
-        return f"${price}"
+    lo = _fmt_price(ev.get("Price"))
+    hi = _fmt_price(ev.get("PriceHigh"))
+    if lo and hi and lo != hi:
+        return f"${lo}–${hi}"
+    if lo:
+        return f"${lo}"
+    # PriceText as last resort — only use if it parses as a number
+    pt = _fmt_price(ev.get("PriceText"))
+    if pt:
+        return f"${pt}"
+    return None
+
+
+def _best_url(ev):
+    """Return the best event URL with the priority:
+    PrimaryUrl → TicketUrl → Links[0].url → Tickets[0].url → None.
+    Never returns a blank or non-http string."""
+    def _http(s):
+        s = (s or "").strip()
+        return s if s.startswith("http") else None
+
+    url = _http(ev.get("PrimaryUrl"))
+    if url:
+        return url
+    url = _http(ev.get("TicketUrl"))
+    if url:
+        return url
+    for lnk in (ev.get("Links") or []):
+        url = _http(lnk.get("url"))
+        if url:
+            return url
+    for t in (ev.get("Tickets") or []):
+        url = _http(t.get("url") or t.get("Url"))
+        if url:
+            return url
     return None
 
 
@@ -46,22 +95,11 @@ def _parse_city_state(city_state):
     return city, state
 
 
-def _best_url(ev):
-    primary = ev.get("PrimaryUrl") or ""
-    links = ev.get("Links") or []
-    for lnk in links:
-        url = lnk.get("url", "")
-        if url and url.startswith("http"):
-            return url
-    return primary or None
-
-
 def _normalize(ev):
     city, state = _parse_city_state(ev.get("CityState"))
     start = ev.get("DateStart") or ev.get("Date")
     end = ev.get("DateEnd")
 
-    # Normalize ISO timestamps to YYYY-MM-DD HH:MM:SS for MySQL
     def to_dt(s):
         if not s:
             return None
@@ -88,9 +126,7 @@ def _normalize(ev):
 
     url = _best_url(ev)
     raw = json.dumps(ev, default=str)[:4000]
-
     desc = (ev.get("Short") or ev.get("Description") or "")[:300]
-
     fp = _ev_module.make_fingerprint(ev.get("Name"), start_dt, ev.get("Venue"))
 
     return {
@@ -127,12 +163,14 @@ class PositivelyPgh(BaseAdapter):
         seen_ids = set()
         now = datetime.datetime.utcnow()
         start_str = now.strftime("%Y-%m-%dT00:00:00")
+        # Explicit 30-day window: CitySpark returns only today's events when end is null.
+        end_str = (now + datetime.timedelta(days=30)).strftime("%Y-%m-%dT23:59:59")
 
         for page in range(_MAX_PAGES):
             payload = {
                 "ppid": 8462,
                 "start": start_str,
-                "end": None,
+                "end": end_str,
                 "labels": [],
                 "pick": False,
                 "tps": None,
@@ -151,7 +189,7 @@ class PositivelyPgh(BaseAdapter):
                     _ENDPOINT,
                     json=payload,
                     timeout=_TIMEOUT,
-                    headers={"Content-Type": "application/json"}
+                    headers={"Content-Type": "application/json"},
                 )
                 resp.raise_for_status()
                 data = resp.json()
@@ -165,6 +203,9 @@ class PositivelyPgh(BaseAdapter):
 
             batch = data.get("Value") or []
             for ev in batch:
+                # Skip virtual/online events — not relevant for local in-person listings.
+                if ev.get("isVirtual"):
+                    continue
                 uid = str(ev.get("Id") or ev.get("PId") or "")
                 if uid and uid in seen_ids:
                     continue

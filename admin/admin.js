@@ -42,7 +42,9 @@ const AdminAPI = (() => {
     updateCrop: (cropId, data) => jsonRequest("/crops/" + cropId, "PUT", data),
     deleteCrop: (cropId) => jsonRequest("/crops/" + cropId, "DELETE"),
     getCredentials: () => request("/credentials"),
-    updateCredentials: (data) => jsonRequest("/credentials", "PUT", data)
+    updateCredentials: (data) => jsonRequest("/credentials", "PUT", data),
+    getAdminSources: () => request("/admin/sources"),
+    updateSource: (key, data) => jsonRequest("/admin/sources/" + key, "PUT", data)
   };
 })();
 
@@ -697,9 +699,11 @@ const AdminTabs = (() => {
         switchTab(btn.getAttribute("data-tab"));
       });
     });
-    // Honour #hash on load
+    // Default to Events; honour #map hash to open Map instead.
     var hash = window.location.hash.replace(/^#/, "");
-    if (hash === "events") {
+    if (hash === "map") {
+      switchTab("map");
+    } else {
       switchTab("events");
     }
   }
@@ -724,6 +728,7 @@ const AdminTabs = (() => {
 const AdminEvents = (() => {
   var _loaded = false;
   var _allEvents = [];
+  var _sources = [];
 
   function load() {
     if (_loaded) return;
@@ -738,7 +743,8 @@ const AdminEvents = (() => {
       })
       .then(function(data) {
         _allEvents = data.events || [];
-        _render(data.sources || []);
+        _sources = data.sources || [];
+        _render(_sources);
       })
       .catch(function(err) {
         document.getElementById("events-content").innerHTML =
@@ -751,14 +757,31 @@ const AdminEvents = (() => {
     load();
   }
 
+  function _toggleSource(sourceKey, currentlyEnabled) {
+    var newEnabled = !currentlyEnabled;
+    AdminAPI.updateSource(sourceKey, { enabled: newEnabled })
+      .then(function() { _reload(); })
+      .catch(function(err) {
+        alert("Could not update source: " + err.message);
+      });
+  }
+
   function _render(sources) {
     var el = document.getElementById("events-content");
 
-    // Stats summary
+    // Stats + enable/disable cards
     var statsHtml = '<div class="ev-admin-stats">';
     sources.forEach(function(s) {
+      var isEnabled = s.enabled !== false;
+      var toggleLabel = isEnabled ? "Disable" : "Enable";
+      var toggleStyle = isEnabled
+        ? 'style="color:var(--danger);border-color:var(--danger);"'
+        : 'style="color:var(--sage);border-color:var(--sage);"';
       statsHtml += '<div class="ev-admin-stat-card">';
       statsHtml += '<div class="ev-admin-stat-name">' + escapeHtml(s.display_name || s.source_key) + "</div>";
+      if (!isEnabled) {
+        statsHtml += '<div class="ev-admin-stat-hidden" style="font-weight:600;">DISABLED</div>';
+      }
       statsHtml += '<div class="ev-admin-stat-num">' + s.total + " total</div>";
       if (s.hidden_count > 0) {
         statsHtml += '<div class="ev-admin-stat-hidden">' + s.hidden_count + " hidden</div>";
@@ -766,6 +789,10 @@ const AdminEvents = (() => {
       if (s.saved_count > 0) {
         statsHtml += '<div class="ev-admin-stat-saved">' + s.saved_count + " saved</div>";
       }
+      statsHtml += '<button class="btn btn-small ev-source-toggle" ' + toggleStyle +
+        ' data-key="' + escapeHtml(s.source_key) + '"' +
+        ' data-enabled="' + (isEnabled ? "1" : "0") + '">' +
+        toggleLabel + "</button>";
       statsHtml += "</div>";
     });
     statsHtml += "</div>";
@@ -787,6 +814,16 @@ const AdminEvents = (() => {
     ctrlHtml += "</div>";
 
     el.innerHTML = statsHtml + ctrlHtml + '<div id="ev-table-container"></div>';
+
+    // Bind source toggle buttons
+    el.querySelectorAll(".ev-source-toggle").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        var key = btn.getAttribute("data-key");
+        var enabled = btn.getAttribute("data-enabled") === "1";
+        btn.disabled = true;
+        _toggleSource(key, enabled);
+      });
+    });
 
     document.getElementById("ev-source-filter").addEventListener("change", _renderTable);
     document.getElementById("ev-hidden-filter").addEventListener("change", _renderTable);

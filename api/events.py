@@ -332,9 +332,35 @@ def trigger_background_refresh(get_conn_fn):
 
 # ── Query ─────────────────────────────────────────────────────────────────────
 
+def get_enabled_source_keys(conn):
+    """Return a set of enabled source_keys from event_sources."""
+    cur = conn.cursor()
+    cur.execute("SELECT source_key FROM event_sources WHERE enabled = TRUE")
+    keys = {row[0] for row in cur.fetchall()}
+    cur.close()
+    return keys
+
+
+def get_sources(conn, enabled_only=True):
+    """Return source rows from event_sources."""
+    cur = conn.cursor(dictionary=True)
+    if enabled_only:
+        cur.execute(
+            "SELECT source_key, display_name, enabled FROM event_sources WHERE enabled = TRUE ORDER BY source_key"
+        )
+    else:
+        cur.execute(
+            "SELECT source_key, display_name, enabled FROM event_sources ORDER BY source_key"
+        )
+    rows = cur.fetchall()
+    cur.close()
+    return rows
+
+
 def get_events(conn, filter_type=None, sort=None, saved_only=False,
                max_drive_min=None, max_distance_miles=None,
                date_filter=None, start_date=None, end_date=None,
+               source_keys=None, enabled_only=True,
                limit=100, offset=0):
     """
     Return non-hidden external_events from the cache.
@@ -347,6 +373,8 @@ def get_events(conn, filter_type=None, sort=None, saved_only=False,
     max_distance_miles: float | None — filter by distance_miles from home
     max_drive_min     : int | None — legacy fallback, prefer max_distance_miles
     filter_type       : legacy 'this_weekend' alias
+    source_keys       : list of source_key strings to restrict results (public filter)
+    enabled_only      : if True, only return events from enabled sources (public default)
     limit / offset    : pagination
     """
     now = datetime.datetime.utcnow()
@@ -401,6 +429,16 @@ def get_events(conn, filter_type=None, sort=None, saved_only=False,
         conditions.append("(estimated_drive_minutes <= %s OR estimated_drive_minutes IS NULL)")
         params.append(int(max_drive_min))
 
+    # Only show events from enabled sources (public view)
+    if enabled_only:
+        conditions.append("(es.enabled = TRUE OR es.enabled IS NULL)")
+
+    # Client-selected source filter
+    if source_keys:
+        placeholders = ",".join(["%s"] * len(source_keys))
+        conditions.append(f"e.source_key IN ({placeholders})")
+        params.extend(source_keys)
+
     where = " AND ".join(conditions)
 
     if sort == "closest":
@@ -420,7 +458,7 @@ def get_events(conn, filter_type=None, sort=None, saved_only=False,
 
     cur = conn.cursor(dictionary=True)
     cur.execute(
-        f"""SELECT e.*, es.display_name
+        f"""SELECT e.*, es.display_name, es.enabled AS source_enabled
             FROM external_events e
             LEFT JOIN event_sources es ON e.source_key = es.source_key
             WHERE {where} ORDER BY {order} LIMIT %s OFFSET %s""",

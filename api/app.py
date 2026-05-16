@@ -547,6 +547,57 @@ def admin_index():
 
 # ── External events API ────────────────────────────────────────────────────────
 
+@app.route("/sources")
+@app.route("/api/sources")
+def get_sources():
+    """Public endpoint: list enabled event sources."""
+    conn = get_conn()
+    try:
+        sources = _events.get_sources(conn, enabled_only=True)
+        return jsonify({"sources": sources})
+    finally:
+        conn.close()
+
+
+@app.route("/api/admin/sources", methods=["GET"])
+def admin_get_sources():
+    err = _require_auth()
+    if err:
+        return err
+    conn = get_conn()
+    try:
+        sources = _events.get_sources(conn, enabled_only=False)
+        return jsonify({"sources": sources})
+    finally:
+        conn.close()
+
+
+@app.route("/api/admin/sources/<source_key>", methods=["PUT"])
+def admin_update_source(source_key):
+    err = _require_auth()
+    if err:
+        return err
+    data = request.get_json() or {}
+    if "enabled" not in data:
+        return jsonify({"error": "enabled field required"}), 400
+    enabled = bool(data["enabled"])
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE event_sources SET enabled=%s, updated_at=NOW() WHERE source_key=%s",
+            (enabled, source_key)
+        )
+        if cur.rowcount == 0:
+            cur.close()
+            return jsonify({"error": "Source not found"}), 404
+        conn.commit()
+        cur.close()
+        return jsonify({"ok": True, "source_key": source_key, "enabled": enabled})
+    finally:
+        conn.close()
+
+
 @app.route("/events")
 @app.route("/api/events")
 def get_events():
@@ -560,6 +611,9 @@ def get_events():
     max_drive          = request.args.get("max_drive", type=int)  # legacy
     limit              = request.args.get("limit", type=int, default=100)
     offset             = request.args.get("offset", type=int, default=0)
+    # Comma-separated list of source_keys to restrict results
+    source_keys_raw    = request.args.get("source_keys", "").strip()
+    source_keys        = [s.strip() for s in source_keys_raw.split(",") if s.strip()] or None
 
     conn = get_conn()
     try:
@@ -577,6 +631,8 @@ def get_events():
             saved_only=saved_only,
             max_distance_miles=max_distance_miles,
             max_drive_min=max_drive,
+            source_keys=source_keys,
+            enabled_only=True,
             limit=limit,
             offset=offset,
         )
@@ -658,22 +714,23 @@ def admin_get_events():
         # Source summary (all events, no date filter)
         cur = conn.cursor(dictionary=True)
         cur.execute("""
-            SELECT es.display_name, e.source_key,
+            SELECT es.display_name, e.source_key, es.enabled,
                    COUNT(*) AS total,
                    SUM(e.hidden) AS hidden_count,
                    SUM(e.saved)  AS saved_count
             FROM external_events e
             LEFT JOIN event_sources es ON e.source_key = es.source_key
-            GROUP BY e.source_key, es.display_name
+            GROUP BY e.source_key, es.display_name, es.enabled
         """)
         sources = cur.fetchall()
         cur.close()
 
-        # Coerce Decimal → int for JSON serialisation
+        # Coerce Decimal → int / bool for JSON serialisation
         for s in sources:
             s["total"]        = int(s["total"] or 0)
             s["hidden_count"] = int(s["hidden_count"] or 0)
             s["saved_count"]  = int(s["saved_count"] or 0)
+            s["enabled"]      = bool(s["enabled"]) if s["enabled"] is not None else True
 
         # Event list — upcoming + recent, optionally including hidden
         cutoff = datetime.datetime.utcnow() - datetime.timedelta(hours=6)

@@ -711,24 +711,19 @@ h1 .subtitle {
 .events-header {
   background: var(--bg-panel);
   border-bottom: 1px solid var(--line);
-  padding: 16px 16px 10px 16px;
+  padding: 7px 12px 6px 12px;
   flex-shrink: 0;
 }
 
 .events-title {
-  margin: 0 0 4px 0;
+  margin: 0;
   font-family: 'Lora', Georgia, serif;
-  font-size: 22px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--berry);
   letter-spacing: 0.2px;
-}
-
-.events-subtitle {
-  margin: 0 0 4px 0;
-  font-size: 13px;
-  color: var(--ink-soft);
-  line-height: 1.4;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .events-controls {
@@ -1169,11 +1164,6 @@ h1 .subtitle {
 }
 
 /* ── Event search ────────────────────────────────────────────────────────── */
-.ev-search-row {
-  margin-top: 0;
-  margin-bottom: 4px;
-}
-
 .ev-search-wrap {
   position: relative;
   display: flex;
@@ -1228,19 +1218,25 @@ h1 .subtitle {
   color: var(--ink);
 }
 
-/* ── Collapsible filter panel ────────────────────────────────────────────── */
-.ev-topbar {
+/* ── Compact headerbar ────────────────────────────────────────────────────── */
+.ev-headerbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
-  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+/* Mobile: search wraps to a full-width second row */
+.ev-headerbar .ev-search-wrap {
+  flex-basis: 100%;
+  width: 100%;
 }
 
 .ev-filter-summary {
+  flex: 1;
+  min-width: 0;
   font-size: 12px;
   color: var(--ink-soft);
-  flex: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1283,15 +1279,28 @@ h1 .subtitle {
   display: none;
   flex-direction: column;
   gap: 8px;
-  padding-top: 2px;
+  margin-top: 6px;
 }
 
 .ev-filters-panel.ev-filters-open {
   display: flex;
 }
 
-/* Desktop: always visible, toggle button hidden */
+/* Desktop: filter panel always visible; search fills space; toggle hidden */
 @media (min-width: 700px) {
+  /* Search moves to between title and summary, fills available width */
+  .ev-headerbar .ev-search-wrap {
+    order: 1;
+    flex: 1;
+    flex-basis: auto;
+    width: auto;
+  }
+  /* Summary stays compact on the right */
+  .ev-filter-summary {
+    order: 2;
+    flex: none;
+    max-width: 210px;
+  }
   .ev-filters-panel {
     display: flex;
   }

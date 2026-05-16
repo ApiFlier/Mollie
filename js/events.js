@@ -1,15 +1,18 @@
 (function () {
   var state = {
-    dateFilter: "this_weekend",
-    startDate:  "",
-    endDate:    "",
-    maxMiles:   30,
-    savedOnly:  false,
-    sort:       "soonest",
-    loading:    false,
-    cacheStale: false,
-    searchText: "",
-    allEvents:  [],
+    dateFilter:    "this_weekend",
+    startDate:     "",
+    endDate:       "",
+    maxMiles:      30,
+    savedOnly:     false,
+    sort:          "soonest",
+    loading:       false,
+    cacheStale:    false,
+    searchText:    "",
+    allEvents:     [],
+    // Sources: null = all enabled; array of source_keys = selected subset
+    sourcesFilter: null,
+    allSources:    [], // [{source_key, display_name}] from /api/sources
   };
 
   // ── Date helpers ──────────────────────────────────────────────────────────────
@@ -71,6 +74,19 @@
 
     if (state.savedOnly) parts.push("Saved");
 
+    // Source filter — only mention when a subset is selected
+    if (state.sourcesFilter !== null && state.allSources.length > 0) {
+      if (state.sourcesFilter.length === 0) {
+        parts.push("No sources");
+      } else if (state.sourcesFilter.length < state.allSources.length) {
+        var labels = state.sourcesFilter.map(function (k) {
+          var s = state.allSources.find(function (x) { return x.source_key === k; });
+          return s ? s.display_name : k;
+        });
+        parts.push(labels.join(" + ") + " only");
+      }
+    }
+
     return parts.join(" · ");
   }
 
@@ -101,6 +117,19 @@
     // Saved button
     var savedBtn = document.querySelector(".ev-saved-btn");
     if (savedBtn) savedBtn.classList.toggle("ev-filter-active", state.savedOnly);
+
+    // Source chips — sync after sources are loaded
+    _syncSourceChips();
+  }
+
+  function _syncSourceChips() {
+    var panel = document.getElementById("source-chip-row");
+    if (!panel) return;
+    panel.querySelectorAll(".ev-source-chip-btn").forEach(function (btn) {
+      var key = btn.dataset.source;
+      var active = state.sourcesFilter === null || state.sourcesFilter.indexOf(key) !== -1;
+      btn.classList.toggle("ev-filter-active", active);
+    });
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -529,6 +558,15 @@
     params.set("sort", state.sort);
     params.set("limit", "200");
 
+    // Source filter: only pass if a strict subset is selected
+    if (state.sourcesFilter !== null && state.sourcesFilter.length > 0 &&
+        state.sourcesFilter.length < state.allSources.length) {
+      params.set("source_keys", state.sourcesFilter.join(","));
+    } else if (state.sourcesFilter !== null && state.sourcesFilter.length === 0) {
+      // Nothing selected — return empty results (no-op: send impossible source)
+      params.set("source_keys", "__none__");
+    }
+
     fetch("/api/events?" + params.toString())
       .then(function (r) {
         if (!r.ok) throw new Error("HTTP " + r.status);
@@ -696,6 +734,9 @@
       });
     });
 
+    // ── Source filter ─────────────────────────────────────────────────────────
+    // Source chips are built dynamically after /api/sources loads (see loadSources).
+
     // ── Search ────────────────────────────────────────────────────────────────
     var searchInput = document.getElementById("ev-search-input");
     var searchClear = document.getElementById("ev-search-clear");
@@ -720,12 +761,77 @@
     });
   }
 
+  // ── Source filter loading ─────────────────────────────────────────────────────
+
+  function _buildSourceChips(sources) {
+    var row = document.getElementById("source-chip-row");
+    if (!row) return;
+    if (!sources || sources.length < 2) {
+      // Only one (or zero) enabled source — hide the whole group
+      var group = document.getElementById("source-filter-group");
+      if (group) group.style.display = "none";
+      return;
+    }
+    var html = "";
+    sources.forEach(function (s) {
+      html += '<button class="ev-filter-btn ev-source-chip-btn ev-filter-active"'
+            + ' data-source="' + esc(s.source_key) + '">'
+            + esc(s.display_name) + '</button>';
+    });
+    row.innerHTML = html;
+
+    row.querySelectorAll(".ev-source-chip-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var key = btn.dataset.source;
+        // Toggle this source in the filter
+        if (state.sourcesFilter === null) {
+          // All selected → deselect this one
+          state.sourcesFilter = state.allSources
+            .map(function (s) { return s.source_key; })
+            .filter(function (k) { return k !== key; });
+        } else {
+          var idx = state.sourcesFilter.indexOf(key);
+          if (idx === -1) {
+            state.sourcesFilter = state.sourcesFilter.concat([key]);
+          } else {
+            state.sourcesFilter = state.sourcesFilter.filter(function (k) { return k !== key; });
+          }
+          // If all selected again, reset to null (all)
+          if (state.sourcesFilter.length === state.allSources.length) {
+            state.sourcesFilter = null;
+          }
+        }
+        _syncSourceChips();
+        updateFilterSummary();
+        loadEvents();
+      });
+    });
+  }
+
+  function loadSources() {
+    fetch("/api/sources")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data) return;
+        state.allSources = data.sources || [];
+        _buildSourceChips(state.allSources);
+        // Source filter defaults to all enabled (null = all)
+        state.sourcesFilter = null;
+        _syncSourceChips();
+        updateFilterSummary();
+      })
+      .catch(function (err) {
+        console.warn("[events] could not load sources:", err);
+      });
+  }
+
   // ── Init ──────────────────────────────────────────────────────────────────────
 
   document.addEventListener("DOMContentLoaded", function () {
     syncButtonStates();
     updateFilterSummary();
     initControls();
+    loadSources();
     loadEvents();
   });
 })();

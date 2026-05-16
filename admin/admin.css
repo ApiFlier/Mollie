@@ -496,3 +496,17 @@ table.locations-table {
 
 /* Minimum 44px touch target for crop delete button */
 .crop-row .delete-cell button { width: 44px !important; height: 44px !important; }
+
+/* Source enable/disable toggle button in stat card */
+.ev-admin-stat-card .ev-source-toggle {
+  margin-top: 8px;
+  font-weight: 600;
+  background: var(--bg-panel);
+  cursor: pointer;
+  font-family: inherit;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+.ev-admin-stat-card .ev-source-toggle:hover {
+  filter: brightness(0.92);
+}
