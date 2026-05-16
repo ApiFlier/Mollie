@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/css/styles.css?v=20260516q">
+  <link rel="stylesheet" href="/css/styles.css?v=20260516r">
 </head>
 <body>
   <div class="top-nav">
@@ -24,13 +24,29 @@
       <h1 class="events-title">Mollie Events</h1>
       <p class="events-subtitle">Local things to do, within an hour's drive.</p>
 
-      <div class="events-controls">
+      <div class="ev-topbar">
+        <span class="ev-filter-summary" id="ev-filter-summary">This weekend · 30 mi · Soonest</span>
+        <button class="ev-filters-toggle-btn" id="ev-filters-toggle"
+                aria-expanded="false" aria-controls="ev-filters-panel">Filters</button>
+      </div>
+
+      <!-- Search — always visible -->
+      <div class="ev-search-row">
+        <div class="ev-search-wrap">
+          <input type="search" id="ev-search-input" class="ev-search-input"
+                 placeholder="Search events, venues, cities…" autocomplete="off" spellcheck="false">
+          <button id="ev-search-clear" class="ev-search-clear" aria-label="Clear search" style="display:none;">✕</button>
+        </div>
+      </div>
+
+      <!-- Collapsible filter panel -->
+      <div class="ev-filters-panel" id="ev-filters-panel">
 
         <!-- Date filter -->
         <div class="ev-filter-group">
           <span class="ev-group-label">When</span>
           <div class="ev-filter-row" id="date-filter-row">
-            <button class="ev-filter-btn ev-filter-active" data-date="">Any date</button>
+            <button class="ev-filter-btn" data-date="">Any date</button>
             <button class="ev-filter-btn" data-date="today">Today</button>
             <button class="ev-filter-btn" data-date="this_weekend">This Weekend</button>
             <button class="ev-filter-btn" data-date="custom">Custom…</button>
@@ -48,7 +64,7 @@
           <div class="ev-filter-row" id="dist-filter-row">
             <button class="ev-filter-btn" data-miles="15">15 mi</button>
             <button class="ev-filter-btn" data-miles="30">30 mi</button>
-            <button class="ev-filter-btn ev-filter-active" data-miles="60">60 mi</button>
+            <button class="ev-filter-btn" data-miles="60">60 mi</button>
             <button class="ev-filter-btn" data-miles="">Any</button>
             <button class="ev-filter-btn" data-miles="custom">Custom…</button>
           </div>
@@ -64,17 +80,8 @@
           <button class="ev-filter-btn ev-saved-btn" data-quick="saved">Saved</button>
           <div class="ev-sort-inline">
             <span class="ev-sort-label">Sort:</span>
-            <button class="ev-sort-btn ev-sort-active" data-sort="soonest">Soonest</button>
+            <button class="ev-sort-btn" data-sort="soonest">Soonest</button>
             <button class="ev-sort-btn" data-sort="closest">Closest</button>
-          </div>
-        </div>
-
-        <!-- Search -->
-        <div class="ev-search-row">
-          <div class="ev-search-wrap">
-            <input type="search" id="ev-search-input" class="ev-search-input"
-                   placeholder="Search events, venues, cities…" autocomplete="off" spellcheck="false">
-            <button id="ev-search-clear" class="ev-search-clear" aria-label="Clear search" style="display:none;">✕</button>
           </div>
         </div>
 
@@ -85,6 +92,6 @@
     <div id="events-list" class="events-list"></div>
   </div>
 
-  <script src="/js/events.js?v=20260516q"></script>
+  <script src="/js/events.js?v=20260516r"></script>
 </body>
 </html>

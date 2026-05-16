@@ -1,16 +1,107 @@
 (function () {
   var state = {
-    dateFilter: "",       // "" | "today" | "this_weekend" | "custom"
-    startDate:  "",       // YYYY-MM-DD for custom
-    endDate:    "",       // YYYY-MM-DD for custom
-    maxMiles:   60,       // null = no limit
+    dateFilter: "this_weekend",
+    startDate:  "",
+    endDate:    "",
+    maxMiles:   30,
     savedOnly:  false,
     sort:       "soonest",
     loading:    false,
     cacheStale: false,
-    searchText: "",       // client-side text filter
-    allEvents:  [],       // full API result before text filtering
+    searchText: "",
+    allEvents:  [],
   };
+
+  // ── Date helpers ──────────────────────────────────────────────────────────────
+
+  function localDateStr(d) {
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, "0");
+    var day = String(d.getDate()).padStart(2, "0");
+    return y + "-" + m + "-" + day;
+  }
+
+  function thisWeekendRange() {
+    var today = new Date();
+    var dow = today.getDay(); // 0=Sun … 6=Sat
+    var start, end;
+    if (dow === 0) {
+      start = new Date(today); end = new Date(today);
+    } else if (dow >= 1 && dow <= 4) {
+      start = new Date(today); start.setDate(today.getDate() + (5 - dow));
+      end = new Date(start);   end.setDate(start.getDate() + 2);
+    } else if (dow === 5) {
+      start = new Date(today); end = new Date(today); end.setDate(today.getDate() + 2);
+    } else {
+      start = new Date(today); end = new Date(today); end.setDate(today.getDate() + 1);
+    }
+    return { start: localDateStr(start), end: localDateStr(end) };
+  }
+
+  // ── Filter summary ────────────────────────────────────────────────────────────
+
+  function buildFilterSummary() {
+    var parts = [];
+
+    if (state.dateFilter === "") {
+      parts.push("Any date");
+    } else if (state.dateFilter === "today") {
+      parts.push("Today");
+    } else if (state.dateFilter === "this_weekend") {
+      parts.push("This weekend");
+    } else if (state.dateFilter === "custom") {
+      var s = state.startDate || (document.getElementById("start-date") || {}).value || "";
+      var e = state.endDate   || (document.getElementById("end-date")   || {}).value || "";
+      if (s && e && s !== e) {
+        parts.push(s + "–" + e);
+      } else if (s) {
+        parts.push(s);
+      } else {
+        parts.push("Custom date");
+      }
+    }
+
+    if (state.maxMiles == null) {
+      parts.push("Any distance");
+    } else {
+      parts.push(state.maxMiles + " mi");
+    }
+
+    parts.push(state.sort === "closest" ? "Closest" : "Soonest");
+
+    if (state.savedOnly) parts.push("Saved");
+
+    return parts.join(" · ");
+  }
+
+  function updateFilterSummary() {
+    var el = document.getElementById("ev-filter-summary");
+    if (el) el.textContent = buildFilterSummary();
+  }
+
+  function syncButtonStates() {
+    // Date buttons
+    document.querySelectorAll("#date-filter-row .ev-filter-btn").forEach(function (btn) {
+      btn.classList.toggle("ev-filter-active", btn.dataset.date === state.dateFilter);
+    });
+    var customDateRow = document.getElementById("custom-date-row");
+    if (customDateRow) customDateRow.style.display = state.dateFilter === "custom" ? "" : "none";
+
+    // Distance buttons
+    var milesStr = state.maxMiles == null ? "" : String(state.maxMiles);
+    document.querySelectorAll("#dist-filter-row .ev-filter-btn").forEach(function (btn) {
+      btn.classList.toggle("ev-filter-active", btn.dataset.miles === milesStr);
+    });
+
+    // Sort buttons
+    document.querySelectorAll(".ev-sort-btn").forEach(function (btn) {
+      btn.classList.toggle("ev-sort-active", btn.dataset.sort === state.sort);
+    });
+
+    // Saved button
+    var savedBtn = document.querySelector(".ev-saved-btn");
+    if (savedBtn) savedBtn.classList.toggle("ev-filter-active", state.savedOnly);
+  }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -47,7 +138,6 @@
     }
   }
 
-  // Returns "12.4 mi", or null if data is missing or clearly wrong.
   function distLabel(miles) {
     if (miles == null) return null;
     var m = parseFloat(miles);
@@ -59,7 +149,6 @@
     if (ev.latitude != null && ev.longitude != null) {
       var lat = parseFloat(ev.latitude);
       var lng = parseFloat(ev.longitude);
-      // Skip if coords are the Pittsburgh city-center fallback (bad geocode).
       if (Math.abs(lat - 40.4406) < 0.001 && Math.abs(lng + 79.9959) < 0.001) {
         // fall through to address-based
       } else {
@@ -219,7 +308,6 @@
 
     var html = '<div class="ev-card' + saved + '" data-id="' + ev.id + '">';
 
-    // ── Header: source chip + date ──
     var homeUrl = sourceHomeUrl(ev.source_key);
     html += '<div class="ev-card-header">';
     if (homeUrl) {
@@ -237,12 +325,9 @@
     html += '</span>';
     html += '</div>';
 
-    // ── Body ──
     html += '<div class="ev-card-body">';
-
     html += '<div class="ev-title">' + esc(ev.title) + '</div>';
 
-    // Meta row: category + distance pill
     var hasMeta = (ev.category && ev.category !== "featured" && ev.category !== "event") || dist;
     if (hasMeta) {
       html += '<div class="ev-meta-row">';
@@ -255,7 +340,6 @@
       html += '</div>';
     }
 
-    // Address block
     var addrLines = [];
     if (ev.venue_name) addrLines.push(ev.venue_name);
     if (ev.address)    addrLines.push(ev.address);
@@ -279,9 +363,8 @@
       html += '<div class="ev-desc">' + esc(ev.description_short) + '</div>';
     }
 
-    html += '</div>'; // .ev-card-body
+    html += '</div>';
 
-    // ── Actions ──
     html += '<div class="ev-actions">';
     if (ev.source_url) {
       html += '<a href="' + esc(ev.source_url) + '" class="ev-btn ev-btn-primary" target="_blank" rel="noopener">Open Event</a>';
@@ -297,7 +380,7 @@
     html += '<button class="ev-btn ev-btn-ghost ev-hide-btn" data-id="' + ev.id + '">Hide</button>';
     html += '</div>';
 
-    html += '</div>'; // .ev-card
+    html += '</div>';
     return html;
   }
 
@@ -308,7 +391,7 @@
     if (!events || !events.length) {
       var q = state.searchText.trim();
       if (q) {
-        listEl.innerHTML = '<div class="ev-empty">No events found for “' + esc(q) + '” with the current filters.</div>';
+        listEl.innerHTML = '<div class="ev-empty">No events found for "' + esc(q) + '" with the current filters.</div>';
       } else {
         listEl.innerHTML = '<div class="ev-empty">No events match your current filters. Try broadening your filters, or <button class="ev-refresh-link" id="manual-refresh-btn">refresh sources</button>.</div>';
         document.getElementById("manual-refresh-btn").addEventListener("click", function () {
@@ -319,6 +402,9 @@
     }
 
     var deduped = dedupeDisplay(events);
+    var todayStr    = localDateStr(new Date());
+    var tomorrowD   = new Date(); tomorrowD.setDate(tomorrowD.getDate() + 1);
+    var tomorrowStr = localDateStr(tomorrowD);
 
     var html = "";
     var lastDate = null;
@@ -329,23 +415,17 @@
         var label;
         if (dateKey === "undated") {
           label = "See Website for Dates";
+        } else if (dateKey === todayStr) {
+          label = "Today";
+        } else if (dateKey === tomorrowStr) {
+          label = "Tomorrow";
         } else {
           try {
             var d = new Date(dateKey + "T12:00:00Z");
-            var todayStr = new Date().toISOString().substring(0, 10);
-            var tomorrowDate = new Date();
-            tomorrowDate.setUTCDate(tomorrowDate.getUTCDate() + 1);
-            var tomorrowStr = tomorrowDate.toISOString().substring(0, 10);
-            if (dateKey === todayStr) {
-              label = "Today";
-            } else if (dateKey === tomorrowStr) {
-              label = "Tomorrow";
-            } else {
-              var months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-              var days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-              label = days[d.getUTCDay()] + ", " + months[d.getUTCMonth()] + " " + d.getUTCDate();
-            }
+            var months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            var days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+            label = days[d.getUTCDay()] + ", " + months[d.getUTCMonth()] + " " + d.getUTCDate();
           } catch (ex) {
             label = dateKey;
           }
@@ -421,9 +501,17 @@
 
     var params = new URLSearchParams();
 
-    // Date filter
-    if (state.dateFilter && state.dateFilter !== "custom") {
-      params.set("date_filter", state.dateFilter);
+    // Compute local dates for today/this_weekend to avoid UTC shift
+    if (state.dateFilter === "today") {
+      var tod = localDateStr(new Date());
+      params.set("date_filter", "custom");
+      params.set("start_date", tod);
+      params.set("end_date", tod);
+    } else if (state.dateFilter === "this_weekend") {
+      var wr = thisWeekendRange();
+      params.set("date_filter", "custom");
+      params.set("start_date", wr.start);
+      params.set("end_date", wr.end);
     } else if (state.dateFilter === "custom") {
       state.startDate = (document.getElementById("start-date") || {}).value || "";
       state.endDate   = (document.getElementById("end-date")   || {}).value || "";
@@ -432,11 +520,11 @@
         params.set("start_date", state.startDate);
         if (state.endDate) params.set("end_date", state.endDate);
       }
+    } else if (state.dateFilter) {
+      params.set("date_filter", state.dateFilter);
     }
 
-    // Distance filter
     if (state.maxMiles != null) params.set("max_distance_miles", state.maxMiles);
-
     if (state.savedOnly) params.set("saved", "1");
     params.set("sort", state.sort);
     params.set("limit", "200");
@@ -503,6 +591,17 @@
   // ── Controls ──────────────────────────────────────────────────────────────────
 
   function initControls() {
+    // ── Collapsible filter panel ──────────────────────────────────────────────
+    var toggleBtn = document.getElementById("ev-filters-toggle");
+    var panel = document.getElementById("ev-filters-panel");
+    if (toggleBtn && panel) {
+      toggleBtn.addEventListener("click", function () {
+        var open = panel.classList.toggle("ev-filters-open");
+        toggleBtn.classList.toggle("ev-toggle-active", open);
+        toggleBtn.setAttribute("aria-expanded", open ? "true" : "false");
+      });
+    }
+
     // ── Date filter ────────────────────────────────────────────────────────────
     document.querySelectorAll("#date-filter-row .ev-filter-btn").forEach(function (btn) {
       btn.addEventListener("click", function () {
@@ -513,6 +612,7 @@
         state.dateFilter = btn.dataset.date;
         document.getElementById("custom-date-row").style.display =
           state.dateFilter === "custom" ? "" : "none";
+        updateFilterSummary();
         if (state.dateFilter !== "custom") loadEvents();
       });
     });
@@ -524,8 +624,24 @@
         if (state.startDate) loadEvents();
       }
     }
-    document.getElementById("start-date").addEventListener("change", maybeLoadCustomDates);
-    document.getElementById("end-date").addEventListener("change", maybeLoadCustomDates);
+
+    document.getElementById("start-date").addEventListener("change", function () {
+      updateFilterSummary();
+      maybeLoadCustomDates();
+    });
+
+    document.getElementById("end-date").addEventListener("change", function () {
+      var startEl = document.getElementById("start-date");
+      var endEl   = document.getElementById("end-date");
+      // Silently swap if end is before start
+      if (startEl.value && endEl.value && endEl.value < startEl.value) {
+        var tmp = startEl.value;
+        startEl.value = endEl.value;
+        endEl.value = tmp;
+      }
+      updateFilterSummary();
+      maybeLoadCustomDates();
+    });
 
     // ── Distance filter ───────────────────────────────────────────────────────
     document.querySelectorAll("#dist-filter-row .ev-filter-btn").forEach(function (btn) {
@@ -539,6 +655,7 @@
           val === "custom" ? "" : "none";
         if (val !== "custom") {
           state.maxMiles = val === "" ? null : parseInt(val, 10);
+          updateFilterSummary();
           loadEvents();
         }
       });
@@ -548,6 +665,7 @@
       var v = parseInt(document.getElementById("custom-miles-input").value, 10);
       if (v > 0) {
         state.maxMiles = v;
+        updateFilterSummary();
         loadEvents();
       }
     });
@@ -561,6 +679,7 @@
     savedBtn.addEventListener("click", function () {
       state.savedOnly = !state.savedOnly;
       savedBtn.classList.toggle("ev-filter-active", state.savedOnly);
+      updateFilterSummary();
       loadEvents();
     });
 
@@ -572,6 +691,7 @@
         });
         btn.classList.add("ev-sort-active");
         state.sort = btn.dataset.sort;
+        updateFilterSummary();
         loadEvents();
       });
     });
@@ -603,6 +723,8 @@
   // ── Init ──────────────────────────────────────────────────────────────────────
 
   document.addEventListener("DOMContentLoaded", function () {
+    syncButtonStates();
+    updateFilterSummary();
     initControls();
     loadEvents();
   });
