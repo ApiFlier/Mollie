@@ -77,7 +77,7 @@
 
   // Source attribution homepages — keyed by source_key.
   var SOURCE_HOMEPAGES = {
-    positively_pgh:   "https://pittsburgh.cityspark.com/",
+    positively_pgh:   "https://positivelypittsburgh.com/calendar/",
     visit_pittsburgh: "https://www.visitpittsburgh.com/",
   };
 

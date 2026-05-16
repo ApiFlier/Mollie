@@ -932,7 +932,7 @@ h1 .subtitle {
 /* ── Card body ──────────────────────────────────────────────────────────── */
 .ev-card-body {
   padding: 5px 12px 8px 12px;
-  flex: 1;
+  flex-grow: 1;
 }
 
 .ev-title {
