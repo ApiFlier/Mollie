@@ -971,6 +971,19 @@ h1 .subtitle {
   white-space: nowrap;
 }
 
+.ev-free-pill {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #236b48;
+  background: rgba(78, 168, 130, 0.15);
+  border: 1.5px solid rgba(78, 168, 130, 0.5);
+  border-radius: 999px;
+  padding: 1px 8px;
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+}
+
 /* Address block */
 .ev-address {
   font-size: 12px;
@@ -1286,27 +1299,26 @@ h1 .subtitle {
   display: flex;
 }
 
-/* Desktop: filter panel always visible; search fills space; toggle hidden */
+/* Desktop: search inline, filters collapsible (toggle visible) */
 @media (min-width: 700px) {
-  /* Search moves to between title and summary, fills available width */
+  /* Search moves between title and summary, fills available width */
   .ev-headerbar .ev-search-wrap {
     order: 1;
     flex: 1;
     flex-basis: auto;
     width: auto;
   }
-  /* Summary stays compact on the right */
+  /* Summary compact, before toggle */
   .ev-filter-summary {
     order: 2;
     flex: none;
     max-width: 210px;
   }
-  .ev-filters-panel {
-    display: flex;
-  }
+  /* Toggle stays visible on desktop, placed last */
   .ev-filters-toggle-btn {
-    display: none;
+    order: 3;
   }
+  /* Filter panel stays hidden until toggled — same as mobile */
 }
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */

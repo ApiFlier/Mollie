@@ -357,7 +357,8 @@
     html += '<div class="ev-card-body">';
     html += '<div class="ev-title">' + esc(ev.title) + '</div>';
 
-    var hasMeta = (ev.category && ev.category !== "featured" && ev.category !== "event") || dist;
+    var isFree = ev.admission === "Free";
+    var hasMeta = (ev.category && ev.category !== "featured" && ev.category !== "event") || dist || isFree;
     if (hasMeta) {
       html += '<div class="ev-meta-row">';
       if (ev.category && ev.category !== "featured" && ev.category !== "event") {
@@ -365,6 +366,9 @@
       }
       if (dist) {
         html += '<span class="ev-drive-pill">' + esc(dist) + '</span>';
+      }
+      if (isFree) {
+        html += '<span class="ev-free-pill">Free</span>';
       }
       html += '</div>';
     }
@@ -384,7 +388,7 @@
       html += '</div>';
     }
 
-    if (ev.admission) {
+    if (ev.admission && !isFree) {
       html += '<div class="ev-admission">' + esc(ev.admission) + '</div>';
     }
 
