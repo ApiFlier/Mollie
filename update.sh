@@ -66,6 +66,18 @@ if [ ! -f "$APP_DIR/docker-compose.yml" ]; then
     error "docker-compose.yml not found in $APP_DIR."
 fi
 
+# --- Backfill HOME_LAT / HOME_LNG if missing or blank ---
+_cur_lat="$(grep -E '^HOME_LAT=' "$ENV_FILE" 2>/dev/null | tail -n1 | cut -d= -f2- | tr -d '[:space:]')"
+_cur_lng="$(grep -E '^HOME_LNG=' "$ENV_FILE" 2>/dev/null | tail -n1 | cut -d= -f2- | tr -d '[:space:]')"
+if [ -z "$_cur_lat" ]; then
+    echo "HOME_LAT=40.5028" >> "$ENV_FILE"
+    info "Backfilled HOME_LAT=40.5028 into .env (was missing or blank)."
+fi
+if [ -z "$_cur_lng" ]; then
+    echo "HOME_LNG=-79.8466" >> "$ENV_FILE"
+    info "Backfilled HOME_LNG=-79.8466 into .env (was missing or blank)."
+fi
+
 # --- Port ---
 APP_PORT="$(grep -E '^APP_PORT=' "$ENV_FILE" | tail -n1 | cut -d= -f2- | tr -d '[:space:]')"
 APP_PORT="${APP_PORT:-8090}"
@@ -101,5 +113,12 @@ echo "================================================"
 echo ""
 
 if [ "$HEALTH" = "unreachable" ]; then
-    warn "App may still be starting. Check: curl http://localhost:${APP_PORT}/health"
+    warn "App did not respond after 40 seconds — possible crash loop."
+    echo ""
+    docker compose ps
+    echo ""
+    warn "Recent app logs:"
+    docker compose logs --tail=25 app 2>/dev/null || true
+    echo ""
+    warn "Check manually: curl http://localhost:${APP_PORT}/health"
 fi

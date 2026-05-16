@@ -76,11 +76,15 @@ if [ -f "$ENV_FILE" ]; then
     _OLD_DB=$(grep "^DB_PASSWORD=" "$ENV_FILE" | cut -d= -f2-)
     _OLD_SECRET=$(grep "^FLASK_SECRET=" "$ENV_FILE" | cut -d= -f2-)
     _OLD_PORT=$(grep "^APP_PORT=" "$ENV_FILE" | cut -d= -f2-)
+    _OLD_HOME_LAT=$(grep "^HOME_LAT=" "$ENV_FILE" | tail -n1 | cut -d= -f2- | tr -d '[:space:]')
+    _OLD_HOME_LNG=$(grep "^HOME_LNG=" "$ENV_FILE" | tail -n1 | cut -d= -f2- | tr -d '[:space:]')
 fi
 
 MYSQL_PASS=${_OLD_MYSQL:-$(python3 -c "import secrets; print(secrets.token_urlsafe(24))")}
 DB_PASS=${_OLD_DB:-$(python3 -c "import secrets; print(secrets.token_urlsafe(24))")}
 FLASK_SECRET=${_OLD_SECRET:-$(python3 -c "import secrets; print(secrets.token_hex(32))")}
+HOME_LAT_VAL=${_OLD_HOME_LAT:-40.5028}
+HOME_LNG_VAL=${_OLD_HOME_LNG:--79.8466}
 
 # Old containers are stopped at this point, so their ports are free.
 PREF_APP_PORT=${_OLD_PORT:-8090}
@@ -91,6 +95,8 @@ MYSQL_ROOT_PASSWORD=${MYSQL_PASS}
 DB_PASSWORD=${DB_PASS}
 FLASK_SECRET=${FLASK_SECRET}
 APP_PORT=${ACTUAL_APP_PORT}
+HOME_LAT=${HOME_LAT_VAL}
+HOME_LNG=${HOME_LNG_VAL}
 ENVEOF
 chmod 600 "$ENV_FILE"
 

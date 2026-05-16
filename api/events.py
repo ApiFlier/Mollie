@@ -7,11 +7,27 @@ import os
 import datetime
 import threading
 
+def _parse_float_env(name, default, min_val=None, max_val=None):
+    """Return float from env var, falling back to default on blank/invalid/out-of-range."""
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        val = float(raw)
+    except (ValueError, TypeError):
+        print(f"[events] WARNING: {name}={raw!r} is not a valid float; using default {default}")
+        return default
+    if (min_val is not None and val < min_val) or (max_val is not None and val > max_val):
+        print(f"[events] WARNING: {name}={val} out of range [{min_val}, {max_val}]; using default {default}")
+        return default
+    return val
+
+
 # Home coordinates for distance calculations.
 # Source of truth: HOME_LAT / HOME_LNG in .env → docker-compose environment.
 # Defaults below are approximate Verona, PA 15147 borough center.
-HOME_LAT = float(os.environ.get("HOME_LAT", "40.5028"))
-HOME_LNG = float(os.environ.get("HOME_LNG", "-79.8466"))
+HOME_LAT = _parse_float_env("HOME_LAT", 40.5028, min_val=-90.0, max_val=90.0)
+HOME_LNG = _parse_float_env("HOME_LNG", -79.8466, min_val=-180.0, max_val=180.0)
 
 CACHE_HOURS = int(os.environ.get("EVENTS_CACHE_HOURS", "24"))
 
