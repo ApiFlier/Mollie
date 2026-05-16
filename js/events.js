@@ -326,6 +326,16 @@
 
   // ── Card rendering ────────────────────────────────────────────────────────────
 
+  function renderCostBadge(ev) {
+    if (ev.admission === "Free") {
+      return '<span class="ev-free-pill">Free</span>';
+    }
+    if (ev.admission) {
+      return '<span class="ev-paid-pill">' + esc(ev.admission) + '</span>';
+    }
+    return '<span class="ev-unknown-pill">Cost not listed</span>';
+  }
+
   function renderCard(ev) {
     var dateStr  = ev.date_label || formatDate(ev.start_datetime) || "See website";
     var timeStr  = ev.start_datetime ? formatTime(ev.start_datetime) : null;
@@ -357,21 +367,15 @@
     html += '<div class="ev-card-body">';
     html += '<div class="ev-title">' + esc(ev.title) + '</div>';
 
-    var isFree = ev.admission === "Free";
-    var hasMeta = (ev.category && ev.category !== "featured" && ev.category !== "event") || dist || isFree;
-    if (hasMeta) {
-      html += '<div class="ev-meta-row">';
-      if (ev.category && ev.category !== "featured" && ev.category !== "event") {
-        html += '<span class="ev-category-tag">' + esc(ev.category) + '</span>';
-      }
-      if (dist) {
-        html += '<span class="ev-drive-pill">' + esc(dist) + '</span>';
-      }
-      if (isFree) {
-        html += '<span class="ev-free-pill">Free</span>';
-      }
-      html += '</div>';
+    html += '<div class="ev-meta-row">';
+    if (ev.category && ev.category !== "featured" && ev.category !== "event") {
+      html += '<span class="ev-category-tag">' + esc(ev.category) + '</span>';
     }
+    if (dist) {
+      html += '<span class="ev-drive-pill">' + esc(dist) + '</span>';
+    }
+    html += renderCostBadge(ev);
+    html += '</div>';
 
     var addrLines = [];
     if (ev.venue_name) addrLines.push(ev.venue_name);
@@ -386,10 +390,6 @@
         html += '<span class="ev-address-line">' + esc(addrLines[j]) + '</span>';
       }
       html += '</div>';
-    }
-
-    if (ev.admission && !isFree) {
-      html += '<div class="ev-admission">' + esc(ev.admission) + '</div>';
     }
 
     if (!isGenericDesc(ev.description_short)) {
