@@ -31,7 +31,7 @@ const EventMapFilters = (() => {
   }
 
   function setChipActive(btn, active) {
-    var color = btn.dataset.color || "#8b2331";
+    var color = btn.dataset.color || "#3d72c8";
     if (active) {
       btn.style.background = color;
       btn.style.borderColor = color;
@@ -104,7 +104,7 @@ const EventMapFilters = (() => {
       btn.className = "chip";
       btn.textContent = c.name.charAt(0).toUpperCase() + c.name.slice(1).replace(/-/g, " ");
       btn.dataset.value = c.name;
-      btn.dataset.color = c.color || "#8b2331";
+      btn.dataset.color = c.color || "#3d72c8";
       setChipActive(btn, state.categories.has(c.name));
       btn.onclick = function() { toggleCategory(c.name); };
       categoriesEl.appendChild(btn);

@@ -30,7 +30,7 @@
     }
     miniMap.setView([lat, lng], 14);
     if (miniMapMarker) miniMap.removeLayer(miniMapMarker);
-    miniMapMarker = L.marker([lat, lng], { icon: EventMapMap.makeIcon(color || "#8b2331") }).addTo(miniMap);
+    miniMapMarker = L.marker([lat, lng], { icon: EventMapMap.makeIcon(color || "#3d72c8") }).addTo(miniMap);
     miniMap.invalidateSize();
   }
 
@@ -207,7 +207,7 @@
       else if (loc.city)          location = loc.city;
       else if (loc.county)        location = loc.county + " County";
 
-      var color = loc.category_color || "#8b2331";
+      var color = loc.category_color || "#3d72c8";
 
       html += '<div class="list-card" data-id="' + loc.id + '">';
       html += '<div class="list-card-header">';

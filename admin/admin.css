@@ -2,18 +2,18 @@
 /* Reuses base theme variables but with denser, more utilitarian layout */
 
 :root {
-  --bg: #faf6f0;
-  --bg-panel: #fffdf8;
-  --berry: #8b2331;
-  --sage: #7a8b5a;
-  --gold: #c89b3c;
-  --plum: #5d3a6b;
-  --terracotta: #c4633a;
-  --ink: #3a2820;
-  --ink-soft: #6b5544;
-  --line: #e6dccb;
-  --danger: #b03030;
-  --shadow: 0 2px 8px rgba(58, 40, 32, 0.12);
+  --bg: #eef2fd;
+  --bg-panel: #ffffff;
+  --berry: #3d72c8;
+  --sage: #4ea882;
+  --gold: #d4972a;
+  --plum: #7c5cc8;
+  --terracotta: #c86060;
+  --ink: #1a2740;
+  --ink-soft: #526080;
+  --line: #c8d8f0;
+  --danger: #c04040;
+  --shadow: 0 2px 8px rgba(26, 39, 64, 0.10);
 }
 
 * { box-sizing: border-box; }

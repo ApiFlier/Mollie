@@ -40,8 +40,8 @@ const EventMapMap = (() => {
   function makeIcon(color) {
     var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 32" width="28" height="38">';
     svg += '<path d="M12 0 C5.4 0 0 5.4 0 12 c0 8 12 20 12 20 s12-12 12-20 C24 5.4 18.6 0 12 0 z" ';
-    svg += 'fill="' + color + '" stroke="#3a2820" stroke-width="1.5"/>';
-    svg += '<circle cx="12" cy="12" r="5" fill="#faf6f0"/>';
+    svg += 'fill="' + color + '" stroke="#1a2740" stroke-width="1.5"/>';
+    svg += '<circle cx="12" cy="12" r="5" fill="#ffffff"/>';
     svg += '</svg>';
     return L.divIcon({
       html: svg,
@@ -56,7 +56,7 @@ const EventMapMap = (() => {
     markerLayer.clearLayers();
     locations.forEach(function(loc) {
       if (loc.lat == null || loc.lng == null) return;
-      var color = loc.category_color || "#8b2331";
+      var color = loc.category_color || "#3d72c8";
       var marker = L.marker([loc.lat, loc.lng], { icon: makeIcon(color) });
       marker.on("click", function() {
         if (onMarkerClick) onMarkerClick(loc);
