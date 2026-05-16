@@ -8,6 +8,8 @@
     sort:       "soonest",
     loading:    false,
     cacheStale: false,
+    searchText: "",       // client-side text filter
+    allEvents:  [],       // full API result before text filtering
   };
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -180,6 +182,30 @@
     return result;
   }
 
+  // ── Client-side text search ───────────────────────────────────────────────────
+
+  function applyAndRender() {
+    var events = state.allEvents;
+    var q = state.searchText.trim().toLowerCase();
+    if (q) {
+      events = events.filter(function (ev) {
+        var haystack = [
+          ev.title,
+          ev.venue_name,
+          ev.city,
+          ev.state,
+          ev.address,
+          ev.category,
+          ev.description_short,
+          ev.display_name,
+          ev.admission,
+        ].filter(Boolean).join(" ").toLowerCase();
+        return haystack.indexOf(q) !== -1;
+      });
+    }
+    renderEvents(events);
+  }
+
   // ── Card rendering ────────────────────────────────────────────────────────────
 
   function renderCard(ev) {
@@ -280,10 +306,15 @@
   function renderEvents(events) {
     var listEl = document.getElementById("events-list");
     if (!events || !events.length) {
-      listEl.innerHTML = '<div class="ev-empty">No events found. Try broadening your filters, or <button class="ev-refresh-link" id="manual-refresh-btn">refresh sources</button>.</div>';
-      document.getElementById("manual-refresh-btn").addEventListener("click", function () {
-        manualRefresh();
-      });
+      var q = state.searchText.trim();
+      if (q) {
+        listEl.innerHTML = '<div class="ev-empty">No events found for “' + esc(q) + '” with the current filters.</div>';
+      } else {
+        listEl.innerHTML = '<div class="ev-empty">No events match your current filters. Try broadening your filters, or <button class="ev-refresh-link" id="manual-refresh-btn">refresh sources</button>.</div>';
+        document.getElementById("manual-refresh-btn").addEventListener("click", function () {
+          manualRefresh();
+        });
+      }
       return;
     }
 
@@ -421,7 +452,8 @@
 
         if (data.cache_stale && (!data.events || data.events.length === 0)) {
           showStatus("Loading events from sources — check back in a moment.", "loading");
-          renderEvents([]);
+          state.allEvents = [];
+          applyAndRender();
           setTimeout(loadEvents, 5000);
         } else {
           if (data.cache_stale) {
@@ -433,7 +465,8 @@
           } else {
             hideStatus();
           }
-          renderEvents(data.events || []);
+          state.allEvents = data.events || [];
+          applyAndRender();
         }
       })
       .catch(function (err) {
@@ -541,6 +574,29 @@
         state.sort = btn.dataset.sort;
         loadEvents();
       });
+    });
+
+    // ── Search ────────────────────────────────────────────────────────────────
+    var searchInput = document.getElementById("ev-search-input");
+    var searchClear = document.getElementById("ev-search-clear");
+    var _searchTimer = null;
+
+    searchInput.addEventListener("input", function () {
+      clearTimeout(_searchTimer);
+      var val = searchInput.value;
+      searchClear.style.display = val ? "" : "none";
+      _searchTimer = setTimeout(function () {
+        state.searchText = val;
+        applyAndRender();
+      }, 150);
+    });
+
+    searchClear.addEventListener("click", function () {
+      searchInput.value = "";
+      searchClear.style.display = "none";
+      state.searchText = "";
+      applyAndRender();
+      searchInput.focus();
     });
   }
 

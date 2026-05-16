@@ -1168,6 +1168,65 @@ h1 .subtitle {
   color: var(--ink) !important;
 }
 
+/* ── Event search ────────────────────────────────────────────────────────── */
+.ev-search-row {
+  margin-top: 2px;
+}
+
+.ev-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.ev-search-input {
+  width: 100%;
+  padding: 7px 34px 7px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg-panel);
+  color: var(--ink);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  -webkit-appearance: none;
+}
+
+.ev-search-input:focus {
+  border-color: var(--berry);
+}
+
+.ev-search-input::placeholder {
+  color: var(--ink-soft);
+  opacity: 0.75;
+}
+
+.ev-search-clear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: var(--bg);
+  color: var(--ink-soft);
+  border-radius: 50%;
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  transition: background 0.12s, color 0.12s;
+}
+
+.ev-search-clear:hover {
+  background: var(--line);
+  color: var(--ink);
+}
+
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (min-width: 600px) {
   .events-filter-row {
