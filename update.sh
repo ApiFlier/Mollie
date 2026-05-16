@@ -1,6 +1,6 @@
 #!/bin/bash
-# Event Map — update an existing deployment after git pull.
-# Rebuilds and restarts app containers only.
+# Event Map — update an existing deployment.
+# Runs git pull --ff-only, then rebuilds and restarts app containers.
 #
 # Safety guarantees:
 #   - Does NOT delete or reset the database.
@@ -8,6 +8,8 @@
 #   - Does NOT touch .env or .htpasswd.
 #   - Does NOT restore seed data or ask backup/restore questions.
 #   - Does NOT remove local source files.
+#   - Does NOT run git pull if the working tree has local changes.
+#   - Does NOT auto-stash, auto-commit, or auto-resolve conflicts.
 
 set -euo pipefail
 
@@ -28,6 +30,26 @@ echo "   Event Map — Update"
 echo "================================================"
 warn "Rebuilds app containers only."
 warn "Database, volumes, .env, and .htpasswd are preserved."
+echo ""
+
+# --- Git pull ---
+if ! git -C "$APP_DIR" rev-parse --git-dir &>/dev/null; then
+    error "$APP_DIR is not a git repository. Cannot pull updates."
+fi
+
+DIRTY="$(git -C "$APP_DIR" status --porcelain 2>/dev/null)"
+if [ -n "$DIRTY" ]; then
+    echo -e "${RED}[ERROR]${NC} Working tree has local changes. Commit or stash them before running update.sh."
+    echo ""
+    git -C "$APP_DIR" status --short
+    echo ""
+    exit 1
+fi
+
+info "Pulling latest code (fast-forward only)..."
+if ! git -C "$APP_DIR" pull --ff-only; then
+    error "git pull --ff-only failed. Resolve any divergence manually, then re-run update.sh."
+fi
 echo ""
 
 # --- Preflight ---

@@ -28,27 +28,31 @@ No external API keys required.
 
 ## Updating
 
-After a `git pull`, run:
+Normal update workflow:
 
 ```bash
-git pull
 ./update.sh
 ```
 
-`update.sh` rebuilds and recreates the app container with the latest code, then prints the app URL and a health check result.
+`update.sh` handles everything: it runs `git pull --ff-only`, rebuilds the app container, waits for the health endpoint, and prints the Events, Map, and Admin URLs.
 
 **What `update.sh` does:**
-- Rebuilds the Docker image from the current source
+- Checks for uncommitted local changes — stops with a clear message if any exist
+- Runs `git pull --ff-only` (stops on failure; does not merge or auto-resolve)
+- Rebuilds the Docker image from the updated source
 - Recreates the `event-map-app` container
 - Waits for the health endpoint to respond
 - Prints the Events, Map, and Admin URLs
 
 **What `update.sh` does not do:**
+- Does not run `git pull` if the working tree is dirty — commit or stash changes first
+- Does not auto-stash, auto-commit, or auto-resolve conflicts
 - Does not delete or reset the database
 - Does not delete Docker volumes
 - Does not touch `.env` or `.htpasswd`
 - Does not restore seed data or ask backup/restore questions
-- Does not prompt about source files
+
+If there are local uncommitted changes, `update.sh` will stop before pulling or rebuilding and show `git status --short`. Commit or stash the changes, then re-run.
 
 Use `./setup.sh` for initial installation or when you need to re-initialize `.env`, change the port, or re-run the full first-time setup flow.
 
