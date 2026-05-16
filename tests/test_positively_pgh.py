@@ -48,9 +48,10 @@ _spec = importlib.util.spec_from_file_location("positively_pgh", _adapter_path)
 _mod = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_mod)
 
-_fmt_price  = _mod._fmt_price
+_fmt_price   = _mod._fmt_price
 _parse_price = _mod._parse_price
-_best_url   = _mod._best_url
+_best_url    = _mod._best_url
+_is_free_flag = _mod._is_free_flag
 
 
 # ---------------------------------------------------------------------------
@@ -131,6 +132,99 @@ class TestParsePrice(unittest.TestCase):
     def test_ugly_float_cleaned(self):
         # 11.6 must not produce "$11.6" — must produce "$11.60"
         self.assertEqual(_parse_price({"Free": False, "Price": 11.6}), "$11.60")
+
+
+class TestIsFreeFlag(unittest.TestCase):
+    """Explicit tests for _is_free_flag — the gatekeeper between raw source data and 'Free' admission."""
+
+    # --- truthy inputs ---
+    def test_bool_true(self):
+        self.assertTrue(_is_free_flag(True))
+
+    def test_int_one(self):
+        self.assertTrue(_is_free_flag(1))
+
+    def test_float_one(self):
+        self.assertTrue(_is_free_flag(1.0))
+
+    def test_string_true_lowercase(self):
+        self.assertTrue(_is_free_flag("true"))
+
+    def test_string_true_capitalized(self):
+        self.assertTrue(_is_free_flag("True"))
+
+    def test_string_true_uppercase(self):
+        self.assertTrue(_is_free_flag("TRUE"))
+
+    def test_string_one(self):
+        self.assertTrue(_is_free_flag("1"))
+
+    def test_string_true_with_whitespace(self):
+        self.assertTrue(_is_free_flag("  true  "))
+
+    # --- falsy / rejected inputs ---
+    def test_bool_false(self):
+        self.assertFalse(_is_free_flag(False))
+
+    def test_int_zero(self):
+        self.assertFalse(_is_free_flag(0))
+
+    def test_float_zero(self):
+        self.assertFalse(_is_free_flag(0.0))
+
+    def test_string_false(self):
+        # "false" as a string must NOT be treated as free
+        self.assertFalse(_is_free_flag("false"))
+
+    def test_string_false_capitalized(self):
+        self.assertFalse(_is_free_flag("False"))
+
+    def test_string_zero(self):
+        self.assertFalse(_is_free_flag("0"))
+
+    def test_none(self):
+        self.assertFalse(_is_free_flag(None))
+
+    def test_missing_key_returns_none_which_is_false(self):
+        self.assertFalse(_is_free_flag({}.get("Free")))
+
+    def test_int_two_not_free(self):
+        # Only 1 is accepted; 2 is not a valid free flag
+        self.assertFalse(_is_free_flag(2))
+
+
+class TestParsePriceFreeCases(unittest.TestCase):
+    """Coverage for the required Free-flag variants in _parse_price."""
+
+    def test_free_bool_true_no_price(self):
+        self.assertEqual(_parse_price({"Free": True}), "Free")
+
+    def test_free_string_true_no_price(self):
+        self.assertEqual(_parse_price({"Free": "true"}), "Free")
+
+    def test_free_int_one_no_price(self):
+        self.assertEqual(_parse_price({"Free": 1}), "Free")
+
+    def test_free_bool_true_with_price(self):
+        # Free flag takes priority over price
+        self.assertEqual(_parse_price({"Free": True, "Price": 10}), "Free")
+
+    def test_free_bool_false_no_price_returns_none(self):
+        self.assertIsNone(_parse_price({"Free": False}))
+
+    def test_free_string_false_no_price_returns_none(self):
+        # Critical: "false" (string) must NOT be treated as free
+        self.assertIsNone(_parse_price({"Free": "false"}))
+
+    def test_free_missing_no_price_returns_none(self):
+        self.assertIsNone(_parse_price({}))
+
+    def test_lowercase_free_key(self):
+        # Guard against CitySpark switching to lowercase key
+        self.assertEqual(_parse_price({"free": True}), "Free")
+
+    def test_lowercase_free_string_true(self):
+        self.assertEqual(_parse_price({"free": "true"}), "Free")
 
 
 class TestBestUrl(unittest.TestCase):

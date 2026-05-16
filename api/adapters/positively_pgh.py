@@ -44,9 +44,30 @@ def _fmt_price(val):
         return None  # non-numeric string — discard
 
 
+def _is_free_flag(val):
+    """Return True only when a CitySpark Free/free field explicitly signals free.
+
+    Accepts  : bool True, int/float 1, strings "true" / "True" / "1" (case-insensitive).
+    Rejects  : bool False, 0, strings "false" / "0", None, any other value.
+    Rationale: plain truthiness check (`if val`) would treat the string "false"
+               as free — a real CitySpark edge-case we've observed.
+    """
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, (int, float)):
+        return val == 1
+    if isinstance(val, str):
+        return val.strip().lower() in ("true", "1")
+    return False
+
+
 def _parse_price(ev):
-    """Return a clean admission string or None."""
-    if ev.get("Free"):
+    """Return a clean admission string or None.
+
+    Free check runs before price parsing and covers both capitalizations of the
+    key ("Free" and "free") that CitySpark has been observed to use.
+    """
+    if _is_free_flag(ev.get("Free")) or _is_free_flag(ev.get("free")):
         return "Free"
     lo = _fmt_price(ev.get("Price"))
     hi = _fmt_price(ev.get("PriceHigh"))
