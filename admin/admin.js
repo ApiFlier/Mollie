@@ -688,3 +688,198 @@ const AdminCredsModal = (() => {
 
   return { init: init, open: open, close: close };
 })();
+
+// ---------- TABS ----------
+const AdminTabs = (() => {
+  function init() {
+    document.querySelectorAll(".admin-tab").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        switchTab(btn.getAttribute("data-tab"));
+      });
+    });
+    // Honour #hash on load
+    var hash = window.location.hash.replace(/^#/, "");
+    if (hash === "events") {
+      switchTab("events");
+    }
+  }
+
+  function switchTab(name) {
+    document.querySelectorAll(".admin-tab").forEach(function(b) {
+      b.classList.toggle("admin-tab-active", b.getAttribute("data-tab") === name);
+    });
+    document.querySelectorAll(".admin-tab-panel").forEach(function(p) {
+      p.style.display = (p.id === "tab-" + name) ? "" : "none";
+    });
+    history.replaceState(null, "", "#" + name);
+    if (name === "events") {
+      AdminEvents.load();
+    }
+  }
+
+  return { init: init };
+})();
+
+// ---------- EVENTS ADMIN ----------
+const AdminEvents = (() => {
+  var _loaded = false;
+  var _allEvents = [];
+
+  function load() {
+    if (_loaded) return;
+    _loaded = true;
+    var el = document.getElementById("events-content");
+    el.innerHTML = "Loading events…";
+
+    fetch("/api/admin/events?include_hidden=1&limit=300", { credentials: "include" })
+      .then(function(r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(function(data) {
+        _allEvents = data.events || [];
+        _render(data.sources || []);
+      })
+      .catch(function(err) {
+        document.getElementById("events-content").innerHTML =
+          '<div class="empty-state">Could not load events: ' + escapeHtml(err.message) + "</div>";
+      });
+  }
+
+  function _reload() {
+    _loaded = false;
+    load();
+  }
+
+  function _render(sources) {
+    var el = document.getElementById("events-content");
+
+    // Stats summary
+    var statsHtml = '<div class="ev-admin-stats">';
+    sources.forEach(function(s) {
+      statsHtml += '<div class="ev-admin-stat-card">';
+      statsHtml += '<div class="ev-admin-stat-name">' + escapeHtml(s.display_name || s.source_key) + "</div>";
+      statsHtml += '<div class="ev-admin-stat-num">' + s.total + " total</div>";
+      if (s.hidden_count > 0) {
+        statsHtml += '<div class="ev-admin-stat-hidden">' + s.hidden_count + " hidden</div>";
+      }
+      if (s.saved_count > 0) {
+        statsHtml += '<div class="ev-admin-stat-saved">' + s.saved_count + " saved</div>";
+      }
+      statsHtml += "</div>";
+    });
+    statsHtml += "</div>";
+
+    // Filter controls
+    var ctrlHtml = '<div class="ev-admin-controls">';
+    ctrlHtml += '<select id="ev-source-filter"><option value="">All sources</option>';
+    sources.forEach(function(s) {
+      ctrlHtml += '<option value="' + escapeHtml(s.source_key) + '">' +
+                  escapeHtml(s.display_name || s.source_key) + "</option>";
+    });
+    ctrlHtml += "</select>";
+    ctrlHtml += '<select id="ev-hidden-filter">' +
+      '<option value="visible">Visible only</option>' +
+      '<option value="all">All</option>' +
+      '<option value="hidden">Hidden only</option>' +
+      "</select>";
+    ctrlHtml += '<button class="btn btn-secondary btn-small" id="ev-admin-refresh">Refresh cache</button>';
+    ctrlHtml += "</div>";
+
+    el.innerHTML = statsHtml + ctrlHtml + '<div id="ev-table-container"></div>';
+
+    document.getElementById("ev-source-filter").addEventListener("change", _renderTable);
+    document.getElementById("ev-hidden-filter").addEventListener("change", _renderTable);
+
+    document.getElementById("ev-admin-refresh").addEventListener("click", function() {
+      var btn = this;
+      btn.disabled = true;
+      btn.textContent = "Refreshing…";
+      fetch("/api/events/refresh", { method: "POST", credentials: "include" })
+        .then(function() { _reload(); })
+        .catch(function() {
+          btn.disabled = false;
+          btn.textContent = "Refresh cache";
+        });
+    });
+
+    _renderTable();
+  }
+
+  function _renderTable() {
+    var srcFilter    = (document.getElementById("ev-source-filter")  || {}).value || "";
+    var hiddenFilter = (document.getElementById("ev-hidden-filter")   || {}).value || "visible";
+
+    var filtered = _allEvents.filter(function(ev) {
+      if (srcFilter && ev.source_key !== srcFilter) return false;
+      if (hiddenFilter === "visible" && ev.hidden)  return false;
+      if (hiddenFilter === "hidden"  && !ev.hidden) return false;
+      return true;
+    });
+
+    var container = document.getElementById("ev-table-container");
+    if (!container) return;
+
+    if (!filtered.length) {
+      container.innerHTML = '<div class="empty-state">No events match.</div>';
+      return;
+    }
+
+    var html = '<div style="overflow-x:auto"><table class="locations-table"><thead><tr>' +
+      "<th>Title</th><th>Source</th><th>Date</th><th>Venue / City</th><th>Status</th><th></th>" +
+      "</tr></thead><tbody>";
+
+    filtered.forEach(function(ev) {
+      var dateStr = ev.start_datetime ? ev.start_datetime.substring(0, 10) : "—";
+      var venue   = escapeHtml(ev.venue_name || ev.city || "—");
+      var title   = ev.source_url
+        ? '<a href="' + escapeHtml(ev.source_url) + '" target="_blank" rel="noopener">' + escapeHtml(ev.title) + "</a>"
+        : escapeHtml(ev.title);
+      var statusParts = [];
+      if (ev.hidden) statusParts.push('<span class="badge" style="color:var(--danger)">hidden</span>');
+      if (ev.saved)  statusParts.push('<span class="badge" style="color:var(--sage)">saved</span>');
+      var hideLabel = ev.hidden ? "Unhide" : "Hide";
+
+      html += "<tr>" +
+        "<td>" + title + "</td>" +
+        '<td><span class="badge">' + escapeHtml(ev.display_name || ev.source_key) + "</span></td>" +
+        "<td>" + escapeHtml(dateStr) + "</td>" +
+        "<td>" + venue + "</td>" +
+        "<td>" + (statusParts.join(" ") || "—") + "</td>" +
+        '<td><div class="row-actions">' +
+        '<button class="btn btn-secondary btn-small ev-hide-btn"' +
+        ' data-id="' + ev.id + '" data-hidden="' + (ev.hidden ? "1" : "0") + '">' +
+        hideLabel + "</button>" +
+        "</div></td></tr>";
+    });
+
+    html += "</tbody></table></div>" +
+      '<p style="margin-top:10px;color:var(--ink-soft);font-size:12px;">' +
+      filtered.length + " of " + _allEvents.length + " events</p>";
+
+    container.innerHTML = html;
+
+    container.querySelectorAll(".ev-hide-btn").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        var id       = parseInt(btn.getAttribute("data-id"), 10);
+        var isHidden = btn.getAttribute("data-hidden") === "1";
+        btn.disabled = true;
+        fetch("/api/events/" + id + "/hide", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ hidden: !isHidden })
+        })
+          .then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+          .then(function() {
+            var ev = _allEvents.find(function(e) { return e.id === id; });
+            if (ev) ev.hidden = !isHidden;
+            _renderTable();
+          })
+          .catch(function() { btn.disabled = false; });
+      });
+    });
+  }
+
+  return { load: load };
+})();

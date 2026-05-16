@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/admin/admin.css?v=20260427a">
+  <link rel="stylesheet" href="/admin/admin.css?v=20260516h">
 </head>
 <body>
   <header class="admin-header">
@@ -25,16 +25,28 @@
   </header>
 
   <main class="main">
-    <div class="search-bar">
-      <input type="text" id="search-input" placeholder="Search by name, city, or county...">
-      <select id="category-filter">
-        <option value="">All categories</option>
-      </select>
+    <div class="admin-tabs">
+      <button class="admin-tab admin-tab-active" data-tab="map">Map</button>
+      <button class="admin-tab" data-tab="events">Events</button>
     </div>
 
-    <div id="flash"></div>
+    <!-- Map tab -->
+    <div id="tab-map" class="admin-tab-panel">
+      <div class="search-bar">
+        <input type="text" id="search-input" placeholder="Search by name, city, or county...">
+        <select id="category-filter">
+          <option value="">All categories</option>
+        </select>
+      </div>
+      <div id="flash"></div>
+      <div id="content">Loading...</div>
+    </div>
 
-    <div id="content">Loading...</div>
+    <!-- Events tab -->
+    <div id="tab-events" class="admin-tab-panel" style="display:none;">
+      <div id="events-flash"></div>
+      <div id="events-content">Loading events...</div>
+    </div>
 
     <div class="modal-overlay" id="creds-modal" style="display:none">
       <div class="modal">
@@ -73,8 +85,8 @@
     </div>
   </main>
 
-  <script src="/admin/admin.js?v=20260428d"></script>
-  <script>AdminList.init(); AdminCredsModal.init();</script>
+  <script src="/admin/admin.js?v=20260516h"></script>
+  <script>AdminList.init(); AdminCredsModal.init(); AdminTabs.init();</script>
   <script>
     (function() {
       var b = document.getElementById("btn-logout");

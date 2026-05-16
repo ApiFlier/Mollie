@@ -75,6 +75,16 @@
     return colors[sourceKey] || "#5d3a6b";
   }
 
+  // Source attribution homepages — keyed by source_key.
+  var SOURCE_HOMEPAGES = {
+    positively_pgh:   "https://pittsburgh.cityspark.com/",
+    visit_pittsburgh: "https://www.visitpittsburgh.com/",
+  };
+
+  function sourceHomeUrl(sourceKey) {
+    return SOURCE_HOMEPAGES[sourceKey] || null;
+  }
+
   // Returns true if the description is a useless auto-generated snippet.
   function isGenericDesc(desc) {
     if (!desc || desc.trim().length < 20) return true;
@@ -191,8 +201,18 @@
     var html = '<div class="ev-card' + saved + '" data-id="' + ev.id + '">';
 
     // ── Header: source chip + date ──
+    var homeUrl = sourceHomeUrl(ev.source_key);
     html += '<div class="ev-card-header">';
-    html += '<span class="ev-source-chip" style="background:' + esc(srcColor) + '">' + esc(srcLabel) + '</span>';
+    if (homeUrl) {
+      html += '<a href="' + esc(homeUrl) + '" class="ev-source-chip ev-source-chip-link"'
+            + ' style="background:' + esc(srcColor) + '"'
+            + ' target="_blank" rel="noopener"'
+            + ' title="Open ' + esc(srcLabel) + ' source site"'
+            + ' aria-label="Open ' + esc(srcLabel) + ' source site">'
+            + esc(srcLabel) + '</a>';
+    } else {
+      html += '<span class="ev-source-chip" style="background:' + esc(srcColor) + '">' + esc(srcLabel) + '</span>';
+    }
     html += '<span class="ev-header-date">' + esc(dateStr);
     if (timeStr) html += '<span class="ev-header-time"> · ' + esc(timeStr) + '</span>';
     html += '</span>';

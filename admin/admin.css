@@ -115,6 +115,100 @@ html, body {
   margin: 0 auto;
 }
 
+/* ── Admin tabs ─────────────────────────────────────────────────────────── */
+.admin-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 18px;
+  border-bottom: 2px solid var(--line);
+  padding-bottom: 0;
+}
+
+.admin-tab {
+  padding: 8px 18px;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  border-radius: 4px 4px 0 0;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.admin-tab:hover {
+  color: var(--berry);
+}
+
+.admin-tab-active {
+  color: var(--berry);
+  border-bottom-color: var(--berry);
+  font-weight: 600;
+}
+
+/* ── Events admin ───────────────────────────────────────────────────────── */
+.ev-admin-stats {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.ev-admin-stat-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 16px;
+  min-width: 140px;
+}
+
+.ev-admin-stat-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.ev-admin-stat-num {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.2;
+}
+
+.ev-admin-stat-hidden {
+  font-size: 12px;
+  color: var(--danger);
+}
+
+.ev-admin-stat-saved {
+  font-size: 12px;
+  color: var(--sage);
+}
+
+.ev-admin-controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.ev-admin-controls select {
+  padding: 6px 10px;
+  border: 1.5px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg-panel);
+  color: var(--ink);
+  font-size: 13px;
+  font-family: inherit;
+}
+
 /* List page */
 .search-bar {
   display: flex;

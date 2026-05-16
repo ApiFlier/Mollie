@@ -292,8 +292,16 @@ All endpoints also respond under the `/api/` prefix (e.g. `/api/locations`).
 ## Admin Panel
 
 - **Login:** `/admin/login.html`
-- **Location list:** `/admin/`
+- **Location list / Map admin:** `/admin/` (Map tab)
 - **Edit / add location:** `/admin/edit.html?id=N`
+- **Events admin:** `/admin/#events` (Events tab)
+
+The admin panel has two tabs:
+
+| Tab | Purpose |
+|-----|---------|
+| Map | Existing location/farm/market management |
+| Events | Imported event feed — status by source, hide/unhide events, refresh cache |
 
 **Default local admin login:**
 ```
@@ -304,6 +312,8 @@ password: meeks
 > **Change these immediately after first login.** Use the Change Username / Change Password buttons in the admin panel header. Do not expose the admin interface publicly without setting a strong password.
 
 Credentials are stored as a bcrypt hash in `.htpasswd` on the host filesystem. Sessions last 24 hours.
+
+Event source attribution chips on the public Events page link to each source's homepage.
 
 ---
 

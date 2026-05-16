@@ -1,5 +1,6 @@
 import os
 import json
+import datetime
 import bcrypt
 import requests as http_requests
 from flask import Flask, jsonify, request, session, send_from_directory
@@ -631,6 +632,74 @@ def hide_event(ev_id):
         conn.commit()
         cur.close()
         return jsonify({"ok": True})
+    finally:
+        conn.close()
+
+
+@app.route("/api/admin/events")
+def admin_get_events():
+    err = _require_auth()
+    if err:
+        return err
+    include_hidden = request.args.get("include_hidden") == "1"
+    source        = request.args.get("source")
+    limit         = max(1, min(int(request.args.get("limit", 300)), 500))
+
+    conn = get_conn()
+    try:
+        # Source summary (all events, no date filter)
+        cur = conn.cursor(dictionary=True)
+        cur.execute("""
+            SELECT es.display_name, e.source_key,
+                   COUNT(*) AS total,
+                   SUM(e.hidden) AS hidden_count,
+                   SUM(e.saved)  AS saved_count
+            FROM external_events e
+            LEFT JOIN event_sources es ON e.source_key = es.source_key
+            GROUP BY e.source_key, es.display_name
+        """)
+        sources = cur.fetchall()
+        cur.close()
+
+        # Coerce Decimal → int for JSON serialisation
+        for s in sources:
+            s["total"]        = int(s["total"] or 0)
+            s["hidden_count"] = int(s["hidden_count"] or 0)
+            s["saved_count"]  = int(s["saved_count"] or 0)
+
+        # Event list — upcoming + recent, optionally including hidden
+        cutoff = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
+        conds  = ["(e.start_datetime IS NULL OR e.start_datetime >= %s)"]
+        params = [cutoff]
+        if not include_hidden:
+            conds.append("e.hidden = FALSE")
+        if source:
+            conds.append("e.source_key = %s")
+            params.append(source)
+        where = " AND ".join(conds)
+        params.append(limit)
+
+        cur2 = conn.cursor(dictionary=True)
+        cur2.execute(f"""
+            SELECT e.id, e.title, e.source_key, e.source_url, e.venue_name,
+                   e.city, e.state, e.start_datetime, e.hidden, e.saved,
+                   es.display_name AS display_name
+            FROM external_events e
+            LEFT JOIN event_sources es ON e.source_key = es.source_key
+            WHERE {where}
+            ORDER BY e.start_datetime ASC
+            LIMIT %s
+        """, params)
+        events = cur2.fetchall()
+        cur2.close()
+
+        for ev in events:
+            if ev.get("start_datetime") and isinstance(ev["start_datetime"], datetime.datetime):
+                ev["start_datetime"] = ev["start_datetime"].isoformat()
+            ev["hidden"] = bool(ev["hidden"])
+            ev["saved"]  = bool(ev["saved"])
+
+        return jsonify({"events": events, "sources": sources, "total": len(events)})
     finally:
         conn.close()
 
