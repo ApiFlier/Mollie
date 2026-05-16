@@ -83,8 +83,8 @@ fi
 MYSQL_PASS=${_OLD_MYSQL:-$(python3 -c "import secrets; print(secrets.token_urlsafe(24))")}
 DB_PASS=${_OLD_DB:-$(python3 -c "import secrets; print(secrets.token_urlsafe(24))")}
 FLASK_SECRET=${_OLD_SECRET:-$(python3 -c "import secrets; print(secrets.token_hex(32))")}
-HOME_LAT_VAL=${_OLD_HOME_LAT:-40.5028}
-HOME_LNG_VAL=${_OLD_HOME_LNG:--79.8466}
+HOME_LAT_VAL=${_OLD_HOME_LAT:-40.487993}
+HOME_LNG_VAL=${_OLD_HOME_LNG:--79.805208}
 
 # Old containers are stopped at this point, so their ports are free.
 PREF_APP_PORT=${_OLD_PORT:-8090}

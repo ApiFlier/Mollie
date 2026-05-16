@@ -73,10 +73,10 @@
 
   function sourceColor(sourceKey) {
     var colors = {
-      positively_pgh:   "#7a3a42",
-      visit_pittsburgh: "#1a5c8a",
+      positively_pgh:   "#a84f60",
+      visit_pittsburgh: "#2d68b8",
     };
-    return colors[sourceKey] || "#5d3a6b";
+    return colors[sourceKey] || "#7c5cc8";
   }
 
   var SOURCE_HOMEPAGES = {

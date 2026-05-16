@@ -37,23 +37,23 @@ class TestParseFloatEnv(unittest.TestCase):
 
     def test_missing_uses_defaults(self):
         lat, lng = self._helper({})
-        self.assertAlmostEqual(lat, 40.5028)
-        self.assertAlmostEqual(lng, -79.8466)
+        self.assertAlmostEqual(lat, 40.487993, places=5)
+        self.assertAlmostEqual(lng, -79.805208, places=5)
 
     def test_blank_uses_defaults(self):
         lat, lng = self._helper({"HOME_LAT": "", "HOME_LNG": ""})
-        self.assertAlmostEqual(lat, 40.5028)
-        self.assertAlmostEqual(lng, -79.8466)
+        self.assertAlmostEqual(lat, 40.487993, places=5)
+        self.assertAlmostEqual(lng, -79.805208, places=5)
 
     def test_whitespace_uses_defaults(self):
         lat, lng = self._helper({"HOME_LAT": "   ", "HOME_LNG": "\t"})
-        self.assertAlmostEqual(lat, 40.5028)
-        self.assertAlmostEqual(lng, -79.8466)
+        self.assertAlmostEqual(lat, 40.487993, places=5)
+        self.assertAlmostEqual(lng, -79.805208, places=5)
 
     def test_invalid_string_uses_defaults(self):
         lat, lng = self._helper({"HOME_LAT": "not-a-number", "HOME_LNG": "???"})
-        self.assertAlmostEqual(lat, 40.5028)
-        self.assertAlmostEqual(lng, -79.8466)
+        self.assertAlmostEqual(lat, 40.487993, places=5)
+        self.assertAlmostEqual(lng, -79.805208, places=5)
 
     def test_valid_custom_values(self):
         lat, lng = self._helper({"HOME_LAT": "51.5074", "HOME_LNG": "-0.1278"})
@@ -61,14 +61,14 @@ class TestParseFloatEnv(unittest.TestCase):
         self.assertAlmostEqual(lng, -0.1278)
 
     def test_out_of_range_lat_uses_default(self):
-        lat, lng = self._helper({"HOME_LAT": "999.0", "HOME_LNG": "-79.8466"})
-        self.assertAlmostEqual(lat, 40.5028)
-        self.assertAlmostEqual(lng, -79.8466)
+        lat, lng = self._helper({"HOME_LAT": "999.0", "HOME_LNG": "-79.805208"})
+        self.assertAlmostEqual(lat, 40.487993, places=5)
+        self.assertAlmostEqual(lng, -79.805208, places=5)
 
     def test_out_of_range_lng_uses_default(self):
-        lat, lng = self._helper({"HOME_LAT": "40.5028", "HOME_LNG": "200.0"})
-        self.assertAlmostEqual(lat, 40.5028)
-        self.assertAlmostEqual(lng, -79.8466)
+        lat, lng = self._helper({"HOME_LAT": "40.487993", "HOME_LNG": "200.0"})
+        self.assertAlmostEqual(lat, 40.487993, places=5)
+        self.assertAlmostEqual(lng, -79.805208, places=5)
 
     def test_negative_lng_valid(self):
         lat, lng = self._helper({"HOME_LAT": "34.0522", "HOME_LNG": "-118.2437"})

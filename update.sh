@@ -70,12 +70,12 @@ fi
 _cur_lat="$(grep -E '^HOME_LAT=' "$ENV_FILE" 2>/dev/null | tail -n1 | cut -d= -f2- | tr -d '[:space:]')"
 _cur_lng="$(grep -E '^HOME_LNG=' "$ENV_FILE" 2>/dev/null | tail -n1 | cut -d= -f2- | tr -d '[:space:]')"
 if [ -z "$_cur_lat" ]; then
-    echo "HOME_LAT=40.5028" >> "$ENV_FILE"
-    info "Backfilled HOME_LAT=40.5028 into .env (was missing or blank)."
+    echo "HOME_LAT=40.487993" >> "$ENV_FILE"
+    info "Backfilled HOME_LAT=40.487993 into .env (was missing or blank)."
 fi
 if [ -z "$_cur_lng" ]; then
-    echo "HOME_LNG=-79.8466" >> "$ENV_FILE"
-    info "Backfilled HOME_LNG=-79.8466 into .env (was missing or blank)."
+    echo "HOME_LNG=-79.805208" >> "$ENV_FILE"
+    info "Backfilled HOME_LNG=-79.805208 into .env (was missing or blank)."
 fi
 
 # --- Port ---
