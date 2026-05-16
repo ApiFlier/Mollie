@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/css/styles.css?v=20260516j">
+  <link rel="stylesheet" href="/css/styles.css?v=20260516k">
 </head>
 <body>
   <div class="top-nav">
@@ -25,18 +25,50 @@
       <p class="events-subtitle">Local things to do, within an hour's drive.</p>
 
       <div class="events-controls">
-        <div class="events-filter-row">
-          <button class="ev-filter-btn" data-filter="">All</button>
-          <button class="ev-filter-btn" data-filter="this_weekend">This Weekend</button>
-          <button class="ev-filter-btn" data-filter="drive30" data-max-drive="30">Within 30 min</button>
-          <button class="ev-filter-btn ev-filter-active" data-filter="drive60" data-max-drive="60">Within 60 min</button>
-          <button class="ev-filter-btn" data-filter="saved">Saved</button>
+
+        <!-- Date filter -->
+        <div class="ev-filter-group">
+          <span class="ev-group-label">When</span>
+          <div class="ev-filter-row" id="date-filter-row">
+            <button class="ev-filter-btn ev-filter-active" data-date="">Any date</button>
+            <button class="ev-filter-btn" data-date="today">Today</button>
+            <button class="ev-filter-btn" data-date="this_weekend">This Weekend</button>
+            <button class="ev-filter-btn" data-date="custom">Custom…</button>
+          </div>
+          <div id="custom-date-row" class="ev-custom-row" style="display:none;">
+            <input type="date" id="start-date" class="ev-date-input" aria-label="Start date">
+            <span class="ev-date-sep">–</span>
+            <input type="date" id="end-date" class="ev-date-input" aria-label="End date">
+          </div>
         </div>
-        <div class="events-sort-row">
-          <span class="ev-sort-label">Sort:</span>
-          <button class="ev-sort-btn ev-sort-active" data-sort="soonest">Soonest</button>
-          <button class="ev-sort-btn" data-sort="closest">Closest</button>
+
+        <!-- Distance filter -->
+        <div class="ev-filter-group">
+          <span class="ev-group-label">Distance</span>
+          <div class="ev-filter-row" id="dist-filter-row">
+            <button class="ev-filter-btn" data-miles="15">15 mi</button>
+            <button class="ev-filter-btn" data-miles="30">30 mi</button>
+            <button class="ev-filter-btn ev-filter-active" data-miles="60">60 mi</button>
+            <button class="ev-filter-btn" data-miles="">Any</button>
+            <button class="ev-filter-btn" data-miles="custom">Custom…</button>
+          </div>
+          <div id="custom-miles-row" class="ev-custom-row" style="display:none;">
+            <input type="number" id="custom-miles-input" class="ev-miles-input"
+                   min="1" max="500" placeholder="miles" aria-label="Custom distance in miles">
+            <button id="custom-miles-apply" class="ev-filter-btn">Apply</button>
+          </div>
         </div>
+
+        <!-- Saved + Sort -->
+        <div class="ev-quick-sort-row">
+          <button class="ev-filter-btn ev-saved-btn" data-quick="saved">Saved</button>
+          <div class="ev-sort-inline">
+            <span class="ev-sort-label">Sort:</span>
+            <button class="ev-sort-btn ev-sort-active" data-sort="soonest">Soonest</button>
+            <button class="ev-sort-btn" data-sort="closest">Closest</button>
+          </div>
+        </div>
+
       </div>
     </header>
 
@@ -44,6 +76,6 @@
     <div id="events-list" class="events-list"></div>
   </div>
 
-  <script src="/js/events.js?v=20260516j"></script>
+  <script src="/js/events.js?v=20260516k"></script>
 </body>
 </html>

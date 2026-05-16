@@ -8,10 +8,10 @@ import datetime
 import threading
 
 # Home coordinates for distance calculations.
-# Set HOME_LAT / HOME_LNG in .env (gitignored) to use actual home location.
-# Default is Pittsburgh downtown — a public reference point, not a private address.
-HOME_LAT = float(os.environ.get("HOME_LAT", "40.4406"))
-HOME_LNG = float(os.environ.get("HOME_LNG", "-79.9959"))
+# Source of truth: HOME_LAT / HOME_LNG in .env → docker-compose environment.
+# Defaults below are approximate Verona, PA 15147 borough center.
+HOME_LAT = float(os.environ.get("HOME_LAT", "40.5028"))
+HOME_LNG = float(os.environ.get("HOME_LNG", "-79.8466"))
 
 CACHE_HOURS = int(os.environ.get("EVENTS_CACHE_HOURS", "24"))
 
@@ -50,6 +50,30 @@ def compute_distance(lat, lng):
         return round(dist, 1), round(dist * 1.35)
     except Exception:
         return None, None
+
+
+def recalculate_all_distances(conn):
+    """Recompute distance_miles / estimated_drive_minutes for all stored events from current HOME."""
+    cur = conn.cursor(dictionary=True)
+    cur.execute("SELECT id, latitude, longitude FROM external_events WHERE latitude IS NOT NULL AND longitude IS NOT NULL")
+    rows = cur.fetchall()
+    cur.close()
+    if not rows:
+        return
+    updates = []
+    for r in rows:
+        dist, drive = compute_distance(r["latitude"], r["longitude"])
+        if dist is not None:
+            updates.append((dist, drive, r["id"]))
+    if updates:
+        cur2 = conn.cursor()
+        cur2.executemany(
+            "UPDATE external_events SET distance_miles=%s, estimated_drive_minutes=%s WHERE id=%s",
+            updates,
+        )
+        conn.commit()
+        cur2.close()
+    print(f"[events] Recalculated distances for {len(updates)} events from ({HOME_LAT}, {HOME_LNG}).")
 
 
 # ── Fingerprint ───────────────────────────────────────────────────────────────
@@ -292,17 +316,22 @@ def trigger_background_refresh(get_conn_fn):
 
 # ── Query ─────────────────────────────────────────────────────────────────────
 
-def get_events(conn, filter_type=None, sort=None, saved_only=False, max_drive_min=None,
+def get_events(conn, filter_type=None, sort=None, saved_only=False,
+               max_drive_min=None, max_distance_miles=None,
+               date_filter=None, start_date=None, end_date=None,
                limit=100, offset=0):
     """
     Return non-hidden external_events from the cache.
 
-    filter_type : 'upcoming' | 'this_weekend' | None
-    sort        : 'soonest' | 'closest' | None  (default: soonest then closest)
-    saved_only  : bool
-    max_drive_min : int | None
-    limit       : max rows returned (default 100)
-    offset      : row offset for pagination (default 0)
+    date_filter       : 'today' | 'this_weekend' | 'custom' | None
+    start_date        : 'YYYY-MM-DD' (used when date_filter='custom')
+    end_date          : 'YYYY-MM-DD' (used when date_filter='custom'; inclusive)
+    sort              : 'soonest' | 'closest'
+    saved_only        : bool
+    max_distance_miles: float | None — filter by distance_miles from home
+    max_drive_min     : int | None — legacy fallback, prefer max_distance_miles
+    filter_type       : legacy 'this_weekend' alias
+    limit / offset    : pagination
     """
     now = datetime.datetime.utcnow()
     conditions = ["hidden = FALSE"]
@@ -315,34 +344,58 @@ def get_events(conn, filter_type=None, sort=None, saved_only=False, max_drive_mi
     conditions.append("(start_datetime IS NULL OR start_datetime >= %s)")
     params.append(now - datetime.timedelta(hours=6))
 
-    if filter_type == "this_weekend":
-        weekday = now.weekday()
-        if weekday == 5:    # today is Saturday
-            days_to_sat = 0
-        elif weekday == 6:  # today is Sunday
-            days_to_sat = -1
-        else:
-            days_to_sat = 5 - weekday
-        sat = (now + datetime.timedelta(days=days_to_sat)).replace(hour=0, minute=0, second=0, microsecond=0)
-        sun_end = (sat + datetime.timedelta(days=1)).replace(hour=23, minute=59, second=59)
-        conditions.append("(start_datetime BETWEEN %s AND %s OR start_datetime IS NULL)")
-        params.extend([sat, sun_end])
+    # Normalise legacy filter_type → date_filter
+    effective_date = date_filter or (filter_type if filter_type in ("today", "this_weekend") else None)
 
-    if max_drive_min is not None:
+    if effective_date == "today":
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = today_start + datetime.timedelta(days=1)
+        conditions.append("(start_datetime BETWEEN %s AND %s OR start_datetime IS NULL)")
+        params.extend([today_start, today_end])
+
+    elif effective_date == "this_weekend":
+        # Include Friday 00:00 through Sunday 23:59 of the current (or upcoming) weekend.
+        weekday = now.weekday()  # Mon=0 … Sun=6
+        if weekday <= 4:         # Mon–Fri: use this/next Friday
+            days_to_fri = 4 - weekday
+        else:                    # Sat(5) → -1, Sun(6) → -2: roll back to Friday
+            days_to_fri = -(weekday - 4)
+        fri = (now + datetime.timedelta(days=days_to_fri)).replace(hour=0, minute=0, second=0, microsecond=0)
+        sun_end = (fri + datetime.timedelta(days=2)).replace(hour=23, minute=59, second=59)
+        conditions.append("(start_datetime BETWEEN %s AND %s OR start_datetime IS NULL)")
+        params.extend([fri, sun_end])
+
+    elif effective_date == "custom" and start_date:
+        try:
+            s = datetime.datetime.strptime(start_date, "%Y-%m-%d")
+            e = (
+                datetime.datetime.strptime(end_date, "%Y-%m-%d") + datetime.timedelta(days=1)
+                if end_date else s + datetime.timedelta(days=1)
+            )
+            conditions.append("(start_datetime BETWEEN %s AND %s OR start_datetime IS NULL)")
+            params.extend([s, e])
+        except Exception:
+            pass
+
+    # Distance filter — prefer explicit miles; fall back to legacy drive-minutes
+    if max_distance_miles is not None:
+        conditions.append("(distance_miles <= %s OR distance_miles IS NULL)")
+        params.append(float(max_distance_miles))
+    elif max_drive_min is not None:
         conditions.append("(estimated_drive_minutes <= %s OR estimated_drive_minutes IS NULL)")
-        params.append(max_drive_min)
+        params.append(int(max_drive_min))
 
     where = " AND ".join(conditions)
 
     if sort == "closest":
         order = (
-            "CASE WHEN estimated_drive_minutes IS NULL THEN 1 ELSE 0 END, "
-            "estimated_drive_minutes ASC, start_datetime ASC"
+            "CASE WHEN distance_miles IS NULL THEN 1 ELSE 0 END, "
+            "distance_miles ASC, start_datetime ASC"
         )
     else:
         order = (
             "CASE WHEN start_datetime IS NULL THEN 1 ELSE 0 END, "
-            "start_datetime ASC, estimated_drive_minutes ASC"
+            "start_datetime ASC, distance_miles ASC"
         )
 
     limit = max(1, min(int(limit), 500))

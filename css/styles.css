@@ -1086,6 +1086,88 @@ h1 .subtitle {
   font-family: inherit;
 }
 
+/* ── Grouped filter controls ─────────────────────────────────────────────── */
+.ev-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ev-group-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--ink-soft);
+}
+
+.ev-custom-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ev-date-sep {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.ev-date-input {
+  padding: 5px 8px;
+  border: 1.5px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg-panel);
+  color: var(--ink);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  min-width: 130px;
+}
+
+.ev-date-input:focus {
+  outline: none;
+  border-color: var(--berry);
+}
+
+.ev-miles-input {
+  width: 80px;
+  padding: 5px 8px;
+  border: 1.5px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg-panel);
+  color: var(--ink);
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.ev-miles-input:focus {
+  outline: none;
+  border-color: var(--berry);
+}
+
+.ev-quick-sort-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.ev-sort-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+/* Saved button uses gold when active to distinguish from date/distance filters */
+.ev-saved-btn.ev-filter-active {
+  background: var(--gold) !important;
+  border-color: var(--gold) !important;
+  color: var(--ink) !important;
+}
+
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (min-width: 600px) {
   .events-filter-row {

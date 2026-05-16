@@ -13,6 +13,8 @@ services:
       - DB_USER=event_map
       - DB_PASSWORD=${DB_PASSWORD}
       - FLASK_SECRET=${FLASK_SECRET}
+      - HOME_LAT=${HOME_LAT}
+      - HOME_LNG=${HOME_LNG}
     volumes:
       - ./.htpasswd:/app/.htpasswd
     depends_on:

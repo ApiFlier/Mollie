@@ -1,11 +1,12 @@
 (function () {
-  // Default: show events within 60 min (includes events with unknown distance).
   var state = {
-    filter: "",
-    maxDrive: 60,
-    sort: "soonest",
-    savedOnly: false,
-    loading: false,
+    dateFilter: "",       // "" | "today" | "this_weekend" | "custom"
+    startDate:  "",       // YYYY-MM-DD for custom
+    endDate:    "",       // YYYY-MM-DD for custom
+    maxMiles:   60,       // null = no limit
+    savedOnly:  false,
+    sort:       "soonest",
+    loading:    false,
     cacheStale: false,
   };
 
@@ -44,20 +45,21 @@
     }
   }
 
-  // Returns "24 min · 18.1 mi", or null if data is missing/zero.
-  function driveLabel(miles, mins) {
-    if (miles == null || mins == null) return null;
-    if (Math.round(mins) === 0) return null; // suppress 0-min drives (fallback coords)
-    return Math.round(mins) + " min · " + parseFloat(miles).toFixed(1) + " mi";
+  // Returns "12.4 mi", or null if data is missing or clearly wrong.
+  function distLabel(miles) {
+    if (miles == null) return null;
+    var m = parseFloat(miles);
+    if (!isFinite(m) || m < 0.1) return null;
+    return m.toFixed(1) + " mi";
   }
 
   function directionsUrl(ev) {
     if (ev.latitude != null && ev.longitude != null) {
       var lat = parseFloat(ev.latitude);
       var lng = parseFloat(ev.longitude);
-      // Skip directions if coords are essentially at the Pittsburgh city-center fallback.
+      // Skip if coords are the Pittsburgh city-center fallback (bad geocode).
       if (Math.abs(lat - 40.4406) < 0.001 && Math.abs(lng + 79.9959) < 0.001) {
-        // Fall through to address-based directions instead
+        // fall through to address-based
       } else {
         return "https://www.google.com/maps/dir/?api=1&destination=" + lat + "," + lng;
       }
@@ -69,13 +71,12 @@
 
   function sourceColor(sourceKey) {
     var colors = {
-      positively_pgh: "#7a3a42",
+      positively_pgh:   "#7a3a42",
       visit_pittsburgh: "#1a5c8a",
     };
     return colors[sourceKey] || "#5d3a6b";
   }
 
-  // Source attribution homepages — keyed by source_key.
   var SOURCE_HOMEPAGES = {
     positively_pgh:   "https://positivelypittsburgh.com/calendar/",
     visit_pittsburgh: "https://www.visitpittsburgh.com/",
@@ -85,7 +86,6 @@
     return SOURCE_HOMEPAGES[sourceKey] || null;
   }
 
-  // Returns true if the description is a useless auto-generated snippet.
   function isGenericDesc(desc) {
     if (!desc || desc.trim().length < 20) return true;
     var lc = desc.toLowerCase().trim();
@@ -99,9 +99,9 @@
   function normalizeTitle(title) {
     return (title || "")
       .toLowerCase()
-      .replace(/\b202\d\b/g, "")          // strip year
-      .replace(/[-–—]/g, " ")             // dashes → space
-      .replace(/[^a-z0-9 ]/g, " ")        // strip punctuation
+      .replace(/\b202\d\b/g, "")
+      .replace(/[-–—]/g, " ")
+      .replace(/[^a-z0-9 ]/g, " ")
       .replace(/\s+/g, " ")
       .trim();
   }
@@ -109,13 +109,12 @@
   function normalizeVenue(v) {
     return (v || "")
       .toLowerCase()
-      .replace(/^(the|a|an)\s+/, "")      // strip leading article
+      .replace(/^(the|a|an)\s+/, "")
       .replace(/[^a-z0-9 ]/g, " ")
       .replace(/\s+/g, " ")
       .trim();
   }
 
-  // True when venue names are the same or one is a clear prefix of the other.
   function venueMatch(a, b) {
     var na = normalizeVenue(a);
     var nb = normalizeVenue(b);
@@ -125,11 +124,6 @@
     return longer.startsWith(shorter);
   }
 
-  // At least one strong location/source signal must match before we call two
-  // events with the same title+date duplicates. This keeps legitimately separate
-  // festival sub-events (different stages/venues) visible.
-  // Note: lat/lon is intentionally excluded — venues in dense areas like Millvale
-  // can be <100 m apart while still being distinct events.
   function locationMatch(a, b) {
     if (a.source_url   && b.source_url   && a.source_url   === b.source_url)   return true;
     if (a.official_url && b.official_url && a.official_url === b.official_url) return true;
@@ -147,7 +141,7 @@
   }
 
   function dedupeDisplay(events) {
-    var seen = {};        // key → array of result indices sharing this title+date
+    var seen = {};
     var result = [];
     var suppressed = 0;
 
@@ -161,7 +155,6 @@
         seen[key] = [result.length];
         result.push(ev);
       } else {
-        // Only suppress if a location/source signal confirms it's the same event.
         var matchIdx = null;
         for (var k = 0; k < seen[key].length; k++) {
           if (locationMatch(ev, result[seen[key][k]])) {
@@ -192,7 +185,7 @@
   function renderCard(ev) {
     var dateStr  = ev.date_label || formatDate(ev.start_datetime) || "See website";
     var timeStr  = ev.start_datetime ? formatTime(ev.start_datetime) : null;
-    var drive    = driveLabel(ev.distance_miles, ev.estimated_drive_minutes);
+    var dist     = distLabel(ev.distance_miles);
     var dirUrl   = directionsUrl(ev);
     var srcColor = sourceColor(ev.source_key);
     var srcLabel = ev.display_name || ev.source_key;
@@ -221,23 +214,22 @@
     // ── Body ──
     html += '<div class="ev-card-body">';
 
-    // Title
     html += '<div class="ev-title">' + esc(ev.title) + '</div>';
 
-    // Meta row: category + drive pill
-    var hasMeta = (ev.category && ev.category !== "featured" && ev.category !== "event") || drive;
+    // Meta row: category + distance pill
+    var hasMeta = (ev.category && ev.category !== "featured" && ev.category !== "event") || dist;
     if (hasMeta) {
       html += '<div class="ev-meta-row">';
       if (ev.category && ev.category !== "featured" && ev.category !== "event") {
         html += '<span class="ev-category-tag">' + esc(ev.category) + '</span>';
       }
-      if (drive) {
-        html += '<span class="ev-drive-pill">' + esc(drive) + '</span>';
+      if (dist) {
+        html += '<span class="ev-drive-pill">' + esc(dist) + '</span>';
       }
       html += '</div>';
     }
 
-    // Address block: venue / street / city+state+zip
+    // Address block
     var addrLines = [];
     if (ev.venue_name) addrLines.push(ev.venue_name);
     if (ev.address)    addrLines.push(ev.address);
@@ -253,12 +245,10 @@
       html += '</div>';
     }
 
-    // Admission
     if (ev.admission) {
       html += '<div class="ev-admission">' + esc(ev.admission) + '</div>';
     }
 
-    // Description — only if non-generic
     if (!isGenericDesc(ev.description_short)) {
       html += '<div class="ev-desc">' + esc(ev.description_short) + '</div>';
     }
@@ -290,7 +280,7 @@
   function renderEvents(events) {
     var listEl = document.getElementById("events-list");
     if (!events || !events.length) {
-      listEl.innerHTML = '<div class="ev-empty">No events found. Try "All" to see everything, or <button class="ev-refresh-link" id="manual-refresh-btn">refresh sources</button>.</div>';
+      listEl.innerHTML = '<div class="ev-empty">No events found. Try broadening your filters, or <button class="ev-refresh-link" id="manual-refresh-btn">refresh sources</button>.</div>';
       document.getElementById("manual-refresh-btn").addEventListener("click", function () {
         manualRefresh();
       });
@@ -399,17 +389,26 @@
     state.loading = true;
 
     var params = new URLSearchParams();
-    if (state.filter === "this_weekend") {
-      params.set("filter", "this_weekend");
+
+    // Date filter
+    if (state.dateFilter && state.dateFilter !== "custom") {
+      params.set("date_filter", state.dateFilter);
+    } else if (state.dateFilter === "custom") {
+      state.startDate = (document.getElementById("start-date") || {}).value || "";
+      state.endDate   = (document.getElementById("end-date")   || {}).value || "";
+      if (state.startDate) {
+        params.set("date_filter", "custom");
+        params.set("start_date", state.startDate);
+        if (state.endDate) params.set("end_date", state.endDate);
+      }
     }
-    if (state.savedOnly) {
-      params.set("saved", "1");
-    }
-    if (state.maxDrive != null) {
-      params.set("max_drive", state.maxDrive);
-    }
+
+    // Distance filter
+    if (state.maxMiles != null) params.set("max_distance_miles", state.maxMiles);
+
+    if (state.savedOnly) params.set("saved", "1");
     params.set("sort", state.sort);
-    params.set("limit", "200"); // fetch enough to dedup well
+    params.set("limit", "200");
 
     fetch("/api/events?" + params.toString())
       .then(function (r) {
@@ -444,7 +443,7 @@
       });
   }
 
-  // ── Manual refresh (admin action) ────────────────────────────────────────────
+  // ── Manual refresh ────────────────────────────────────────────────────────────
 
   function manualRefresh() {
     showStatus("Refreshing events from all sources…", "loading");
@@ -468,24 +467,71 @@
       });
   }
 
-  // ── Filter / sort controls ────────────────────────────────────────────────────
+  // ── Controls ──────────────────────────────────────────────────────────────────
 
   function initControls() {
-    document.querySelectorAll(".ev-filter-btn").forEach(function (btn) {
+    // ── Date filter ────────────────────────────────────────────────────────────
+    document.querySelectorAll("#date-filter-row .ev-filter-btn").forEach(function (btn) {
       btn.addEventListener("click", function () {
-        document.querySelectorAll(".ev-filter-btn").forEach(function (b) {
+        document.querySelectorAll("#date-filter-row .ev-filter-btn").forEach(function (b) {
           b.classList.remove("ev-filter-active");
         });
         btn.classList.add("ev-filter-active");
-
-        var f = btn.dataset.filter;
-        state.savedOnly = f === "saved";
-        state.filter    = (f === "saved" || f === "drive30" || f === "drive60") ? "" : f;
-        state.maxDrive  = btn.dataset.maxDrive ? parseInt(btn.dataset.maxDrive) : null;
-        loadEvents();
+        state.dateFilter = btn.dataset.date;
+        document.getElementById("custom-date-row").style.display =
+          state.dateFilter === "custom" ? "" : "none";
+        if (state.dateFilter !== "custom") loadEvents();
       });
     });
 
+    function maybeLoadCustomDates() {
+      if (state.dateFilter === "custom") {
+        state.startDate = document.getElementById("start-date").value;
+        state.endDate   = document.getElementById("end-date").value;
+        if (state.startDate) loadEvents();
+      }
+    }
+    document.getElementById("start-date").addEventListener("change", maybeLoadCustomDates);
+    document.getElementById("end-date").addEventListener("change", maybeLoadCustomDates);
+
+    // ── Distance filter ───────────────────────────────────────────────────────
+    document.querySelectorAll("#dist-filter-row .ev-filter-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        document.querySelectorAll("#dist-filter-row .ev-filter-btn").forEach(function (b) {
+          b.classList.remove("ev-filter-active");
+        });
+        btn.classList.add("ev-filter-active");
+        var val = btn.dataset.miles;
+        document.getElementById("custom-miles-row").style.display =
+          val === "custom" ? "" : "none";
+        if (val !== "custom") {
+          state.maxMiles = val === "" ? null : parseInt(val, 10);
+          loadEvents();
+        }
+      });
+    });
+
+    document.getElementById("custom-miles-apply").addEventListener("click", function () {
+      var v = parseInt(document.getElementById("custom-miles-input").value, 10);
+      if (v > 0) {
+        state.maxMiles = v;
+        loadEvents();
+      }
+    });
+
+    document.getElementById("custom-miles-input").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") document.getElementById("custom-miles-apply").click();
+    });
+
+    // ── Saved quick filter ────────────────────────────────────────────────────
+    var savedBtn = document.querySelector(".ev-saved-btn");
+    savedBtn.addEventListener("click", function () {
+      state.savedOnly = !state.savedOnly;
+      savedBtn.classList.toggle("ev-filter-active", state.savedOnly);
+      loadEvents();
+    });
+
+    // ── Sort ──────────────────────────────────────────────────────────────────
     document.querySelectorAll(".ev-sort-btn").forEach(function (btn) {
       btn.addEventListener("click", function () {
         document.querySelectorAll(".ev-sort-btn").forEach(function (b) {

@@ -550,12 +550,16 @@ def admin_index():
 @app.route("/events")
 @app.route("/api/events")
 def get_events():
-    filter_type  = request.args.get("filter")        # upcoming|this_weekend
-    sort         = request.args.get("sort", "soonest")  # soonest|closest
-    saved_only   = request.args.get("saved") == "1"
-    max_drive    = request.args.get("max_drive", type=int)
-    limit        = request.args.get("limit", type=int, default=100)
-    offset       = request.args.get("offset", type=int, default=0)
+    filter_type        = request.args.get("filter")             # legacy: this_weekend
+    date_filter        = request.args.get("date_filter")        # today|this_weekend|custom
+    start_date         = request.args.get("start_date")         # YYYY-MM-DD
+    end_date           = request.args.get("end_date")           # YYYY-MM-DD
+    sort               = request.args.get("sort", "soonest")
+    saved_only         = request.args.get("saved") == "1"
+    max_distance_miles = request.args.get("max_distance_miles", type=float)
+    max_drive          = request.args.get("max_drive", type=int)  # legacy
+    limit              = request.args.get("limit", type=int, default=100)
+    offset             = request.args.get("offset", type=int, default=0)
 
     conn = get_conn()
     try:
@@ -566,8 +570,12 @@ def get_events():
         evs = _events.get_events(
             conn,
             filter_type=filter_type,
+            date_filter=date_filter,
+            start_date=start_date,
+            end_date=end_date,
             sort=sort,
             saved_only=saved_only,
+            max_distance_miles=max_distance_miles,
             max_drive_min=max_drive,
             limit=limit,
             offset=offset,
@@ -705,5 +713,8 @@ def admin_get_events():
 
 
 if __name__ == "__main__":
-    _events.ensure_tables(get_conn())
+    _conn = get_conn()
+    _events.ensure_tables(_conn)
+    _events.recalculate_all_distances(_conn)
+    _conn.close()
     app.run(host="0.0.0.0", port=8080)
