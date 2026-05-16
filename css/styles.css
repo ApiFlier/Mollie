@@ -842,6 +842,7 @@ h1 .subtitle {
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 10px;
   align-content: start;
+  align-items: start;
 }
 
 .ev-date-divider {
@@ -865,10 +866,10 @@ h1 .subtitle {
   background: var(--bg-panel);
   border: 1px solid var(--line);
   border-radius: 10px;
-  overflow: hidden;
+  overflow: visible;
+  height: auto;
+  min-height: auto;
   transition: box-shadow 0.15s, border-color 0.15s;
-  display: flex;
-  flex-direction: column;
 }
 
 .ev-card:hover {
@@ -932,7 +933,10 @@ h1 .subtitle {
 /* ── Card body ──────────────────────────────────────────────────────────── */
 .ev-card-body {
   padding: 5px 12px 8px 12px;
-  flex-grow: 1;
+  display: block;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
 }
 
 .ev-title {
