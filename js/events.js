@@ -96,6 +96,37 @@
       .trim();
   }
 
+  function normalizeVenue(v) {
+    return (v || "")
+      .toLowerCase()
+      .replace(/^(the|a|an)\s+/, "")      // strip leading article
+      .replace(/[^a-z0-9 ]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  // True when venue names are the same or one is a clear prefix of the other.
+  function venueMatch(a, b) {
+    var na = normalizeVenue(a);
+    var nb = normalizeVenue(b);
+    if (na.length < 6 || nb.length < 6) return false;
+    var shorter = na.length <= nb.length ? na : nb;
+    var longer  = na.length <= nb.length ? nb : na;
+    return longer.startsWith(shorter);
+  }
+
+  // At least one strong location/source signal must match before we call two
+  // events with the same title+date duplicates. This keeps legitimately separate
+  // festival sub-events (different stages/venues) visible.
+  // Note: lat/lon is intentionally excluded — venues in dense areas like Millvale
+  // can be <100 m apart while still being distinct events.
+  function locationMatch(a, b) {
+    if (a.source_url   && b.source_url   && a.source_url   === b.source_url)   return true;
+    if (a.official_url && b.official_url && a.official_url === b.official_url) return true;
+    if (venueMatch(a.venue_name, b.venue_name)) return true;
+    return false;
+  }
+
   function eventScore(ev) {
     return (
       (ev.latitude != null ? 4 : 0) +
@@ -106,7 +137,7 @@
   }
 
   function dedupeDisplay(events) {
-    var seen = {};        // key → index in result
+    var seen = {};        // key → array of result indices sharing this title+date
     var result = [];
     var suppressed = 0;
 
@@ -116,15 +147,27 @@
       var nt = normalizeTitle(ev.title).substring(0, 60);
       var key = date + "|" + nt;
 
-      if (seen[key] === undefined) {
-        seen[key] = result.length;
+      if (!seen[key]) {
+        seen[key] = [result.length];
         result.push(ev);
       } else {
-        var existingIdx = seen[key];
-        if (eventScore(ev) > eventScore(result[existingIdx])) {
-          result[existingIdx] = ev;
+        // Only suppress if a location/source signal confirms it's the same event.
+        var matchIdx = null;
+        for (var k = 0; k < seen[key].length; k++) {
+          if (locationMatch(ev, result[seen[key][k]])) {
+            matchIdx = seen[key][k];
+            break;
+          }
         }
-        suppressed++;
+        if (matchIdx !== null) {
+          if (eventScore(ev) > eventScore(result[matchIdx])) {
+            result[matchIdx] = ev;
+          }
+          suppressed++;
+        } else {
+          seen[key].push(result.length);
+          result.push(ev);
+        }
       }
     }
 

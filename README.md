@@ -26,6 +26,34 @@ No external API keys required.
 
 ---
 
+## Updating
+
+After a `git pull`, run:
+
+```bash
+git pull
+./update.sh
+```
+
+`update.sh` rebuilds and recreates the app container with the latest code, then prints the app URL and a health check result.
+
+**What `update.sh` does:**
+- Rebuilds the Docker image from the current source
+- Recreates the `event-map-app` container
+- Waits for the health endpoint to respond
+- Prints the Events, Map, and Admin URLs
+
+**What `update.sh` does not do:**
+- Does not delete or reset the database
+- Does not delete Docker volumes
+- Does not touch `.env` or `.htpasswd`
+- Does not restore seed data or ask backup/restore questions
+- Does not prompt about source files
+
+Use `./setup.sh` for initial installation or when you need to re-initialize `.env`, change the port, or re-run the full first-time setup flow.
+
+---
+
 ## What Event Map Does
 
 Event Map is a browser-based geospatial tool for discovering regional farms, farmers markets, fairs, and festivals. Visitors browse a satellite map, click map pins for location details, and filter results by category, season, and crop type.
