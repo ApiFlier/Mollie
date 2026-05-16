@@ -75,6 +75,13 @@ def _parse_price(ev):
         return f"${lo}–${hi}"
     if lo:
         return f"${lo}"
+    # CitySpark extended price fields (full undiscounted price)
+    flo = _fmt_price(ev.get("LowFullPrice"))
+    fhi = _fmt_price(ev.get("HighFullPrice"))
+    if flo and fhi and flo != fhi:
+        return f"${flo}–${fhi}"
+    if flo:
+        return f"${flo}"
     # PriceText as last resort — only use if it parses as a number
     pt = _fmt_price(ev.get("PriceText"))
     if pt:
@@ -146,7 +153,7 @@ def _normalize(ev):
             pass
 
     url = _best_url(ev)
-    raw = json.dumps(ev, default=str)[:4000]
+    raw = json.dumps(ev, default=str, ensure_ascii=False)
     desc = (ev.get("Short") or ev.get("Description") or "")[:300]
     fp = _ev_module.make_fingerprint(ev.get("Name"), start_dt, ev.get("Venue"))
 

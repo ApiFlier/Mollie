@@ -11,8 +11,11 @@
     searchText:    "",
     allEvents:     [],
     // Sources: null = all enabled; array of source_keys = selected subset
-    sourcesFilter: null,
-    allSources:    [], // [{source_key, display_name}] from /api/sources
+    sourcesFilter:  null,
+    allSources:     [], // [{source_key, display_name}] from /api/sources
+    // Price filter
+    priceFilter:    "any",  // "any"|"free"|"listed"|"unknown"|"under10"|"under20"|"custom"
+    customMaxPrice: null,   // number, used when priceFilter="custom"
   };
 
   // ── Date helpers ──────────────────────────────────────────────────────────────
@@ -74,6 +77,15 @@
 
     if (state.savedOnly) parts.push("Saved");
 
+    // Price filter — only mention when not "any"
+    if (state.priceFilter === "free")     parts.push("Free only");
+    else if (state.priceFilter === "listed")  parts.push("Price listed");
+    else if (state.priceFilter === "unknown") parts.push("Price not listed");
+    else if (state.priceFilter === "under10") parts.push("Under $10");
+    else if (state.priceFilter === "under20") parts.push("Under $20");
+    else if (state.priceFilter === "custom" && state.customMaxPrice != null)
+      parts.push("Under $" + state.customMaxPrice);
+
     // Source filter — only mention when a subset is selected
     if (state.sourcesFilter !== null && state.allSources.length > 0) {
       if (state.sourcesFilter.length === 0) {
@@ -117,6 +129,13 @@
     // Saved button
     var savedBtn = document.querySelector(".ev-saved-btn");
     if (savedBtn) savedBtn.classList.toggle("ev-filter-active", state.savedOnly);
+
+    // Price filter buttons
+    document.querySelectorAll("#price-filter-row .ev-filter-btn").forEach(function (btn) {
+      btn.classList.toggle("ev-filter-active", btn.dataset.price === state.priceFilter);
+    });
+    var customPriceRow = document.getElementById("custom-price-row");
+    if (customPriceRow) customPriceRow.style.display = state.priceFilter === "custom" ? "" : "none";
 
     // Source chips — sync after sources are loaded
     _syncSourceChips();
@@ -333,7 +352,7 @@
     if (ev.admission) {
       return '<span class="ev-paid-pill">' + esc(ev.admission) + '</span>';
     }
-    return '<span class="ev-unknown-pill">Cost not listed</span>';
+    return '<span class="ev-unknown-pill">Price not listed</span>';
   }
 
   function renderCard(ev) {
@@ -562,6 +581,24 @@
     params.set("sort", state.sort);
     params.set("limit", "200");
 
+    // Price filter
+    if (state.priceFilter === "free") {
+      params.set("price_filter", "free");
+    } else if (state.priceFilter === "listed") {
+      params.set("price_filter", "listed");
+    } else if (state.priceFilter === "unknown") {
+      params.set("price_filter", "unknown");
+    } else if (state.priceFilter === "under10") {
+      params.set("price_filter", "max");
+      params.set("max_price", "10");
+    } else if (state.priceFilter === "under20") {
+      params.set("price_filter", "max");
+      params.set("max_price", "20");
+    } else if (state.priceFilter === "custom" && state.customMaxPrice != null) {
+      params.set("price_filter", "max");
+      params.set("max_price", String(state.customMaxPrice));
+    }
+
     // Source filter: only pass if a strict subset is selected
     if (state.sourcesFilter !== null && state.sourcesFilter.length > 0 &&
         state.sourcesFilter.length < state.allSources.length) {
@@ -740,6 +777,34 @@
 
     // ── Source filter ─────────────────────────────────────────────────────────
     // Source chips are built dynamically after /api/sources loads (see loadSources).
+
+    // ── Price filter ──────────────────────────────────────────────────────────
+    document.querySelectorAll("#price-filter-row .ev-filter-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        document.querySelectorAll("#price-filter-row .ev-filter-btn").forEach(function (b) {
+          b.classList.remove("ev-filter-active");
+        });
+        btn.classList.add("ev-filter-active");
+        state.priceFilter = btn.dataset.price;
+        var customPriceRow = document.getElementById("custom-price-row");
+        if (customPriceRow) customPriceRow.style.display = state.priceFilter === "custom" ? "" : "none";
+        updateFilterSummary();
+        if (state.priceFilter !== "custom") loadEvents();
+      });
+    });
+
+    document.getElementById("custom-price-apply").addEventListener("click", function () {
+      var v = parseFloat(document.getElementById("custom-price-input").value);
+      if (!isNaN(v) && v >= 0) {
+        state.customMaxPrice = v;
+        updateFilterSummary();
+        loadEvents();
+      }
+    });
+
+    document.getElementById("custom-price-input").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") document.getElementById("custom-price-apply").click();
+    });
 
     // ── Search ────────────────────────────────────────────────────────────────
     var searchInput = document.getElementById("ev-search-input");

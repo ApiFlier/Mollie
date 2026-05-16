@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/css/styles.css?v=20260516v">
+  <link rel="stylesheet" href="/css/styles.css?v=20260516w">
 </head>
 <body>
   <div class="top-nav">
@@ -76,6 +76,26 @@
           <div class="ev-filter-row" id="source-chip-row"></div>
         </div>
 
+        <!-- Price filter -->
+        <div class="ev-filter-group">
+          <span class="ev-group-label">Price</span>
+          <div class="ev-filter-row" id="price-filter-row">
+            <button class="ev-filter-btn" data-price="any">Any price</button>
+            <button class="ev-filter-btn" data-price="free">Free</button>
+            <button class="ev-filter-btn" data-price="listed">Price listed</button>
+            <button class="ev-filter-btn" data-price="unknown">Price not listed</button>
+            <button class="ev-filter-btn" data-price="under10">Under $10</button>
+            <button class="ev-filter-btn" data-price="under20">Under $20</button>
+            <button class="ev-filter-btn" data-price="custom">Custom…</button>
+          </div>
+          <div id="custom-price-row" class="ev-custom-row" style="display:none;">
+            <span class="ev-label-small">Max $</span>
+            <input type="number" id="custom-price-input" class="ev-miles-input"
+                   min="0" max="9999" placeholder="max price" aria-label="Maximum price in dollars">
+            <button id="custom-price-apply" class="ev-filter-btn">Apply</button>
+          </div>
+        </div>
+
         <!-- Saved + Sort -->
         <div class="ev-quick-sort-row">
           <button class="ev-filter-btn ev-saved-btn" data-quick="saved">Saved</button>
@@ -93,6 +113,6 @@
     <div id="events-list" class="events-list"></div>
   </div>
 
-  <script src="/js/events.js?v=20260516v"></script>
+  <script src="/js/events.js?v=20260516w"></script>
 </body>
 </html>

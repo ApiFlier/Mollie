@@ -208,6 +208,7 @@ def _do_update(conn, event_id, ev):
              venue_name=%s, address=%s, city=%s, state=%s, postal_code=%s,
              latitude=%s, longitude=%s, category=%s, image_url=%s, admission=%s,
              distance_miles=%s, estimated_drive_minutes=%s,
+             raw_source_json=%s,
              last_seen_at=NOW(), updated_at=NOW()
            WHERE id=%s""",
         (
@@ -219,6 +220,7 @@ def _do_update(conn, event_id, ev):
             ev.get("latitude"), ev.get("longitude"), ev.get("category"),
             ev.get("image_url"), ev.get("admission"),
             ev.get("distance_miles"), ev.get("estimated_drive_minutes"),
+            ev.get("raw_source_json"),
             event_id,
         )
     )
@@ -330,6 +332,70 @@ def trigger_background_refresh(get_conn_fn):
     t.start()
 
 
+# ── Price normalization ───────────────────────────────────────────────────────
+
+def _parse_admission_price(admission):
+    """Parse an admission string into normalized price fields.
+
+    Returns dict with keys: is_free (bool), price_min (float|None),
+    price_max (float|None), price_status ('free'|'listed'|'unknown').
+    """
+    if admission is None:
+        return {"is_free": False, "price_min": None, "price_max": None, "price_status": "unknown"}
+    adm = str(admission).strip()
+    if adm.lower() == "free":
+        return {"is_free": True, "price_min": 0.0, "price_max": 0.0, "price_status": "free"}
+    clean = adm.lstrip("$")
+    if "–" in clean:  # en dash — range like "$10–$20"
+        parts = clean.split("–", 1)
+        try:
+            lo = float(parts[0].strip().lstrip("$"))
+            hi = float(parts[1].strip().lstrip("$"))
+            return {"is_free": False, "price_min": lo, "price_max": hi, "price_status": "listed"}
+        except (ValueError, TypeError):
+            pass
+    else:
+        try:
+            val = float(clean)
+            return {"is_free": False, "price_min": val, "price_max": val, "price_status": "listed"}
+        except (ValueError, TypeError):
+            pass
+    return {"is_free": False, "price_min": None, "price_max": None, "price_status": "listed"}
+
+
+def _enrich_event(r):
+    """Add normalized price fields to a DB row dict in-place."""
+    p = _parse_admission_price(r.get("admission"))
+    r["is_free"] = p["is_free"]
+    r["price_min"] = p["price_min"]
+    r["price_max"] = p["price_max"]
+    r["price_status"] = p["price_status"]
+    return r
+
+
+def _filter_by_price(events, price_filter, max_price=None):
+    """In-memory price filter. price_filter: 'any'|'free'|'listed'|'unknown'|'max'."""
+    if not price_filter or price_filter == "any":
+        return events
+    result = []
+    for ev in events:
+        status = ev.get("price_status", "unknown")
+        if price_filter == "free":
+            if ev.get("is_free"):
+                result.append(ev)
+        elif price_filter == "listed":
+            if status == "listed":
+                result.append(ev)
+        elif price_filter == "unknown":
+            if status == "unknown":
+                result.append(ev)
+        elif price_filter == "max" and max_price is not None:
+            pmin = ev.get("price_min")
+            if ev.get("is_free") or (status == "listed" and pmin is not None and pmin <= max_price):
+                result.append(ev)
+    return result
+
+
 # ── Query ─────────────────────────────────────────────────────────────────────
 
 def get_enabled_source_keys(conn):
@@ -361,7 +427,8 @@ def get_events(conn, filter_type=None, sort=None, saved_only=False,
                max_drive_min=None, max_distance_miles=None,
                date_filter=None, start_date=None, end_date=None,
                source_keys=None, enabled_only=True,
-               limit=100, offset=0):
+               limit=100, offset=0,
+               price_filter=None, max_price=None):
     """
     Return non-hidden external_events from the cache.
 
@@ -472,6 +539,10 @@ def get_events(conn, filter_type=None, sort=None, saved_only=False,
                   "created_at", "updated_at"):
             if r.get(f) and isinstance(r[f], datetime.datetime):
                 r[f] = r[f].isoformat()
+        _enrich_event(r)
+
+    if price_filter and price_filter != "any":
+        results = _filter_by_price(results, price_filter, max_price)
 
     return results
 

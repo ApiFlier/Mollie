@@ -120,7 +120,7 @@ def _normalize(hit):
     date_str = start_dt[:10] if start_dt else None
     fp = _ev_module.make_fingerprint(title, date_str, venue or source_url)
 
-    raw = json.dumps({k: v for k, v in hit.items() if not k.startswith("_")}, default=str)[:2000]
+    raw = json.dumps({k: v for k, v in hit.items() if not k.startswith("_")}, default=str, ensure_ascii=False)
 
     return {
         "source_key": VisitPittsburgh.source_key,

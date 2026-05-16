@@ -614,6 +614,11 @@ def get_events():
     # Comma-separated list of source_keys to restrict results
     source_keys_raw    = request.args.get("source_keys", "").strip()
     source_keys        = [s.strip() for s in source_keys_raw.split(",") if s.strip()] or None
+    # Price filter
+    _valid_pf = {"any", "free", "listed", "unknown", "max"}
+    price_filter_raw   = request.args.get("price_filter", "").strip()
+    price_filter       = price_filter_raw if price_filter_raw in _valid_pf else None
+    max_price          = request.args.get("max_price", type=float)
 
     conn = get_conn()
     try:
@@ -635,6 +640,8 @@ def get_events():
             enabled_only=True,
             limit=limit,
             offset=offset,
+            price_filter=price_filter,
+            max_price=max_price,
         )
         return jsonify({
             "events": evs,

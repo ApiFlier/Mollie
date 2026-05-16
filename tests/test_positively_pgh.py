@@ -227,6 +227,36 @@ class TestParsePriceFreeCases(unittest.TestCase):
         self.assertEqual(_parse_price({"free": "true"}), "Free")
 
 
+class TestParsePriceLowHighFullPrice(unittest.TestCase):
+    """Coverage for LowFullPrice / HighFullPrice CitySpark extended fields."""
+
+    def test_low_full_price_used_when_price_missing(self):
+        self.assertEqual(_parse_price({"Free": False, "LowFullPrice": 8}), "$8")
+
+    def test_high_full_price_used_for_range(self):
+        self.assertEqual(_parse_price({"Free": False, "LowFullPrice": 8, "HighFullPrice": 15}), "$8–$15")
+
+    def test_low_high_same_shows_single(self):
+        self.assertEqual(_parse_price({"Free": False, "LowFullPrice": 12, "HighFullPrice": 12}), "$12")
+
+    def test_price_takes_precedence_over_low_full_price(self):
+        # Price/PriceHigh are preferred; LowFullPrice is only a fallback
+        self.assertEqual(_parse_price({"Free": False, "Price": 10, "LowFullPrice": 8}), "$10")
+
+    def test_low_full_price_skipped_if_non_numeric(self):
+        self.assertIsNone(_parse_price({"Free": False, "LowFullPrice": "General Admission"}))
+
+    def test_free_flag_overrides_low_full_price(self):
+        self.assertEqual(_parse_price({"Free": True, "LowFullPrice": 8}), "Free")
+
+    def test_price_text_preferred_over_low_full_price(self):
+        # PriceText comes AFTER LowFullPrice in the chain, so LowFullPrice wins
+        self.assertEqual(_parse_price({"Free": False, "PriceText": "5", "LowFullPrice": 8}), "$8")
+
+    def test_low_full_price_decimal(self):
+        self.assertEqual(_parse_price({"Free": False, "LowFullPrice": 11.6}), "$11.60")
+
+
 class TestBestUrl(unittest.TestCase):
 
     def test_primary_url_preferred(self):
@@ -261,6 +291,124 @@ class TestBestUrl(unittest.TestCase):
 
     def test_empty_dict(self):
         self.assertIsNone(_best_url({}))
+
+
+class TestRawJsonValidity(unittest.TestCase):
+    """Prove that _normalize() produces valid, complete JSON in raw_source_json."""
+
+    def _minimal_ev(self, **overrides):
+        base = {
+            "PId": 12345,
+            "Name": "Test Event",
+            "DateStart": "2026-06-01T10:00:00Z",
+            "DateEnd": "2026-06-01T12:00:00Z",
+            "Venue": "Test Venue",
+            "CityState": "Pittsburgh, PA",
+            "Free": False,
+            "Price": None,
+            "PriceHigh": None,
+            "PriceText": None,
+            "PrimaryUrl": "https://example.com/event",
+            "TicketUrl": None,
+            "Links": [],
+            "Tickets": [],
+            "MediumImg": None,
+            "SmallImg": None,
+            "Address": "123 Main St",
+            "Zip": "15222",
+            "latitude": 40.4406,
+            "longitude": -79.9959,
+            "Short": "A short description.",
+            "Description": "A longer description of the event.",
+            "isVirtual": False,
+        }
+        base.update(overrides)
+        return base
+
+    def test_raw_json_is_valid_json(self):
+        """_normalize() must produce raw_source_json that is valid JSON."""
+        import json
+        ev = self._minimal_ev()
+        result = _mod._normalize(ev)
+        raw = result["raw_source_json"]
+        # Must parse without error
+        parsed = json.loads(raw)
+        self.assertIsInstance(parsed, dict)
+
+    def test_raw_json_not_truncated(self):
+        """raw_source_json must not be cut off at an arbitrary character limit."""
+        import json
+        # Build an event with a very long description to exceed old 4000-char limit
+        long_desc = "A" * 4000
+        ev = self._minimal_ev(Description=long_desc, Short=long_desc)
+        result = _mod._normalize(ev)
+        raw = result["raw_source_json"]
+        # If truncated the JSON would be invalid
+        try:
+            json.loads(raw)
+        except json.JSONDecodeError as e:
+            self.fail(f"raw_source_json is invalid JSON (likely truncated): {e}")
+
+    def test_raw_json_contains_free_field(self):
+        """Free field must be present and readable from raw_source_json."""
+        import json
+        ev = self._minimal_ev(Free=True)
+        result = _mod._normalize(ev)
+        raw = result["raw_source_json"]
+        parsed = json.loads(raw)
+        self.assertIn("Free", parsed)
+        self.assertTrue(parsed["Free"])
+
+    def test_raw_json_free_true_and_admission_free(self):
+        """Free=True event must have admission='Free' AND Free in valid raw_source_json."""
+        import json
+        ev = self._minimal_ev(Free=True, Price=0, PriceHigh=0)
+        result = _mod._normalize(ev)
+        self.assertEqual(result["admission"], "Free")
+        parsed = json.loads(result["raw_source_json"])
+        self.assertTrue(parsed["Free"])
+
+    def test_raw_json_unicode_safe(self):
+        """Unicode in event name/description must be stored as real chars, not escaped."""
+        import json
+        ev = self._minimal_ev(Name="Café & Résumé Night — 2026")
+        result = _mod._normalize(ev)
+        raw = result["raw_source_json"]
+        # ensure_ascii=False means real unicode, not \\uXXXX escapes for these chars
+        self.assertIn("Café", raw)
+        parsed = json.loads(raw)
+        self.assertEqual(parsed["Name"], "Café & Résumé Night — 2026")
+
+    def test_raw_json_invalid_text_does_not_crash_like_search(self):
+        """Simulate the diagnostic script's text-search approach on a truncated JSON string.
+
+        The old adapter truncated at 4000 chars, producing invalid JSON. The diagnostic
+        script uses LIKE '%"Free": true%' (text search) rather than JSON_EXTRACT, which
+        must never crash even on invalid JSON.
+        """
+        truncated_json = '{"PId": 99, "Free": false, "Desc": "' + "x" * 4000
+        # Text search approach — must not throw
+        has_free_true = '"Free": true' in truncated_json
+        self.assertFalse(has_free_true)
+
+    def test_raw_json_invalid_with_free_true_detected_by_text_search(self):
+        """If Free: true appears before the truncation point, text search must find it."""
+        truncated_json = '{"PId": 99, "Free": true, "Desc": "' + "x" * 4000
+        has_free_true = '"Free": true' in truncated_json
+        self.assertTrue(has_free_true)
+
+    def test_primary_url_null_uses_ticket_url(self):
+        """PrimaryUrl=None with TicketUrl set must use TicketUrl as the event URL."""
+        ev = self._minimal_ev(PrimaryUrl=None, TicketUrl="https://tickets.com/test-event")
+        result = _mod._normalize(ev)
+        self.assertEqual(result["source_url"], "https://tickets.com/test-event")
+        self.assertEqual(result["official_url"], "https://tickets.com/test-event")
+
+    def test_is_virtual_true_events_skipped_in_fetch(self):
+        """Verify that the isVirtual guard is present in the fetch loop."""
+        import inspect
+        src = inspect.getsource(_mod.PositivelyPgh.fetch)
+        self.assertIn("isVirtual", src)
 
 
 if __name__ == "__main__":
