@@ -218,6 +218,273 @@ def _run_v1(conn, cur):
     print(f"[migrations] Applied: {_KEY_V1}")
 
 
+_KEY_V2 = "curated_hiking_trails_butchers_v2"
+
+_HIKING_LOCATIONS_V2 = [
+    (
+        "Frick Park",
+        "Allegheny", "1981 Beechwood Blvd", "Pittsburgh", "PA", "15217",
+        40.4398, -79.9168,
+        "https://pittsburghparks.org/frick-park",
+        3, 11,
+        "Large city park with extensive wooded trails. Best in spring through fall; check park conditions before visiting.",
+    ),
+    (
+        "Schenley Park",
+        "Allegheny", "500 Panther Hollow Rd", "Pittsburgh", "PA", "15213",
+        40.4399, -79.9460,
+        "https://pittsburghparks.org/schenley-park",
+        3, 11,
+        "Urban park offering varied hiking trails and green spaces. Best in spring through fall; check park conditions before visiting.",
+    ),
+    (
+        "Riverview Park",
+        "Allegheny", "159 Riverview Ave", "Pittsburgh", "PA", "15214",
+        40.4812, -80.0197,
+        "https://pittsburghparks.org/riverview-park",
+        3, 11,
+        "North Side park known for its steep, wooded trails. Best in spring through fall; check park conditions before visiting.",
+    ),
+    (
+        "North Park",
+        "Allegheny", "Pearce Mill Rd", "Allison Park", "PA", "15101",
+        40.6010, -80.0094,
+        "https://www.alleghenycounty.us/parks/north-park",
+        3, 11,
+        "Expansive county park with diverse trails and a large lake. Best in spring through fall; check park conditions before visiting.",
+    ),
+    (
+        "South Park",
+        "Allegheny", "Brownsville Rd", "South Park Township", "PA", "15129",
+        40.3134, -80.0105,
+        "https://www.alleghenycounty.us/parks/south-park",
+        3, 11,
+        "Large county park featuring a network of walking trails. Best in spring through fall; check park conditions before visiting.",
+    ),
+    (
+        "Deer Lakes Park",
+        "Allegheny", "1090 Bailey Run Rd", "Tarentum", "PA", "15084",
+        40.6213, -79.8183,
+        "https://www.alleghenycounty.us/parks/deer-lakes-park",
+        3, 11,
+        "Features trails winding through woods and around lakes. Best in spring through fall; check park conditions before visiting.",
+    ),
+    (
+        "Settlers Cabin Park",
+        "Allegheny", "608 Ridge Rd", "Pittsburgh", "PA", "15205",
+        40.4217, -80.1444,
+        "https://www.alleghenycounty.us/parks/settlers-cabin-park",
+        3, 11,
+        "Offers trails through rugged and wooded terrain. Best in spring through fall; check park conditions before visiting.",
+    ),
+    (
+        "Round Hill Park",
+        "Allegheny", "651 Round Hill Rd", "Elizabeth", "PA", "15037",
+        40.2372, -79.8193,
+        "https://www.alleghenycounty.us/parks/round-hill-park",
+        3, 11,
+        "Combines an active farm with scenic walking trails. Best in spring through fall; check park conditions before visiting.",
+    ),
+    (
+        "Montour Trail",
+        "Allegheny", "Montour Trail", "Coraopolis", "PA", "15108",
+        40.4439, -80.1706,
+        "https://montourtrail.org",
+        3, 11,
+        "Extensive multi-use rail-trail spanning multiple communities. Best in spring through fall; check park conditions before visiting.",
+    ),
+    (
+        "Rachel Carson Trail",
+        "Allegheny", "Rachel Carson Trail", "Springdale", "PA", "15144",
+        40.5401, -79.7845,
+        "https://www.rachelcarsontrails.org",
+        3, 11,
+        "Challenging, rugged hiking trail stretching across northern Allegheny County. Best in spring through fall; check park conditions before visiting.",
+    ),
+    (
+        "Panhandle Trail",
+        "Washington", "Panhandle Trail", "Oakdale", "PA", "15071",
+        40.3871, -80.1985,
+        "https://panhandletrail.org",
+        3, 11,
+        "Paved and crushed limestone trail following an old rail line. Best in spring through fall; check park conditions before visiting.",
+    ),
+    (
+        "Roaring Run Trail",
+        "Armstrong", "Roaring Run Trail", "Apollo", "PA", "15613",
+        40.5699, -79.5539,
+        "https://roaringrun.org",
+        3, 11,
+        "Scenic trail following the Kiskiminetas River. Best in spring through fall; check park conditions before visiting.",
+    ),
+    (
+        "Butler-Freeport Community Trail",
+        "Butler", "Butler-Freeport Trail", "Freeport", "PA", "16229",
+        40.6756, -79.6841,
+        "https://www.butlerfreeporttrail.org",
+        3, 11,
+        "Rail-trail running through the scenic Buffalo Creek valley. Best in spring through fall; check park conditions before visiting.",
+    ),
+    (
+        "Westmoreland Heritage Trail",
+        "Westmoreland", "Westmoreland Heritage Trail", "Trafford", "PA", "15085",
+        40.3855, -79.7602,
+        "https://westmorelandheritagetrail.com",
+        3, 11,
+        "Multi-use trail connecting communities in Westmoreland County. Best in spring through fall; check park conditions before visiting.",
+    ),
+    (
+        "Duff Park",
+        "Westmoreland", "Duff Park", "Murrysville", "PA", "15668",
+        40.4282, -79.6844,
+        "https://www.murrysvilleparecreation.com",
+        3, 11,
+        "Forested park with a network of natural trails. Best in spring through fall; check park conditions before visiting.",
+    ),
+    (
+        "Fall Run Park",
+        "Allegheny", "187 Fall Run Rd", "Glenshaw", "PA", "15116",
+        40.5348, -79.9575,
+        "https://shaler.org",
+        3, 11,
+        "Features a nature trail leading to a picturesque waterfall. Best in spring through fall; check park conditions before visiting.",
+    ),
+    (
+        "Todd Nature Reserve",
+        "Butler", "Keck Rd", "Sarver", "PA", "16055",
+        40.7303, -79.7118,
+        "https://www.aswp.org",
+        3, 11,
+        "Audubon Society reserve with secluded, rugged trails. Best in spring through fall; check park conditions before visiting.",
+    ),
+    (
+        "Moraine State Park",
+        "Butler", "225 Pleasant Valley Rd", "Portersville", "PA", "16051",
+        40.9416, -80.1118,
+        "https://www.dcnr.pa.gov",
+        3, 11,
+        "Large state park offering lakeside and forested trails. Best in spring through fall; check park conditions before visiting.",
+    ),
+    (
+        "Raccoon Creek State Park",
+        "Beaver", "3000 State Route 18", "Hookstown", "PA", "15050",
+        40.5050, -80.4250,
+        "https://www.dcnr.pa.gov",
+        3, 11,
+        "Features numerous trails exploring a diverse natural landscape. Best in spring through fall; check park conditions before visiting.",
+    ),
+    (
+        "Keystone State Park",
+        "Westmoreland", "1150 Keystone Park Rd", "Derry", "PA", "15627",
+        40.3750, -79.3780,
+        "https://www.dcnr.pa.gov",
+        3, 11,
+        "State park offering lakeside trails and recreation. Best in spring through fall; check park conditions before visiting.",
+    )
+]
+
+_BUTCHER_LOCATIONS_V2 = [
+    (
+        "Tom Friday's Market",
+        "Allegheny", "3639 California Ave", "Pittsburgh", "PA", "15212",
+        40.4831, -80.0384,
+        "https://www.tomfridaysmarket.com",
+        None, None,
+        "Local butcher/meat market. Check hours before visiting.",
+    ),
+    (
+        "Henry Grasso Inc.",
+        "Allegheny", "501 Larimer Ave", "Pittsburgh", "PA", "15206",
+        40.4633, -79.9149,
+        None,
+        None, None,
+        "Local butcher/meat market. Check hours before visiting.",
+    ),
+    (
+        "Cheplic Packing",
+        "Washington", "370 Spring St", "Finleyville", "PA", "15332",
+        40.2450, -79.9961,
+        "https://cheplicpacking.com",
+        None, None,
+        "Local butcher/meat market. Check hours before visiting.",
+    ),
+    (
+        "Lampert's Market",
+        "Allegheny", "2101 Penn Ave", "Pittsburgh", "PA", "15222",
+        40.4503, -79.9822,
+        None,
+        None, None,
+        "Local butcher/meat market. Check hours before visiting.",
+    ),
+    (
+        "Thoma Meat Market",
+        "Butler", "706 Saxonburg Blvd", "Saxonburg", "PA", "16056",
+        40.7513, -79.8052,
+        "https://thomameat.com",
+        None, None,
+        "Local butcher/meat market. Check hours before visiting.",
+    ),
+    (
+        "Joe's Butcher Shop",
+        "Westmoreland", "101 E Pittsburgh St", "Delmont", "PA", "15626",
+        40.4132, -79.5721,
+        None,
+        None, None,
+        "Local butcher/meat market. Check hours before visiting.",
+    ),
+    (
+        "Salem's Halal Market",
+        "Allegheny", "2923 Penn Ave", "Pittsburgh", "PA", "15201",
+        40.4578, -79.9723,
+        "https://salemsmarketgrill.com",
+        None, None,
+        "Local butcher/meat market. Check hours before visiting.",
+    ),
+    (
+        "Parma Sausage Products",
+        "Allegheny", "1734 Penn Ave", "Pittsburgh", "PA", "15222",
+        40.4491, -79.9839,
+        "https://parmasausage.com",
+        None, None,
+        "Local butcher/meat market specializing in Italian cured meats. Check hours before visiting.",
+    ),
+    (
+        "DJ's Butcher Block",
+        "Allegheny", "4519 Liberty Ave", "Pittsburgh", "PA", "15224",
+        40.4630, -79.9525,
+        "https://djsbutcherblock.com",
+        None, None,
+        "Local butcher/meat market. Check hours before visiting.",
+    )
+]
+
+def _run_v2(conn, cur):
+    """Insert expanded hiking-trails/butcher locations for v2."""
+    cur.execute(
+        "SELECT migration_key FROM app_migrations WHERE migration_key = %s",
+        (_KEY_V2,),
+    )
+    if cur.fetchone():
+        return  # already applied
+
+    print(f"[migrations] Running: {_KEY_V2}")
+
+    hiking_id  = _ensure_category(conn, cur, *_HIKING_CATEGORY)
+    butcher_id = _ensure_category(conn, cur, *_BUTCHER_CATEGORY)
+
+    for loc in _HIKING_LOCATIONS_V2:
+        _ensure_location(conn, cur, loc[0], hiking_id, *loc[1:])
+    for loc in _BUTCHER_LOCATIONS_V2:
+        _ensure_location(conn, cur, loc[0], butcher_id, *loc[1:])
+
+    cur.execute(
+        "INSERT IGNORE INTO app_migrations (migration_key) VALUES (%s)",
+        (_KEY_V2,),
+    )
+    conn.commit()
+    print(f"[migrations] Applied: {_KEY_V2}")
+
+
 def ensure_app_migrations(conn):
     """Create app_migrations table and run all pending data migrations.
 
@@ -248,4 +515,5 @@ def ensure_app_migrations(conn):
         return
 
     _run_v1(conn, cur)
+    _run_v2(conn, cur)
     cur.close()

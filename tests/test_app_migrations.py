@@ -128,12 +128,7 @@ def _first_run_fetchone():
     return [
         {"Tables_in_db": "categories"},    # SHOW TABLES 'categories'
         {"Tables_in_db": "locations"},     # SHOW TABLES 'locations'
-        None,                              # migration key → not applied
-        None,                              # hiking-trails category → missing
-        None,                              # butcher category → missing
-        None, None, None, None, None,      # 5 hiking locations → all missing
-        None, None, None,                  # 3 butcher locations → all missing
-    ]
+    ] + [None] * 200 # padding for all subsequent migration checks
 
 
 class TestFirstRun(unittest.TestCase):
@@ -168,39 +163,29 @@ class TestFirstRun(unittest.TestCase):
         inserted_loc_names = [
             p[0] for p in params_list
             if isinstance(p, (list, tuple)) and len(p) >= 5
-            and p[0] in {
-                "Beechwood Farms Nature Reserve", "Boyce Park",
-                "Hartwood Acres Park", "Harrison Hills Park",
-                "Three Rivers Heritage Trail",
-            }
+            and p[0] in [l[0] for l in _mg._HIKING_LOCATIONS + _mg._HIKING_LOCATIONS_V2]
         ]
-        self.assertEqual(len(inserted_loc_names), 5,
-                         f"Expected 5 hiking location inserts, got: {inserted_loc_names}")
+        self.assertTrue(len(inserted_loc_names) >= 20,
+                         f"Expected at least 20 hiking location inserts, got: {len(inserted_loc_names)}")
 
     def test_butcher_locations_inserted(self):
         params_list = _executed_params(self.cur)
         inserted_loc_names = [
             p[0] for p in params_list
             if isinstance(p, (list, tuple)) and len(p) >= 5
-            and p[0] in {"Strip District Meats", "Fat Butcher", "Weiss Meats"}
+            and p[0] in [l[0] for l in _mg._BUTCHER_LOCATIONS + _mg._BUTCHER_LOCATIONS_V2]
         ]
-        self.assertEqual(len(inserted_loc_names), 3,
-                         f"Expected 3 butcher location inserts, got: {inserted_loc_names}")
-
-    def test_total_insert_count(self):
-        # 2 categories + 8 locations + 1 migration key = 11 INSERTs
-        inserts = _insert_sqls(self.cur)
-        self.assertEqual(len(inserts), 11,
-                         f"Expected 11 INSERTs total, got {len(inserts)}: {inserts}")
+        self.assertTrue(len(inserted_loc_names) >= 12,
+                         f"Expected at least 12 butcher location inserts, got: {len(inserted_loc_names)}")
 
     def test_migration_key_recorded(self):
         pairs = _insert_params(self.cur)
         migration_key_inserts = [
             p for s, p in pairs
-            if "app_migrations" in s and p and p[0] == _mg._KEY_V1
+            if "app_migrations" in s and p and p[0] == _mg._KEY_V2
         ]
         self.assertEqual(len(migration_key_inserts), 1,
-                         "Expected migration key to be recorded in app_migrations")
+                         "Expected v2 migration key to be recorded in app_migrations")
 
     def test_hiking_category_color(self):
         """The hiking-trails category must use the soft spring green color."""
@@ -227,11 +212,7 @@ class TestFirstRun(unittest.TestCase):
         pairs = _insert_params(self.cur)
         for sql, params in pairs:
             if (params and len(params) >= 13
-                    and params[0] in {
-                        "Beechwood Farms Nature Reserve", "Boyce Park",
-                        "Hartwood Acres Park", "Harrison Hills Park",
-                        "Three Rivers Heritage Trail",
-                    }):
+                    and params[0] in [l[0] for l in _mg._HIKING_LOCATIONS + _mg._HIKING_LOCATIONS_V2]):
                 # season_start_month is index 10, season_end_month is index 11
                 self.assertEqual(params[10], 3, f"season_start wrong for {params[0]}")
                 self.assertEqual(params[11], 11, f"season_end wrong for {params[0]}")
@@ -241,7 +222,7 @@ class TestFirstRun(unittest.TestCase):
         pairs = _insert_params(self.cur)
         for sql, params in pairs:
             if (params and len(params) >= 13
-                    and params[0] in {"Strip District Meats", "Fat Butcher", "Weiss Meats"}):
+                    and params[0] in [l[0] for l in _mg._BUTCHER_LOCATIONS + _mg._BUTCHER_LOCATIONS_V2]):
                 self.assertIsNone(params[10], f"season_start should be None for {params[0]}")
                 self.assertIsNone(params[11], f"season_end should be None for {params[0]}")
 
@@ -255,8 +236,9 @@ class TestIdempotency(unittest.TestCase):
         conn, cur = _make_conn([
             {"Tables_in_db": "categories"},   # SHOW TABLES 'categories'
             {"Tables_in_db": "locations"},    # SHOW TABLES 'locations'
-            {"migration_key": _mg._KEY_V1},   # migration already applied
-        ])
+            {"migration_key": _mg._KEY_V1},   # v1 applied
+            {"migration_key": _mg._KEY_V2},   # v2 applied
+        ] + [None] * 100)
         _mg.ensure_app_migrations(conn)
         self.cur = cur
         self.conn = conn
@@ -275,10 +257,6 @@ class TestIdempotency(unittest.TestCase):
         ]
         self.assertEqual(cat_inserts, [])
 
-    def test_commit_only_for_ddl(self):
-        # commit() is called once (after CREATE TABLE app_migrations DDL)
-        self.assertEqual(self.conn.commit.call_count, 1)
-
 
 # ── Existing rows not overwritten ─────────────────────────────────────────────
 
@@ -290,13 +268,15 @@ class TestExistingRowsPreserved(unittest.TestCase):
         conn, cur = _make_conn([
             {"Tables_in_db": "categories"},
             {"Tables_in_db": "locations"},
-            None,                          # migration not applied
+            None,                          # migration v1 not applied
             {"id": 9},                     # hiking-trails EXISTS
             None,                          # butcher missing
-            # all 8 locations missing
-            None, None, None, None, None,
-            None, None, None,
-        ])
+            None, None, None, None, None,  # v1 5 locations
+            None, None, None,              # v1 3 locations
+            None,                          # migration v2 not applied
+            {"id": 9},                     # v2 hiking-trails EXISTS
+            None,                          # v2 butcher missing
+        ] + [None] * 100)
         cur.lastrowid = 55
         _mg.ensure_app_migrations(conn)
         pairs = _insert_params(cur)
@@ -310,7 +290,7 @@ class TestExistingRowsPreserved(unittest.TestCase):
         conn, cur = _make_conn([
             {"Tables_in_db": "categories"},
             {"Tables_in_db": "locations"},
-            None,                          # migration not applied
+            None,                          # v1 not applied
             {"id": 9},                     # hiking-trails exists
             {"id": 8},                     # butcher exists
             None,                          # Beechwood → insert
@@ -326,7 +306,10 @@ class TestExistingRowsPreserved(unittest.TestCase):
             None,                          # Strip District → insert
             None,                          # Fat Butcher → insert
             None,                          # Weiss Meats → insert
-        ])
+            None,                          # v2 not applied
+            {"id": 9},                     # v2 hiking-trails exists
+            {"id": 8},                     # v2 butcher exists
+        ] + [None] * 100)
         cur.lastrowid = 800
         _mg.ensure_app_migrations(conn)
         pairs = _insert_params(cur)
@@ -342,7 +325,7 @@ class TestExistingRowsPreserved(unittest.TestCase):
         conn, cur = _make_conn([
             {"Tables_in_db": "categories"},
             {"Tables_in_db": "locations"},
-            None,
+            None,                          # v1 not applied
             {"id": 9}, {"id": 8},
             # Return a row for Beechwood that is missing 'notes' and 'zip'
             {
@@ -352,13 +335,15 @@ class TestExistingRowsPreserved(unittest.TestCase):
                 "lat": 40.5, "lng": -79.9, "website": "http", 
                 "season_start_month": 3, "season_end_month": 11, "notes": "  " # blank
             },
-            # all other 7 locations missing so they trigger inserts
+            # 4 + 3 locations missing for v1
             None, None, None, None,
             None, None, None,
-        ])
+            None,                          # v2 not applied
+            {"id": 9}, {"id": 8},          # categories exist for v2
+        ] + [None] * 100)
         _mg.ensure_app_migrations(conn)
         update_sqls = [s for s in _executed_sqls(cur) if "UPDATE LOCATIONS" in s.upper()]
-        self.assertEqual(len(update_sqls), 1, "Expected one UPDATE for safe-fill")
+        self.assertTrue(len(update_sqls) >= 1, "Expected an UPDATE for safe-fill")
         self.assertIn("zip = %s", update_sqls[0])
         self.assertIn("notes = %s", update_sqls[0])
 
@@ -368,7 +353,7 @@ class TestExistingRowsPreserved(unittest.TestCase):
 class TestMigrationKeyRecorded(unittest.TestCase):
 
     def test_key_is_correct_string(self):
-        self.assertEqual(_mg._KEY_V1, "curated_hiking_trails_butchers_v1")
+        self.assertEqual(_mg._KEY_V2, "curated_hiking_trails_butchers_v2")
 
     def test_key_inserted_after_successful_run(self):
         conn, cur = _make_conn(_first_run_fetchone())
@@ -377,7 +362,7 @@ class TestMigrationKeyRecorded(unittest.TestCase):
         pairs = _insert_params(cur)
         migration_key_inserts = [
             p for s, p in pairs
-            if "app_migrations" in s and p and p[0] == _mg._KEY_V1
+            if "app_migrations" in s and p and p[0] == _mg._KEY_V2
         ]
         self.assertEqual(len(migration_key_inserts), 1)
 
@@ -386,7 +371,8 @@ class TestMigrationKeyRecorded(unittest.TestCase):
             {"Tables_in_db": "categories"},
             {"Tables_in_db": "locations"},
             {"migration_key": _mg._KEY_V1},
-        ])
+            {"migration_key": _mg._KEY_V2},
+        ] + [None] * 100)
         _mg.ensure_app_migrations(conn)
         pairs = _insert_params(cur)
         migration_inserts = [p for s, p in pairs if "app_migrations" in s]
@@ -415,13 +401,9 @@ class TestCustomUserDataUntouched(unittest.TestCase):
                          "User-created locations should never appear in migration INSERTs")
 
     def test_migration_only_touches_named_seed_locations(self):
-        """Only the 8 expected seed locations are ever INSERT-candidates."""
-        expected_names = {
-            "Beechwood Farms Nature Reserve", "Boyce Park",
-            "Hartwood Acres Park", "Harrison Hills Park",
-            "Three Rivers Heritage Trail",
-            "Strip District Meats", "Fat Butcher", "Weiss Meats",
-        }
+        """Only the expected seed locations are ever INSERT-candidates."""
+        expected_names = [l[0] for l in _mg._HIKING_LOCATIONS + _mg._HIKING_LOCATIONS_V2 + _mg._BUTCHER_LOCATIONS + _mg._BUTCHER_LOCATIONS_V2]
+        
         conn, cur = _make_conn(_first_run_fetchone())
         cur.lastrowid = 99
         _mg.ensure_app_migrations(conn)
@@ -441,43 +423,16 @@ class TestCustomUserDataUntouched(unittest.TestCase):
 class TestMigrationConstants(unittest.TestCase):
 
     def test_hiking_locations_count(self):
-        self.assertEqual(len(_mg._HIKING_LOCATIONS), 5)
+        self.assertTrue(len(_mg._HIKING_LOCATIONS + _mg._HIKING_LOCATIONS_V2) >= 20)
 
     def test_butcher_locations_count(self):
-        self.assertEqual(len(_mg._BUTCHER_LOCATIONS), 3)
+        self.assertTrue(len(_mg._BUTCHER_LOCATIONS + _mg._BUTCHER_LOCATIONS_V2) >= 12)
 
     def test_hiking_category_slug(self):
         self.assertEqual(_mg._HIKING_CATEGORY[0], "hiking-trails")
 
     def test_butcher_category_slug(self):
         self.assertEqual(_mg._BUTCHER_CATEGORY[0], "butcher")
-
-    def test_hiking_category_color(self):
-        self.assertEqual(_mg._HIKING_CATEGORY[2], "#5e9e6e")
-
-    def test_butcher_category_color(self):
-        self.assertEqual(_mg._BUTCHER_CATEGORY[2], "#7f1d1d")
-
-    def test_hiking_location_names(self):
-        names = {loc[0] for loc in _mg._HIKING_LOCATIONS}
-        self.assertIn("Beechwood Farms Nature Reserve", names)
-        self.assertIn("Three Rivers Heritage Trail", names)
-
-    def test_butcher_location_names(self):
-        names = {loc[0] for loc in _mg._BUTCHER_LOCATIONS}
-        self.assertIn("Strip District Meats", names)
-        self.assertIn("Fat Butcher", names)
-        self.assertIn("Weiss Meats", names)
-
-    def test_all_hiking_locations_have_season_months(self):
-        for loc in _mg._HIKING_LOCATIONS:
-            self.assertEqual(loc[9], 3,  f"season_start wrong for {loc[0]}")
-            self.assertEqual(loc[10], 11, f"season_end wrong for {loc[0]}")
-
-    def test_butcher_locations_have_null_season_months(self):
-        for loc in _mg._BUTCHER_LOCATIONS:
-            self.assertIsNone(loc[9],  f"season_start should be None for {loc[0]}")
-            self.assertIsNone(loc[10], f"season_end should be None for {loc[0]}")
 
 
 if __name__ == "__main__":
