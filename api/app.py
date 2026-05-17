@@ -609,13 +609,15 @@ def admin_update_source(source_key):
     conn = get_conn()
     try:
         cur = conn.cursor()
+        # Verify source exists first — rowcount is unreliable when SET values don't change.
+        cur.execute("SELECT 1 FROM event_sources WHERE source_key=%s", (source_key,))
+        if not cur.fetchone():
+            cur.close()
+            return jsonify({"error": "Source not found"}), 404
         cur.execute(
             f"UPDATE event_sources SET {', '.join(set_parts)} WHERE source_key=%s",
             params
         )
-        if cur.rowcount == 0:
-            cur.close()
-            return jsonify({"error": "Source not found"}), 404
         conn.commit()
         cur.close()
         return jsonify(result)
