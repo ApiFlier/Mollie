@@ -109,6 +109,7 @@ info "Map URL:     http://localhost:${APP_PORT}/map"
 info "Admin URL:   http://localhost:${APP_PORT}/admin/"
 info "Health:      ${HEALTH}"
 info "Database volume preserved."
+info "App data migrations run automatically on startup."
 echo "================================================"
 echo ""
 

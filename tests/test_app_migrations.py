@@ -194,13 +194,12 @@ class TestFirstRun(unittest.TestCase):
                          f"Expected 11 INSERTs total, got {len(inserts)}: {inserts}")
 
     def test_migration_key_recorded(self):
-        params_list = _executed_params(self.cur)
-        migration_inserts = [
-            p for p in params_list
-            if isinstance(p, (list, tuple)) and len(p) == 1
-            and p[0] == _mg._KEY_V1
+        pairs = _insert_params(self.cur)
+        migration_key_inserts = [
+            p for s, p in pairs
+            if "app_migrations" in s and p and p[0] == _mg._KEY_V1
         ]
-        self.assertEqual(len(migration_inserts), 1,
+        self.assertEqual(len(migration_key_inserts), 1,
                          "Expected migration key to be recorded in app_migrations")
 
     def test_hiking_category_color(self):
@@ -260,6 +259,7 @@ class TestIdempotency(unittest.TestCase):
         ])
         _mg.ensure_app_migrations(conn)
         self.cur = cur
+        self.conn = conn
 
     def test_no_inserts_on_second_run(self):
         inserts = _insert_sqls(self.cur)
@@ -283,7 +283,7 @@ class TestIdempotency(unittest.TestCase):
 # ── Existing rows not overwritten ─────────────────────────────────────────────
 
 class TestExistingRowsPreserved(unittest.TestCase):
-    """INSERT-only: existing categories and locations are never updated."""
+    """INSERT-only for new locations; safe-fill for existing locations."""
 
     def test_existing_hiking_category_not_overwritten(self):
         """If hiking-trails category already exists, no INSERT is issued for it."""
@@ -304,11 +304,9 @@ class TestExistingRowsPreserved(unittest.TestCase):
         self.assertEqual(cat_inserts, [],
                          "hiking-trails INSERT should not occur when category exists")
 
-    def test_existing_location_not_overwritten(self):
-        """If a location already exists (by name), no INSERT is issued for it."""
-        # "Boyce Park" already exists — its fetchone returns a row
-        # Build the sequence: categories both exist, migration not applied,
-        # then location checks: only Boyce Park returns a row; rest are None.
+    def test_existing_location_not_overwritten_if_full(self):
+        """If a location exists and has no NULL/blank fields, no UPDATE is issued."""
+        # Provide a fully populated row so no safe-fill triggers.
         conn, cur = _make_conn([
             {"Tables_in_db": "categories"},
             {"Tables_in_db": "locations"},
@@ -316,7 +314,12 @@ class TestExistingRowsPreserved(unittest.TestCase):
             {"id": 9},                     # hiking-trails exists
             {"id": 8},                     # butcher exists
             None,                          # Beechwood → insert
-            {"id": 742},                   # Boyce Park → EXISTS, skip
+            {
+                "id": 742, "name": "Boyce Park", "category_id": 9, "county": "Allegheny",
+                "address": "123 Main", "city": "Pittsburgh", "state": "PA", "zip": "15239",
+                "lat": 40.0, "lng": -79.0, "website": "http", "season_start_month": 3,
+                "season_end_month": 11, "notes": "Existing notes"
+            },                             # Boyce Park → EXISTS, skip
             None,                          # Hartwood → insert
             None,                          # Harrison Hills → insert
             None,                          # Three Rivers → insert
@@ -330,45 +333,34 @@ class TestExistingRowsPreserved(unittest.TestCase):
         boyce_inserts = [p for s, p in pairs if p and p[0] == "Boyce Park"]
         self.assertEqual(boyce_inserts, [],
                          "Boyce Park should not be INSERT-ed when it already exists")
-
-    def test_existing_location_notes_not_changed(self):
-        """No UPDATE is ever issued, even if an existing row has different notes."""
-        conn, cur = _make_conn([
-            {"Tables_in_db": "categories"},
-            {"Tables_in_db": "locations"},
-            None,
-            {"id": 9},   # both categories present
-            {"id": 8},
-            # all 8 locations already present
-            {"id": 741}, {"id": 742}, {"id": 743}, {"id": 744}, {"id": 745},
-            {"id": 746}, {"id": 747}, {"id": 748},
-        ])
-        _mg.ensure_app_migrations(conn)
-        update_sqls = [s for s in _executed_sqls(cur)
-                       if s.upper().lstrip().startswith("UPDATE")]
+        update_sqls = [s for s in _executed_sqls(cur) if "UPDATE LOCATIONS" in s.upper()]
         self.assertEqual(update_sqls, [],
-                         "No UPDATE should ever be issued — Mollie's edits are preserved")
+                         "No UPDATE should be issued for a fully populated existing row")
 
-    def test_no_safe_fill_when_row_exists(self):
-        """blank/NULL safe-fill is intentionally absent: existing rows are left completely alone."""
-        # Scenario: all rows exist — migration should issue zero data-mutating statements
+    def test_safe_fill_when_row_exists_with_null_fields(self):
+        """Safe-fill applies when fields are NULL or blank string."""
         conn, cur = _make_conn([
             {"Tables_in_db": "categories"},
             {"Tables_in_db": "locations"},
             None,
             {"id": 9}, {"id": 8},
-            {"id": 741}, {"id": 742}, {"id": 743}, {"id": 744}, {"id": 745},
-            {"id": 746}, {"id": 747}, {"id": 748},
+            # Return a row for Beechwood that is missing 'notes' and 'zip'
+            {
+                "id": 741, "name": "Beechwood Farms Nature Reserve", "category_id": 9, 
+                "county": "Allegheny", "address": "614 Dorseyville Road", 
+                "city": "Pittsburgh", "state": "PA", "zip": None, # NULL
+                "lat": 40.5, "lng": -79.9, "website": "http", 
+                "season_start_month": 3, "season_end_month": 11, "notes": "  " # blank
+            },
+            # all other 7 locations missing so they trigger inserts
+            None, None, None, None,
+            None, None, None,
         ])
         _mg.ensure_app_migrations(conn)
-        data_mutating = [
-            s for s in _executed_sqls(cur)
-            if s.upper().lstrip().startswith(("INSERT INTO categories",
-                                               "INSERT INTO locations",
-                                               "UPDATE"))
-        ]
-        self.assertEqual(data_mutating, [],
-                         "Should not mutate any data when all rows already exist")
+        update_sqls = [s for s in _executed_sqls(cur) if "UPDATE LOCATIONS" in s.upper()]
+        self.assertEqual(len(update_sqls), 1, "Expected one UPDATE for safe-fill")
+        self.assertIn("zip = %s", update_sqls[0])
+        self.assertIn("notes = %s", update_sqls[0])
 
 
 # ── Migration key recorded ────────────────────────────────────────────────────

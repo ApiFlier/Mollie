@@ -66,6 +66,8 @@ _ev_stub.get_sources = lambda conn, enabled_only=True: []
 _ev_stub.make_fingerprint = lambda *a, **kw: "fp"
 _ev_stub.make_series_key = lambda *a, **kw: "sk"
 
+_stub("migrations", ensure_app_migrations=lambda c: None)
+
 # Stub requests
 _stub("requests")
 
@@ -90,7 +92,7 @@ _generate_seed_sql = _app_mod._generate_seed_sql
 
 # Remove stubs from sys.modules after app is loaded so that other test files
 # (test_event_hygiene.py, etc.) can load the real events module without interference.
-for _cleanup_key in ["events", "requests", "adapters.positively_pgh",
+for _cleanup_key in ["events", "migrations", "requests", "adapters.positively_pgh",
                      "adapters.visit_pittsburgh", "adapters.heinz_history",
                      "adapters.carnegie_museums", "adapters.carnegie_library",
                      "adapters.wqed_cultural", "adapters.pittsburgh_parks",

@@ -139,11 +139,44 @@ def _ensure_location(conn, cur, name, category_id,
                      lat, lng, website,
                      season_start, season_end, notes):
     """Insert location if no row with the same name exists.
-    Never updates existing rows — Mollie's edits are preserved."""
+    If it exists, safe-fill any NULL or blank fields with repo values.
+    Mollie's edits are preserved."""
     cur.execute(
-        "SELECT id FROM locations WHERE LOWER(name) = LOWER(%s)", (name,)
+        "SELECT * FROM locations WHERE LOWER(name) = LOWER(%s)", (name,)
     )
-    if cur.fetchone():
+    row = cur.fetchone()
+    if row:
+        updates = []
+        params = []
+        fields = [
+            ('category_id', category_id),
+            ('county', county),
+            ('address', address),
+            ('city', city),
+            ('state', state),
+            ('zip', zip_code),
+            ('lat', lat),
+            ('lng', lng),
+            ('website', website),
+            ('season_start_month', season_start),
+            ('season_end_month', season_end),
+            ('notes', notes)
+        ]
+        for col, repo_val in fields:
+            if repo_val is not None and repo_val != "":
+                db_val = row.get(col)
+                if db_val is None or (isinstance(db_val, str) and db_val.strip() == ""):
+                    updates.append(f"{col} = %s")
+                    params.append(repo_val)
+        if updates:
+            params.append(row["id"])
+            set_clause = ", ".join(updates)
+            cur.execute(
+                f"UPDATE locations SET {set_clause} WHERE id = %s",
+                tuple(params)
+            )
+            conn.commit()
+            print(f"[migrations]   Safe-filled missing fields for location: {name}")
         return False
     cur.execute(
         "INSERT INTO locations"
