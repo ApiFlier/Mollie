@@ -183,7 +183,7 @@ info "  external_events: ${_ext_count} rows  (runtime cache — will be excluded
 step "Step 4: Generating seed"
 
 echo "Running manifest export..."
-docker exec event-map-app python scripts/export_seed_manifest.py
+docker exec -i event-map-app python - < "$APP_DIR/scripts/export_seed_manifest.py" > "$APP_DIR/api/data/seed_manifest.json"
 
 # Two-phase mysqldump:
 #   Phase A — schema only for ALL tables (no data).

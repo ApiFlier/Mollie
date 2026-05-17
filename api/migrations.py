@@ -17,7 +17,6 @@ _APP_MIGRATIONS_DDL = (
     ")"
 )
 
-
 def _sync_seed(conn, cur):
     """Sync curated data from seed_manifest.json to the DB."""
     manifest_path = os.path.join(os.path.dirname(__file__), "data", "seed_manifest.json")
@@ -60,119 +59,95 @@ def _sync_seed(conn, cur):
         cat_map[c["name"].lower()] = cat_id
 
     # 2. Sync Locations
-    processed_loc_ids = set()
+    processed_seed_keys = set()
 
     for L in locations:
+        seed_key = L.get("seed_key")
+        seed_hash = L.get("seed_hash")
         name = L.get("name")
-        if not name:
+        
+        if not seed_key or not name:
             continue
+            
+        processed_seed_keys.add(seed_key)
 
         cat_id = cat_map.get(str(L.get("category_name", "")).lower())
 
-        cur.execute("SELECT * FROM locations WHERE LOWER(name) = LOWER(%s)", (name,))
+        # Match by seed_key first
+        cur.execute("SELECT * FROM locations WHERE seed_key = %s", (seed_key,))
         db_L = cur.fetchone()
+        
+        # Exact match backfill: fallback to LOWER(name) and category_id if seed_key missing
+        if not db_L:
+            cur.execute("SELECT * FROM locations WHERE LOWER(name) = LOWER(%s) AND category_id = %s", (name, cat_id))
+            db_L = cur.fetchone()
+            if db_L:
+                # We found it without a seed_key. Backfill seed_key.
+                cur.execute("UPDATE locations SET seed_key = %s, seed_managed = TRUE WHERE id = %s", (seed_key, db_L["id"]))
+                db_L["seed_key"] = seed_key
+                db_L["seed_managed"] = True
 
         if not db_L:
             # INSERT new seed-managed location
             cols = ["name", "county", "address", "city", "state", "zip", "lat", "lng",
-                    "phone", "alt_phone", "fax", "email", "website", "facebook_url",
-                    "hours", "event_date", "season_start_month", "season_end_month",
-                    "organic", "pesticide_free", "low_chemical", "notes", "source_url"]
+                    "website", "season_start_month", "season_end_month", "notes"]
             
-            cat_id = L.get("category_id")
-
             vals = [L.get(c) for c in cols]
-            payment = json.dumps(L["payment_methods"]) if L.get("payment_methods") else None
-            amenities = json.dumps(L["amenities"]) if L.get("amenities") else None
 
-            q_cols = ", ".join(cols + ["category_id", "payment_methods", "amenities", "seed_managed"])
-            q_vals = ", ".join(["%s"] * (len(cols) + 3)) + ", TRUE"
+            q_cols = ", ".join(cols + ["category_id", "seed_managed", "seed_key", "seed_hash", "hidden"])
+            q_vals = ", ".join(["%s"] * (len(cols) + 5))
             
-            cur.execute(f"INSERT INTO locations ({q_cols}) VALUES ({q_vals})", tuple(vals + [cat_id, payment, amenities]))
-            processed_loc_ids.add(cur.lastrowid)
+            cur.execute(f"INSERT INTO locations ({q_cols}) VALUES ({q_vals})", tuple(vals + [cat_id, True, seed_key, seed_hash, False]))
             stats["added"] += 1
             print(f"[migrations]   Inserted location: {name}")
 
         else:
             loc_id = db_L["id"]
-            processed_loc_ids.add(loc_id)
             
             is_seed_managed = db_L.get("seed_managed")
             is_user_modified = db_L.get("user_modified")
+            current_hash = db_L.get("seed_hash")
 
-            if is_seed_managed and not is_user_modified:
-                # Fully overwrite with seed manifest data
-                cols = ["category_id", "county", "address", "city", "state", "zip", "lat", "lng",
-                        "phone", "alt_phone", "fax", "email", "website", "facebook_url",
-                        "hours", "event_date", "season_start_month", "season_end_month",
-                        "organic", "pesticide_free", "low_chemical", "notes", "source_url"]
-                
-                updates = [f"{c} = %s" for c in cols]
-                params = [L.get(c) for c in cols]
-                
-                updates.append("payment_methods = %s")
-                params.append(json.dumps(L["payment_methods"]) if L.get("payment_methods") else None)
-                
-                updates.append("amenities = %s")
-                params.append(json.dumps(L["amenities"]) if L.get("amenities") else None)
-                
-                updates.append("hidden = FALSE") # Reactivate if it was hidden
-
-                set_clause = ", ".join(updates)
-                cur.execute(f"UPDATE locations SET {set_clause} WHERE id = %s", tuple(params + [loc_id]))
-                
-                # Treat as updated if we actually updated or if we are securing ownership
-                # In sqlite/mysql we might check rowcount, but since we mock we just count it safely
-                if getattr(cur, "rowcount", 1) > 0:
-                    stats["updated"] += 1
-
+            if is_user_modified:
+                stats["skipped_user_modified"] += 1
+                # Even if user modified, ensure seed_key is set (for future reference)
+                if not is_seed_managed or db_L.get("seed_key") != seed_key:
+                    cur.execute("UPDATE locations SET seed_managed = TRUE, seed_key = %s WHERE id = %s", (seed_key, loc_id))
             else:
-                if is_user_modified:
-                    stats["skipped_user_modified"] += 1
-                
-                # Safe-fill missing data (user_modified is TRUE, or it wasn't seed_managed before)
-                updates = []
-                params = []
-                fields = [
-                    ('category_id', L.get('category_id')),
-                    ('county', L.get('county')),
-                    ('address', L.get('address')),
-                    ('city', L.get('city')),
-                    ('state', L.get('state')),
-                    ('zip', L.get('zip')),
-                    ('lat', L.get('lat')),
-                    ('lng', L.get('lng')),
-                    ('website', L.get('website')),
-                    ('season_start_month', L.get('season_start_month')),
-                    ('season_end_month', L.get('season_end_month')),
-                    ('notes', L.get('notes'))
-                ]
-                for col, repo_val in fields:
-                    if repo_val is not None and repo_val != "":
-                        db_val = db_L.get(col)
-                        if db_val is None or (isinstance(db_val, str) and db_val.strip() == ""):
-                            updates.append(f"{col} = %s")
-                            params.append(repo_val)
-                
-                if updates:
+                if not is_seed_managed or current_hash != seed_hash or db_L.get("hidden") == True:
+                    # Fully overwrite with seed manifest data because hash differs (or reactivating)
+                    cols = ["name", "county", "address", "city", "state", "zip", "lat", "lng",
+                            "website", "season_start_month", "season_end_month", "notes"]
+                    
+                    updates = [f"{c} = %s" for c in cols]
+                    params = [L.get(c) for c in cols]
+                    
+                    updates.append("category_id = %s")
+                    params.append(cat_id)
+                    
+                    updates.append("seed_key = %s")
+                    params.append(seed_key)
+
+                    updates.append("seed_hash = %s")
+                    params.append(seed_hash)
+
+                    updates.append("seed_managed = TRUE")
+                    updates.append("hidden = FALSE")
+
                     set_clause = ", ".join(updates)
                     cur.execute(f"UPDATE locations SET {set_clause} WHERE id = %s", tuple(params + [loc_id]))
+                    
                     if getattr(cur, "rowcount", 1) > 0:
                         stats["updated"] += 1
-                    print(f"[migrations]   Safe-filled location: {name}")
-
-            # Always ensure it is marked as seed_managed going forward
-            if not is_seed_managed:
-                cur.execute("UPDATE locations SET seed_managed = TRUE WHERE id = %s", (loc_id,))
 
     conn.commit()
 
     # 3. Soft-hide locations removed from seed
-    if processed_loc_ids:
-        format_strings = ','.join(['%s'] * len(processed_loc_ids))
+    if processed_seed_keys:
+        format_strings = ','.join(['%s'] * len(processed_seed_keys))
         cur.execute(
-            f"UPDATE locations SET hidden = TRUE WHERE seed_managed = TRUE AND id NOT IN ({format_strings}) AND hidden = FALSE",
-            tuple(processed_loc_ids)
+            f"UPDATE locations SET hidden = TRUE WHERE seed_managed = TRUE AND user_modified = FALSE AND seed_key NOT IN ({format_strings}) AND hidden = FALSE AND seed_key IS NOT NULL",
+            tuple(processed_seed_keys)
         )
         if getattr(cur, "rowcount", 0) > 0:
             stats["soft_removed"] = cur.rowcount
@@ -198,6 +173,12 @@ def ensure_app_migrations(conn):
     cur.execute("SHOW TABLES LIKE 'locations'")
     if not cur.fetchone():
         print("[migrations] 'locations' table not yet present; skipping data migrations.")
+        cur.close()
+        return
+        
+    cur.execute("SHOW COLUMNS FROM locations LIKE 'seed_key'")
+    if not cur.fetchone():
+        print("[migrations] 'seed_key' column not yet present; skipping data migrations.")
         cur.close()
         return
 

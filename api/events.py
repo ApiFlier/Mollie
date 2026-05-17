@@ -1049,7 +1049,9 @@ def ensure_tables(conn):
         cur.execute(
             "ALTER TABLE locations ADD COLUMN seed_managed BOOLEAN NOT NULL DEFAULT FALSE,"
             " ADD COLUMN user_modified BOOLEAN NOT NULL DEFAULT FALSE,"
-            " ADD COLUMN hidden BOOLEAN NOT NULL DEFAULT FALSE"
+            " ADD COLUMN hidden BOOLEAN NOT NULL DEFAULT FALSE,"
+            " ADD COLUMN seed_key VARCHAR(128) UNIQUE,"
+            " ADD COLUMN seed_hash VARCHAR(64)"
         )
         conn.commit()
         print("[events] Added seed sync tracking columns to locations.")

@@ -41,6 +41,8 @@ CREATE TABLE IF NOT EXISTS locations (
     source_url VARCHAR(512),
     last_verified DATE,
     seed_managed BOOLEAN DEFAULT FALSE,
+    seed_key VARCHAR(128) UNIQUE,
+    seed_hash VARCHAR(64),
     user_modified BOOLEAN DEFAULT FALSE,
     hidden BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
