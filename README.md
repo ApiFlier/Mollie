@@ -10,6 +10,8 @@ A self-hosted event discovery map for regional farms, farmers markets, festivals
 ```bash
 # Example for Ubuntu/Debian
 curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker $USER
+newgrp docker
 ```
 
 ### 2. Verify Docker
