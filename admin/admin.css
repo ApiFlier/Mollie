@@ -497,6 +497,35 @@ table.locations-table {
 /* Minimum 44px touch target for crop delete button */
 .crop-row .delete-cell button { width: 44px !important; height: 44px !important; }
 
+/* Coverage days row inside source stat card */
+.ev-coverage-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+.ev-coverage-label {
+  font-size: 11px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.ev-coverage-input {
+  width: 56px;
+  padding: 3px 6px;
+  border: 1.5px solid var(--line);
+  border-radius: 5px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--ink);
+  background: var(--bg);
+}
+.ev-coverage-hint {
+  font-size: 10px;
+  color: var(--ink-soft);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
 /* Source enable/disable toggle button in stat card */
 .ev-admin-stat-card .ev-source-toggle {
   margin-top: 8px;

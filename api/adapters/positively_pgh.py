@@ -203,11 +203,18 @@ class PositivelyPgh(BaseAdapter):
     source_key = "positively_pgh"
     display_name = "Positively Pittsburgh"
 
-    def fetch(self) -> list:
+    def fetch(self, coverage_days=30) -> list:
+        # Clamp to valid range; fall back to 30 for any bad input.
+        try:
+            _cov = max(7, min(180, int(coverage_days)))
+        except (ValueError, TypeError):
+            _cov = _MIN_COVERAGE_DAYS
+        print(f"[positively_pgh] coverage_days={_cov}")
+
         events = []
         seen_ids = set()
         now = datetime.datetime.utcnow()
-        coverage_target = (now + datetime.timedelta(days=_MIN_COVERAGE_DAYS)).strftime("%Y-%m-%d")
+        coverage_target = (now + datetime.timedelta(days=_cov)).strftime("%Y-%m-%d")
         start_str = now.strftime("%Y-%m-%dT00:00:00")
         end_str = (now + datetime.timedelta(days=_FETCH_WINDOW_DAYS)).strftime("%Y-%m-%dT23:59:59")
 
@@ -288,10 +295,10 @@ class PositivelyPgh(BaseAdapter):
             print(
                 f"[positively_pgh] WARNING: hit {_MAX_PAGES}-page cap before coverage target "
                 f"— pages={pages_fetched}, skip={skip}, "
-                f"latest={latest_date_seen or 'none'}, target={coverage_target}"
+                f"latest={latest_date_seen or 'none'}, target={coverage_target} (coverage_days={_cov})"
             )
         print(
             f"[positively_pgh] {len(events)} events in {pages_fetched} page(s), "
-            f"latest={latest_date_seen or 'none'}, target={coverage_target}"
+            f"latest={latest_date_seen or 'none'}, target={coverage_target} (coverage_days={_cov})"
         )
         return events

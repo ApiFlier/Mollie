@@ -6,6 +6,6 @@ class BaseAdapter(ABC):
     display_name: str = None
 
     @abstractmethod
-    def fetch(self) -> list:
+    def fetch(self, coverage_days=30) -> list:
         """Fetch source data and return a list of normalized event dicts."""
         pass

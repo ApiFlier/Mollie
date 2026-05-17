@@ -793,6 +793,14 @@ const AdminEvents = (() => {
         ' data-key="' + escapeHtml(s.source_key) + '"' +
         ' data-enabled="' + (isEnabled ? "1" : "0") + '">' +
         toggleLabel + "</button>";
+      var covDays = (s.coverage_days != null) ? s.coverage_days : 30;
+      statsHtml += '<div class="ev-coverage-row">' +
+        '<label class="ev-coverage-label">Fetch coverage days</label>' +
+        '<input type="number" class="ev-coverage-input" min="7" max="180" value="' + covDays + '"' +
+        ' data-key="' + escapeHtml(s.source_key) + '">' +
+        '<button class="btn btn-small ev-coverage-save" data-key="' + escapeHtml(s.source_key) + '">Save</button>' +
+        '</div>' +
+        '<div class="ev-coverage-hint">How many future days this source should try to keep available. Used by sources that support paged future fetching.</div>';
       statsHtml += "</div>";
     });
     statsHtml += "</div>";
@@ -822,6 +830,33 @@ const AdminEvents = (() => {
         var enabled = btn.getAttribute("data-enabled") === "1";
         btn.disabled = true;
         _toggleSource(key, enabled);
+      });
+    });
+
+    // Bind coverage days save buttons
+    el.querySelectorAll(".ev-coverage-save").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        var key = btn.getAttribute("data-key");
+        var card = btn.closest(".ev-admin-stat-card");
+        var input = card ? card.querySelector(".ev-coverage-input") : null;
+        if (!input) return;
+        var val = parseInt(input.value, 10);
+        if (isNaN(val) || val < 7 || val > 180) {
+          alert("Coverage days must be between 7 and 180.");
+          return;
+        }
+        btn.disabled = true;
+        btn.textContent = "Saving…";
+        AdminAPI.updateSource(key, { coverage_days: val })
+          .then(function() {
+            btn.textContent = "Saved";
+            setTimeout(function() { btn.textContent = "Save"; btn.disabled = false; }, 1500);
+          })
+          .catch(function(err) {
+            alert("Could not save coverage days: " + err.message);
+            btn.disabled = false;
+            btn.textContent = "Save";
+          });
       });
     });
 

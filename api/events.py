@@ -7,6 +7,17 @@ import os
 import datetime
 import threading
 
+def _clamp_coverage_days(val, default=30, min_val=7, max_val=180):
+    """Parse and clamp a coverage_days value. Returns default for missing/invalid."""
+    if val is None or val == "":
+        return default
+    try:
+        v = int(val)
+    except (ValueError, TypeError):
+        return default
+    return max(min_val, min(max_val, v))
+
+
 def _parse_float_env(name, default, min_val=None, max_val=None):
     """Return float from env var, falling back to default on blank/invalid/out-of-range."""
     raw = os.environ.get(name, "").strip()
@@ -266,9 +277,10 @@ def refresh_source(conn, source_key):
         raise ValueError(f"Unknown source: {source_key}")
 
     _ensure_source(conn, source_key, adapter.display_name)
+    coverage_days = get_source_coverage_days(conn, source_key)
 
     try:
-        events = adapter.fetch()
+        events = adapter.fetch(coverage_days=coverage_days)
     except Exception as e:
         print(f"[events] {source_key} fetch failed: {e}")
         _mark_error(conn, source_key, e)
@@ -412,15 +424,32 @@ def get_sources(conn, enabled_only=True):
     cur = conn.cursor(dictionary=True)
     if enabled_only:
         cur.execute(
-            "SELECT source_key, display_name, enabled FROM event_sources WHERE enabled = TRUE ORDER BY source_key"
+            "SELECT source_key, display_name, enabled, coverage_days"
+            " FROM event_sources WHERE enabled = TRUE ORDER BY source_key"
         )
     else:
         cur.execute(
-            "SELECT source_key, display_name, enabled FROM event_sources ORDER BY source_key"
+            "SELECT source_key, display_name, enabled, coverage_days"
+            " FROM event_sources ORDER BY source_key"
         )
     rows = cur.fetchall()
     cur.close()
+    for r in rows:
+        r["coverage_days"] = _clamp_coverage_days(r.get("coverage_days"))
     return rows
+
+
+def get_source_coverage_days(conn, source_key):
+    """Return the configured coverage_days for a source, clamped to valid range."""
+    cur = conn.cursor(dictionary=True)
+    cur.execute(
+        "SELECT coverage_days FROM event_sources WHERE source_key = %s", (source_key,)
+    )
+    row = cur.fetchone()
+    cur.close()
+    if not row or row.get("coverage_days") is None:
+        return 30
+    return _clamp_coverage_days(row["coverage_days"])
 
 
 def get_events(conn, filter_type=None, sort=None, saved_only=False,
@@ -555,6 +584,7 @@ CREATE TABLE IF NOT EXISTS event_sources (
     source_key       VARCHAR(64) NOT NULL UNIQUE,
     display_name     VARCHAR(128) NOT NULL,
     enabled          BOOLEAN DEFAULT TRUE,
+    coverage_days    INT NOT NULL DEFAULT 30,
     last_success_at  DATETIME,
     last_attempt_at  DATETIME,
     last_error       TEXT,
@@ -614,5 +644,14 @@ def ensure_tables(conn):
             except Exception as e:
                 print(f"[events] migration stmt error: {e}")
     conn.commit()
+    # Safe backfill: add coverage_days column to existing installs.
+    try:
+        cur.execute(
+            "ALTER TABLE event_sources ADD COLUMN coverage_days INT NOT NULL DEFAULT 30"
+        )
+        conn.commit()
+        print("[events] Added coverage_days column to event_sources.")
+    except Exception:
+        pass  # Column already exists — this is expected on fresh-migrated installs.
     cur.close()
     print("[events] Tables ready.")

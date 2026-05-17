@@ -151,7 +151,7 @@ class VisitPittsburgh(BaseAdapter):
     source_key = "visit_pittsburgh"
     display_name = "Visit Pittsburgh"
 
-    def fetch(self) -> list:
+    def fetch(self, coverage_days=30) -> list:
         headers = {
             "X-Algolia-Application-Id": _APP_ID,
             "X-Algolia-API-Key": _API_KEY,

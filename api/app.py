@@ -578,22 +578,47 @@ def admin_update_source(source_key):
     if err:
         return err
     data = request.get_json() or {}
-    if "enabled" not in data:
-        return jsonify({"error": "enabled field required"}), 400
-    enabled = bool(data["enabled"])
+    if "enabled" not in data and "coverage_days" not in data:
+        return jsonify({"error": "enabled or coverage_days field required"}), 400
+
+    set_parts = []
+    params = []
+    result = {"ok": True, "source_key": source_key}
+
+    if "enabled" in data:
+        enabled = bool(data["enabled"])
+        set_parts.append("enabled=%s")
+        params.append(enabled)
+        result["enabled"] = enabled
+
+    if "coverage_days" in data:
+        cd_raw = data["coverage_days"]
+        try:
+            cd = int(cd_raw)
+        except (ValueError, TypeError):
+            return jsonify({"error": "coverage_days must be an integer between 7 and 180"}), 400
+        if cd < 7 or cd > 180:
+            return jsonify({"error": f"coverage_days must be between 7 and 180, got {cd}"}), 400
+        set_parts.append("coverage_days=%s")
+        params.append(cd)
+        result["coverage_days"] = cd
+
+    set_parts.append("updated_at=NOW()")
+    params.append(source_key)
+
     conn = get_conn()
     try:
         cur = conn.cursor()
         cur.execute(
-            "UPDATE event_sources SET enabled=%s, updated_at=NOW() WHERE source_key=%s",
-            (enabled, source_key)
+            f"UPDATE event_sources SET {', '.join(set_parts)} WHERE source_key=%s",
+            params
         )
         if cur.rowcount == 0:
             cur.close()
             return jsonify({"error": "Source not found"}), 404
         conn.commit()
         cur.close()
-        return jsonify({"ok": True, "source_key": source_key, "enabled": enabled})
+        return jsonify(result)
     finally:
         conn.close()
 
@@ -721,23 +746,24 @@ def admin_get_events():
         # Source summary (all events, no date filter)
         cur = conn.cursor(dictionary=True)
         cur.execute("""
-            SELECT es.display_name, e.source_key, es.enabled,
+            SELECT es.display_name, e.source_key, es.enabled, es.coverage_days,
                    COUNT(*) AS total,
                    SUM(e.hidden) AS hidden_count,
                    SUM(e.saved)  AS saved_count
             FROM external_events e
             LEFT JOIN event_sources es ON e.source_key = es.source_key
-            GROUP BY e.source_key, es.display_name, es.enabled
+            GROUP BY e.source_key, es.display_name, es.enabled, es.coverage_days
         """)
         sources = cur.fetchall()
         cur.close()
 
         # Coerce Decimal → int / bool for JSON serialisation
         for s in sources:
-            s["total"]        = int(s["total"] or 0)
-            s["hidden_count"] = int(s["hidden_count"] or 0)
-            s["saved_count"]  = int(s["saved_count"] or 0)
-            s["enabled"]      = bool(s["enabled"]) if s["enabled"] is not None else True
+            s["total"]         = int(s["total"] or 0)
+            s["hidden_count"]  = int(s["hidden_count"] or 0)
+            s["saved_count"]   = int(s["saved_count"] or 0)
+            s["enabled"]       = bool(s["enabled"]) if s["enabled"] is not None else True
+            s["coverage_days"] = int(s["coverage_days"]) if s.get("coverage_days") is not None else 30
 
         # Event list — upcoming + recent, optionally including hidden
         cutoff = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
