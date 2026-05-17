@@ -4,7 +4,7 @@ Tests for api/migrations.py — app-level curated-data migrations.
 Verifies:
   - app_migrations table is created
   - first run inserts missing hiking-trails / butcher categories
-  - first run inserts all 8 missing seed locations
+  - first run inserts all seed locations
   - second run is idempotent (no duplicate inserts)
   - existing edited rows are NOT overwritten (INSERT-only, never UPDATE)
   - blank/NULL safe-fill is intentionally absent (existing rows are fully left alone)
@@ -163,17 +163,17 @@ class TestFirstRun(unittest.TestCase):
         inserted_loc_names = [
             p[0] for p in params_list
             if isinstance(p, (list, tuple)) and len(p) >= 5
-            and p[0] in [l[0] for l in _mg._HIKING_LOCATIONS + _mg._HIKING_LOCATIONS_V2]
+            and p[0] in [l[0] for l in _mg._HIKING_LOCATIONS]
         ]
-        self.assertTrue(len(inserted_loc_names) >= 20,
-                         f"Expected at least 20 hiking location inserts, got: {len(inserted_loc_names)}")
+        self.assertTrue(len(inserted_loc_names) >= 35,
+                         f"Expected at least 35 hiking location inserts, got: {len(inserted_loc_names)}")
 
     def test_butcher_locations_inserted(self):
         params_list = _executed_params(self.cur)
         inserted_loc_names = [
             p[0] for p in params_list
             if isinstance(p, (list, tuple)) and len(p) >= 5
-            and p[0] in [l[0] for l in _mg._BUTCHER_LOCATIONS + _mg._BUTCHER_LOCATIONS_V2]
+            and p[0] in [l[0] for l in _mg._BUTCHER_LOCATIONS]
         ]
         self.assertTrue(len(inserted_loc_names) >= 12,
                          f"Expected at least 12 butcher location inserts, got: {len(inserted_loc_names)}")
@@ -182,10 +182,10 @@ class TestFirstRun(unittest.TestCase):
         pairs = _insert_params(self.cur)
         migration_key_inserts = [
             p for s, p in pairs
-            if "app_migrations" in s and p and p[0] == _mg._KEY_V2
+            if "app_migrations" in s and p and p[0] == _mg._KEY_BASELINE
         ]
         self.assertEqual(len(migration_key_inserts), 1,
-                         "Expected v2 migration key to be recorded in app_migrations")
+                         "Expected baseline migration key to be recorded in app_migrations")
 
     def test_hiking_category_color(self):
         """The hiking-trails category must use the soft spring green color."""
@@ -212,7 +212,7 @@ class TestFirstRun(unittest.TestCase):
         pairs = _insert_params(self.cur)
         for sql, params in pairs:
             if (params and len(params) >= 13
-                    and params[0] in [l[0] for l in _mg._HIKING_LOCATIONS + _mg._HIKING_LOCATIONS_V2]):
+                    and params[0] in [l[0] for l in _mg._HIKING_LOCATIONS]):
                 # season_start_month is index 10, season_end_month is index 11
                 self.assertEqual(params[10], 3, f"season_start wrong for {params[0]}")
                 self.assertEqual(params[11], 11, f"season_end wrong for {params[0]}")
@@ -222,7 +222,7 @@ class TestFirstRun(unittest.TestCase):
         pairs = _insert_params(self.cur)
         for sql, params in pairs:
             if (params and len(params) >= 13
-                    and params[0] in [l[0] for l in _mg._BUTCHER_LOCATIONS + _mg._BUTCHER_LOCATIONS_V2]):
+                    and params[0] in [l[0] for l in _mg._BUTCHER_LOCATIONS]):
                 self.assertIsNone(params[10], f"season_start should be None for {params[0]}")
                 self.assertIsNone(params[11], f"season_end should be None for {params[0]}")
 
@@ -236,8 +236,7 @@ class TestIdempotency(unittest.TestCase):
         conn, cur = _make_conn([
             {"Tables_in_db": "categories"},   # SHOW TABLES 'categories'
             {"Tables_in_db": "locations"},    # SHOW TABLES 'locations'
-            {"migration_key": _mg._KEY_V1},   # v1 applied
-            {"migration_key": _mg._KEY_V2},   # v2 applied
+            {"migration_key": _mg._KEY_BASELINE},   # baseline applied
         ] + [None] * 100)
         _mg.ensure_app_migrations(conn)
         self.cur = cur
@@ -268,14 +267,9 @@ class TestExistingRowsPreserved(unittest.TestCase):
         conn, cur = _make_conn([
             {"Tables_in_db": "categories"},
             {"Tables_in_db": "locations"},
-            None,                          # migration v1 not applied
+            None,                          # migration baseline not applied
             {"id": 9},                     # hiking-trails EXISTS
             None,                          # butcher missing
-            None, None, None, None, None,  # v1 5 locations
-            None, None, None,              # v1 3 locations
-            None,                          # migration v2 not applied
-            {"id": 9},                     # v2 hiking-trails EXISTS
-            None,                          # v2 butcher missing
         ] + [None] * 100)
         cur.lastrowid = 55
         _mg.ensure_app_migrations(conn)
@@ -290,7 +284,7 @@ class TestExistingRowsPreserved(unittest.TestCase):
         conn, cur = _make_conn([
             {"Tables_in_db": "categories"},
             {"Tables_in_db": "locations"},
-            None,                          # v1 not applied
+            None,                          # baseline not applied
             {"id": 9},                     # hiking-trails exists
             {"id": 8},                     # butcher exists
             None,                          # Beechwood → insert
@@ -300,15 +294,6 @@ class TestExistingRowsPreserved(unittest.TestCase):
                 "lat": 40.0, "lng": -79.0, "website": "http", "season_start_month": 3,
                 "season_end_month": 11, "notes": "Existing notes"
             },                             # Boyce Park → EXISTS, skip
-            None,                          # Hartwood → insert
-            None,                          # Harrison Hills → insert
-            None,                          # Three Rivers → insert
-            None,                          # Strip District → insert
-            None,                          # Fat Butcher → insert
-            None,                          # Weiss Meats → insert
-            None,                          # v2 not applied
-            {"id": 9},                     # v2 hiking-trails exists
-            {"id": 8},                     # v2 butcher exists
         ] + [None] * 100)
         cur.lastrowid = 800
         _mg.ensure_app_migrations(conn)
@@ -325,7 +310,7 @@ class TestExistingRowsPreserved(unittest.TestCase):
         conn, cur = _make_conn([
             {"Tables_in_db": "categories"},
             {"Tables_in_db": "locations"},
-            None,                          # v1 not applied
+            None,
             {"id": 9}, {"id": 8},
             # Return a row for Beechwood that is missing 'notes' and 'zip'
             {
@@ -335,11 +320,6 @@ class TestExistingRowsPreserved(unittest.TestCase):
                 "lat": 40.5, "lng": -79.9, "website": "http", 
                 "season_start_month": 3, "season_end_month": 11, "notes": "  " # blank
             },
-            # 4 + 3 locations missing for v1
-            None, None, None, None,
-            None, None, None,
-            None,                          # v2 not applied
-            {"id": 9}, {"id": 8},          # categories exist for v2
         ] + [None] * 100)
         _mg.ensure_app_migrations(conn)
         update_sqls = [s for s in _executed_sqls(cur) if "UPDATE LOCATIONS" in s.upper()]
@@ -353,7 +333,7 @@ class TestExistingRowsPreserved(unittest.TestCase):
 class TestMigrationKeyRecorded(unittest.TestCase):
 
     def test_key_is_correct_string(self):
-        self.assertEqual(_mg._KEY_V2, "curated_hiking_trails_butchers_v2")
+        self.assertEqual(_mg._KEY_BASELINE, "curated_places_baseline_20260517_v1")
 
     def test_key_inserted_after_successful_run(self):
         conn, cur = _make_conn(_first_run_fetchone())
@@ -362,7 +342,7 @@ class TestMigrationKeyRecorded(unittest.TestCase):
         pairs = _insert_params(cur)
         migration_key_inserts = [
             p for s, p in pairs
-            if "app_migrations" in s and p and p[0] == _mg._KEY_V2
+            if "app_migrations" in s and p and p[0] == _mg._KEY_BASELINE
         ]
         self.assertEqual(len(migration_key_inserts), 1)
 
@@ -370,8 +350,7 @@ class TestMigrationKeyRecorded(unittest.TestCase):
         conn, cur = _make_conn([
             {"Tables_in_db": "categories"},
             {"Tables_in_db": "locations"},
-            {"migration_key": _mg._KEY_V1},
-            {"migration_key": _mg._KEY_V2},
+            {"migration_key": _mg._KEY_BASELINE},
         ] + [None] * 100)
         _mg.ensure_app_migrations(conn)
         pairs = _insert_params(cur)
@@ -402,7 +381,7 @@ class TestCustomUserDataUntouched(unittest.TestCase):
 
     def test_migration_only_touches_named_seed_locations(self):
         """Only the expected seed locations are ever INSERT-candidates."""
-        expected_names = [l[0] for l in _mg._HIKING_LOCATIONS + _mg._HIKING_LOCATIONS_V2 + _mg._BUTCHER_LOCATIONS + _mg._BUTCHER_LOCATIONS_V2]
+        expected_names = [l[0] for l in _mg._HIKING_LOCATIONS + _mg._BUTCHER_LOCATIONS]
         
         conn, cur = _make_conn(_first_run_fetchone())
         cur.lastrowid = 99
@@ -423,10 +402,10 @@ class TestCustomUserDataUntouched(unittest.TestCase):
 class TestMigrationConstants(unittest.TestCase):
 
     def test_hiking_locations_count(self):
-        self.assertTrue(len(_mg._HIKING_LOCATIONS + _mg._HIKING_LOCATIONS_V2) >= 20)
+        self.assertTrue(len(_mg._HIKING_LOCATIONS) >= 35)
 
     def test_butcher_locations_count(self):
-        self.assertTrue(len(_mg._BUTCHER_LOCATIONS + _mg._BUTCHER_LOCATIONS_V2) >= 12)
+        self.assertTrue(len(_mg._BUTCHER_LOCATIONS) >= 12)
 
     def test_hiking_category_slug(self):
         self.assertEqual(_mg._HIKING_CATEGORY[0], "hiking-trails")
