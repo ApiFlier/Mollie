@@ -364,6 +364,72 @@ docker compose logs event-map-db
 
 ---
 
+## Small VPS / Oracle Always Free Notes
+
+This deployment is designed for the Oracle Always Free tier (2 vCPU, ~1 GiB RAM) and similar small, private VPS hosts. It is not intended for high traffic.
+
+### Swap
+
+**Swap is strongly recommended on ~1 GiB RAM hosts.** Without it, MySQL and the Docker build process can trigger the Linux OOM killer.
+
+Set up a 2 GiB swapfile on Ubuntu if one is not already present:
+
+```bash
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+```
+
+Verify:
+```bash
+free -h
+```
+
+### MySQL memory configuration
+
+`mysql/conf.d/low-memory.cnf` is automatically mounted into the MySQL container. It sets conservative InnoDB and connection limits appropriate for a 1 GiB host:
+
+- `innodb_buffer_pool_size = 128M`
+- `performance_schema = OFF`
+- `max_connections = 20`
+- Per-session sort/read buffers reduced
+
+Do not increase these values on the Oracle Always Free tier.
+
+### First startup is slow
+
+On a 1 GiB VPS, MySQL takes longer than on a developer laptop:
+
+- First boot (volume initialization): **2–5 minutes is normal**
+- Subsequent boots: **30–60 seconds**
+
+`setup.sh` waits up to 300 seconds and prints progress every 15 seconds. If it times out, wait a moment and re-run.
+
+### Event source refreshes may be slow
+
+External source refreshes (CitySpark, Algolia) run in the background after startup and can take 30–60 seconds on a constrained host. This is expected behavior. The app remains available during refresh.
+
+### Container log rotation
+
+Both containers are configured with Docker's `json-file` log driver capped at **10 MB × 3 files** per container. On a tiny disk this keeps logs from growing unbounded without manual pruning.
+
+### Check memory and container health
+
+```bash
+# Memory and swap usage
+free -h
+
+# Live container resource usage (one snapshot)
+docker stats --no-stream
+
+# Container status
+docker ps
+```
+
+---
+
 ## Known Limitations
 
 - Admin panel auth is session-based with bcrypt-verified credentials — no rate limiting on login attempts.
