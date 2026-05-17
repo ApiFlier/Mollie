@@ -5,7 +5,23 @@ A self-hosted event discovery map for regional farms, farmers markets, festivals
 ---
 
 ## Quick Start
+### 1. Install Docker
+**Linux** — [Docker Engine](https://docs.docker.com/engine/install/) + Docker Compose plugin:
+```bash
+# Example for Ubuntu/Debian
+curl -fsSL https://get.docker.com | sudo sh
+```
 
+### 2. Verify Docker
+
+```bash
+docker --version
+docker compose version
+```
+
+Both commands must succeed before proceeding.
+
+### 3. Clone, configure, and run
 ```bash
 git clone https://github.com/ApiFlier/event-map.git event-map
 cd event-map
