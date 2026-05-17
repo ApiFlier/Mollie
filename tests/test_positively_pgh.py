@@ -603,6 +603,41 @@ class TestFetchPagination(unittest.TestCase):
         self.assertIsInstance(parsed, dict)
         self.assertEqual(len(parsed["Description"]), 5000)
 
+    # ── Horizon stop ──────────────────────────────────────────────────────────
+
+    def test_fetch_days_constant_is_90(self):
+        """_POSITIVELY_PGH_FETCH_DAYS must be 90."""
+        self.assertEqual(_mod._POSITIVELY_PGH_FETCH_DAYS, 90)
+
+    def test_fetch_sends_90_day_end_date(self):
+        """Request payload must include end date ~90 days from now."""
+        import datetime
+        mock_req = self._mock_requests([self._page([self._ev(1)])])
+        with unittest.mock.patch.object(_mod, "requests", mock_req):
+            _mod.PositivelyPgh().fetch()
+        payload = mock_req.post.call_args_list[0].kwargs["json"]
+        end_date = datetime.datetime.fromisoformat(payload["end"]).date()
+        expected = (datetime.datetime.utcnow() + datetime.timedelta(days=90)).date()
+        self.assertEqual(end_date, expected)
+
+    def test_stops_at_date_horizon(self):
+        """Fetch must stop once a batch's events are past the 90-day horizon."""
+        import datetime
+        ps = _mod._PAGE_SIZE
+        now = datetime.datetime.utcnow()
+        near = (now + datetime.timedelta(days=30)).strftime("%Y-%m-%dT10:00:00")
+        far  = (now + datetime.timedelta(days=_mod._POSITIVELY_PGH_FETCH_DAYS + 1)).strftime("%Y-%m-%dT10:00:00")
+        pages = [
+            self._page([self._ev(i,      date=near) for i in range(ps)]),
+            self._page([self._ev(i + ps, date=far)  for i in range(ps)]),
+            # third page must not be requested
+        ]
+        mock_req = self._mock_requests(pages)
+        with unittest.mock.patch.object(_mod, "requests", mock_req):
+            result = _mod.PositivelyPgh().fetch()
+        self.assertEqual(mock_req.post.call_count, 2)
+        self.assertEqual(len(result), ps * 2)
+
     def test_duplicate_ids_not_double_counted(self):
         """Same CitySpark ID appearing on two pages must produce only one event."""
         ps = _mod._PAGE_SIZE

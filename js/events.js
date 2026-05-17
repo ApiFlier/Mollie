@@ -44,6 +44,23 @@
     return { start: localDateStr(start), end: localDateStr(end) };
   }
 
+  function _addDays(dateStr, n) {
+    var p = dateStr.split("-");
+    var d = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10));
+    d.setDate(d.getDate() + n);
+    return localDateStr(d);
+  }
+
+  function nextWeekendRange() {
+    var wr = thisWeekendRange();
+    return { start: _addDays(wr.start, 7), end: _addDays(wr.end, 7) };
+  }
+
+  function weekendAfterNextRange() {
+    var wr = thisWeekendRange();
+    return { start: _addDays(wr.start, 14), end: _addDays(wr.end, 14) };
+  }
+
   // ── Filter summary ────────────────────────────────────────────────────────────
 
   function buildFilterSummary() {
@@ -55,6 +72,10 @@
       parts.push("Today");
     } else if (state.dateFilter === "this_weekend") {
       parts.push("This weekend");
+    } else if (state.dateFilter === "next_weekend") {
+      parts.push("Next weekend");
+    } else if (state.dateFilter === "weekend_after_next") {
+      parts.push("Weekend after next");
     } else if (state.dateFilter === "custom") {
       var s = state.startDate || (document.getElementById("start-date") || {}).value || "";
       var e = state.endDate   || (document.getElementById("end-date")   || {}).value || "";
@@ -564,6 +585,16 @@
       params.set("date_filter", "custom");
       params.set("start_date", wr.start);
       params.set("end_date", wr.end);
+    } else if (state.dateFilter === "next_weekend") {
+      var nwr = nextWeekendRange();
+      params.set("date_filter", "custom");
+      params.set("start_date", nwr.start);
+      params.set("end_date", nwr.end);
+    } else if (state.dateFilter === "weekend_after_next") {
+      var wan = weekendAfterNextRange();
+      params.set("date_filter", "custom");
+      params.set("start_date", wan.start);
+      params.set("end_date", wan.end);
     } else if (state.dateFilter === "custom") {
       state.startDate = (document.getElementById("start-date") || {}).value || "";
       state.endDate   = (document.getElementById("end-date")   || {}).value || "";

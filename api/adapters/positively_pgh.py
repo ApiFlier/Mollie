@@ -11,9 +11,10 @@ from adapters.base import BaseAdapter
 import events as _ev_module
 
 _ENDPOINT = "https://portal.cityspark.com/api/events/GetEvents/PopularPittsburgh"
-_PAGE_SIZE = 100   # CitySpark returns up to 100 events per response
-_MAX_PAGES = 40    # hard cap: 40 pages × 100 = 4000 events max
-_TIMEOUT = 15      # seconds
+_PAGE_SIZE = 100               # CitySpark returns up to 100 events per response
+_MAX_PAGES = 40                # hard cap: 40 pages × 100 = 4000 events max
+_POSITIVELY_PGH_FETCH_DAYS = 90  # how many days ahead to fetch
+_TIMEOUT = 15                  # seconds
 
 # Pittsburgh-area center coordinates used for the CitySpark query.
 # HOME_LAT / HOME_LNG drive the per-query sort; distance is recalculated
@@ -190,8 +191,10 @@ class PositivelyPgh(BaseAdapter):
         events = []
         seen_ids = set()
         now = datetime.datetime.utcnow()
+        horizon = now + datetime.timedelta(days=_POSITIVELY_PGH_FETCH_DAYS)
+        horizon_date = horizon.strftime("%Y-%m-%d")
         start_str = now.strftime("%Y-%m-%dT00:00:00")
-        end_str = (now + datetime.timedelta(days=30)).strftime("%Y-%m-%dT23:59:59")
+        end_str = horizon.strftime("%Y-%m-%dT23:59:59")
 
         skip = 0
         pages_fetched = 0
@@ -255,5 +258,16 @@ class PositivelyPgh(BaseAdapter):
             if possible and skip >= possible:
                 break
 
+            # Stop once all events in this page are past our fetch horizon.
+            batch_max_date = ""
+            for ev in batch:
+                ds = (ev.get("DateStart") or ev.get("Date") or "")[:10]
+                if ds > batch_max_date:
+                    batch_max_date = ds
+            if batch_max_date and batch_max_date >= horizon_date:
+                break
+
         print(f"[positively_pgh] {len(events)} events in {pages_fetched} page(s), last skip={skip}")
+        if pages_fetched >= _MAX_PAGES:
+            print(f"[positively_pgh] WARNING: reached {_MAX_PAGES}-page cap — coverage may not extend to {horizon_date}")
         return events
