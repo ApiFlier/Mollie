@@ -19,6 +19,54 @@ info()    { echo -e "${GREEN}[INFO]${NC} $1"; }
 warn()    { echo -e "${YELLOW}[WARN]${NC} $1"; }
 error()   { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
+# ---------------------------------------------------------------------------
+# Wait until the DB container's health check reports "healthy".
+# Uses docker inspect so no mysql client on the host is required.
+# ---------------------------------------------------------------------------
+wait_for_db_healthy() {
+    local _max=120 _waited=0
+    info "Waiting for MySQL inside event-map-db to become healthy..."
+    until [ "$(docker inspect --format '{{.State.Health.Status}}' event-map-db 2>/dev/null)" = "healthy" ]; do
+        if [ "$_waited" -ge "$_max" ]; then
+            echo ""
+            echo -e "${RED}[ERROR]${NC} event-map-db did not become healthy within ${_max}s."
+            echo ""
+            echo "  Container status:"
+            docker compose ps
+            echo ""
+            echo "  Recent DB logs:"
+            docker compose logs --tail=30 db
+            exit 1
+        fi
+        sleep 3
+        _waited=$((_waited + 3))
+    done
+    info "MySQL is healthy (waited ${_waited}s)."
+}
+
+# ---------------------------------------------------------------------------
+# Import a SQL file into the DB container.
+# Credentials come from the container's own environment variables —
+# no host-side credential passing or local mysql client needed.
+# Usage: import_sql_container /path/to/file.sql
+# ---------------------------------------------------------------------------
+import_sql_container() {
+    local _sql_file="$1"
+    if ! docker exec -i event-map-db sh -lc \
+            'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"' \
+            < "$_sql_file"; then
+        echo ""
+        echo -e "${RED}[ERROR]${NC} SQL import failed: $_sql_file"
+        echo ""
+        echo "  Container status:"
+        docker compose ps
+        echo ""
+        echo "  Recent DB logs:"
+        docker compose logs --tail=30 db
+        exit 1
+    fi
+}
+
 find_open_port() {
     local port=$1
     while ss -tuln | grep -q ":${port} "; do
@@ -172,13 +220,8 @@ if ! docker compose up -d --build; then
     echo "  Your existing data and .env are unchanged."
     exit 1
 fi
-info "Containers started. Waiting for MySQL to initialize..."
-sleep 20
-
-if ! docker compose ps | grep -q "event-map-db.*running\|event-map-db.*Up"; then
-    error "event-map-db failed to start. Check: docker compose logs event-map-db"
-fi
-info "All containers are up."
+wait_for_db_healthy
+info "All containers are up and DB is ready."
 
 # ---------------------------------------------------------------------------
 echo ""
@@ -187,12 +230,12 @@ echo ""
 
 SEED_PATH="$APP_DIR/api/data/seed.sql"
 LOCAL_BACKUP="$HOME/.event-map/backups/event-map-latest.sql.gz"
-ROOT_PASS=$(grep "^MYSQL_ROOT_PASSWORD=" "$ENV_FILE" | cut -d= -f2-)
 
 # Check if the database already has data before offering restore.
-EXISTING=$(docker exec event-map-db mysql \
-    -uroot -p"${ROOT_PASS}" \
-    event_map -se "SELECT COUNT(*) FROM locations;" 2>/dev/null || echo "0")
+# Uses the container's own credentials — no host mysql client or root password needed.
+EXISTING=$(docker exec event-map-db sh -lc \
+    'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" -se "SELECT COUNT(*) FROM locations;"' \
+    2>/dev/null || echo "0")
 
 if [ "${EXISTING:-0}" -gt 0 ] 2>/dev/null; then
     info "Database already has ${EXISTING} locations — skipping seed/restore."
@@ -238,22 +281,29 @@ else
     case "$RESTORE_SOURCE" in
         seed)
             info "Loading repo baseline seed data..."
-            docker exec -i event-map-db mysql \
-                -uroot -p"${ROOT_PASS}" \
-                event_map < "$SEED_PATH"
-            LOC_COUNT=$(docker exec event-map-db mysql \
-                -uroot -p"${ROOT_PASS}" \
-                event_map -se "SELECT COUNT(*) FROM locations;" 2>/dev/null || echo "?")
+            import_sql_container "$SEED_PATH"
+            LOC_COUNT=$(docker exec event-map-db sh -lc \
+                'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" -se "SELECT COUNT(*) FROM locations;"' \
+                2>/dev/null || echo "?")
             info "Seed data loaded. Locations: $LOC_COUNT"
             ;;
         local)
             info "Restoring from local backup: $LOCAL_BACKUP"
-            zcat "$LOCAL_BACKUP" | docker exec -i event-map-db mysql \
-                -uroot -p"${ROOT_PASS}" \
-                event_map
-            LOC_COUNT=$(docker exec event-map-db mysql \
-                -uroot -p"${ROOT_PASS}" \
-                event_map -se "SELECT COUNT(*) FROM locations;" 2>/dev/null || echo "?")
+            if ! zcat "$LOCAL_BACKUP" | docker exec -i event-map-db sh -lc \
+                    'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"'; then
+                echo ""
+                echo -e "${RED}[ERROR]${NC} Local backup restore failed."
+                echo ""
+                echo "  Container status:"
+                docker compose ps
+                echo ""
+                echo "  Recent DB logs:"
+                docker compose logs --tail=30 db
+                exit 1
+            fi
+            LOC_COUNT=$(docker exec event-map-db sh -lc \
+                'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" -se "SELECT COUNT(*) FROM locations;"' \
+                2>/dev/null || echo "?")
             info "Local backup restored. Locations: $LOC_COUNT"
             ;;
         fresh)

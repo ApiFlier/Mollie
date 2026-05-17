@@ -42,11 +42,6 @@ if [ ! -f "$ENV_FILE" ]; then
     error "No .env file found at $ENV_FILE. Run setup.sh first."
 fi
 
-ROOT_PASS=$(grep "^MYSQL_ROOT_PASSWORD=" "$ENV_FILE" | cut -d= -f2-)
-if [ -z "$ROOT_PASS" ]; then
-    error "MYSQL_ROOT_PASSWORD not found in $ENV_FILE"
-fi
-
 if ! docker ps --format '{{.Names}}' | grep -qx "event-map-db"; then
     error "event-map-db container is not running. Start it with: docker compose up -d"
 fi
@@ -56,12 +51,10 @@ fi
 mkdir -p "$BACKUP_DIR"
 
 info "Writing local backup to: $BACKUP_FILE"
-docker exec event-map-db mysqldump \
-    -uroot -p"${ROOT_PASS}" \
-    --single-transaction \
-    --routines \
-    --triggers \
-    event_map | gzip > "$BACKUP_FILE"
+# Uses the container's own MYSQL_ROOT_PASSWORD env var — no host-side credential passing.
+docker exec event-map-db sh -lc \
+    'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines --triggers "$MYSQL_DATABASE"' \
+    | gzip > "$BACKUP_FILE"
 
 SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
 info "Local backup complete. Size: $SIZE"
@@ -77,12 +70,9 @@ if [ "$UPDATE_SEED" = true ]; then
     if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
         info "Seed refresh skipped."
     else
-        docker exec event-map-db mysqldump \
-            -uroot -p"${ROOT_PASS}" \
-            --single-transaction \
-            --routines \
-            --triggers \
-            event_map > "$SEED_FILE"
+        docker exec event-map-db sh -lc \
+            'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines --triggers "$MYSQL_DATABASE"' \
+            > "$SEED_FILE"
         info "Seed file updated: $SEED_FILE"
         info "Stage and commit api/data/seed.sql when ready to record this as the repo baseline."
     fi
@@ -97,4 +87,4 @@ echo "  Repo baseline: $SEED_FILE  (stage + commit when ready)"
 fi
 echo ""
 echo "  To restore the local backup:"
-echo "    zcat $BACKUP_FILE | docker exec -i event-map-db mysql -uroot -p\$(grep MYSQL_ROOT_PASSWORD $ENV_FILE | cut -d= -f2) event_map"
+echo "    zcat $BACKUP_FILE | docker exec -i event-map-db sh -lc 'mysql -u\"\$MYSQL_USER\" -p\"\$MYSQL_PASSWORD\" \"\$MYSQL_DATABASE\"'"
