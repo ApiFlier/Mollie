@@ -121,9 +121,13 @@ def _normalize(ev, source_key):
 
     admission = _parse_tribe_cost(ev)
 
-    # Fingerprint
-    date_str = start_dt[:10] if start_dt else None
-    fp = _ev_module.make_fingerprint(title, date_str, venue_name or source_url)
+    # Occurrence fingerprint: source_key + upstream event ID + full start datetime
+    fp = _ev_module.make_fingerprint(
+        source_key, str(ev.get('id') or ''), start_dt,
+        title, venue_name or source_url
+    )
+    # Series key: source_key + title (no date) — for future recurring-event queries
+    sk = _ev_module.make_series_key(source_key, title)
 
     # Raw JSON — omit full HTML description to keep rows compact
     raw_ev = {k: v for k, v in ev.items() if k != 'description'}
@@ -150,6 +154,7 @@ def _normalize(ev, source_key):
         'image_url':             image_url,
         'admission':             admission,
         'normalized_fingerprint': fp,
+        'series_key':            sk,
         'raw_source_json':       raw,
     }
 

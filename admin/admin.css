@@ -539,3 +539,18 @@ table.locations-table {
 .ev-admin-stat-card .ev-source-toggle:hover {
   filter: brightness(0.92);
 }
+
+.maintenance-section {
+  max-width: 600px;
+  padding: 1.5rem 0;
+}
+.maintenance-section p {
+  margin-bottom: 0.75rem;
+  line-height: 1.5;
+}
+.maintenance-section code {
+  background: #f3f3f3;
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  font-size: 0.9em;
+}

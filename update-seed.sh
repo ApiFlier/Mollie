@@ -258,6 +258,11 @@ if grep -q "INSERT INTO \`external_events\`" "$SEED_TMP"; then
     error "Seed unexpectedly contains external_events INSERT data. Aborting for safety."
 fi
 
+# external_event_user_state data (personal saved/hidden history) must NOT be present
+if grep -q "INSERT INTO \`external_event_user_state\`" "$SEED_TMP"; then
+    error "Seed unexpectedly contains external_event_user_state INSERT data. Aborting for safety."
+fi
+
 # Runtime reset must be present
 if ! grep -q "last_success_at.*NULL" "$SEED_TMP"; then
     error "Seed is missing the event_sources runtime reset statement."

@@ -138,11 +138,48 @@ def recalculate_all_distances(conn):
 
 # ── Fingerprint ───────────────────────────────────────────────────────────────
 
-def make_fingerprint(title, date_str, venue_or_url):
+def make_fingerprint(source_key, source_event_id=None, start_datetime=None,
+                     title=None, venue_or_url=None):
+    """Return an MD5 occurrence fingerprint for an external event.
+
+    Identity priority:
+      A. source_key + source_event_id + full start_datetime  (preferred — all adapters have IDs)
+      B. source_key + title + full start_datetime + venue_or_url  (no stable upstream ID)
+      C. title + date-only + venue_or_url  (legacy last resort — should not reach)
+
+    Including the full start_datetime (HH:MM:SS) ensures same-title/same-venue
+    events at different times on the same day are treated as distinct occurrences.
+    Including source_key ensures events from different sources never collide.
+    """
+    _skey = (str(source_key) if source_key else "").lower().strip()
+    _eid  = (str(source_event_id) if source_event_id is not None else "").strip()
+    _dt   = (str(start_datetime) if start_datetime is not None else "")[:19]
+    _ttl  = (str(title) if title else "").lower().strip()
+    _vnu  = (str(venue_or_url) if venue_or_url else "").lower().strip()
+
+    if _skey and _eid and _dt:
+        # Path A: stable occurrence ID from upstream source
+        parts = [_skey, _eid, _dt]
+    elif _skey and _ttl and _dt:
+        # Path B: no upstream ID — use content-based identity
+        parts = [_skey, _ttl, _dt, _vnu]
+    else:
+        # Path C: legacy fallback; date-only, no source_key
+        parts = [_ttl, _dt[:10], _vnu]
+
+    return hashlib.md5("|".join(parts).encode()).hexdigest()
+
+
+def make_series_key(source_key, title):
+    """Return a stable key grouping recurring events by source + title.
+
+    Intentionally excludes date/time so all occurrences of a recurring event
+    share the same series_key. NOT used for deduplication — stored only on
+    external_events for future 'Mollie has seen this kind of event before' queries.
+    """
     parts = [
-        (title or "").lower().strip(),
-        (date_str or "")[:10],
-        (venue_or_url or "").lower().strip(),
+        (str(source_key) if source_key else "").lower().strip(),
+        (str(title) if title else "").lower().strip(),
     ]
     return hashlib.md5("|".join(parts).encode()).hexdigest()
 
@@ -214,6 +251,33 @@ def _score(ev):
     )
 
 
+def _apply_user_state(conn, fingerprint):
+    """Restore saved/hidden from external_event_user_state after an upsert.
+
+    Called after every insert or update so that Mollie's saved/hidden choices
+    survive cache refresh cycles without the source overwriting them.
+    """
+    if not fingerprint:
+        return
+    cur = conn.cursor(dictionary=True)
+    cur.execute(
+        "SELECT saved, hidden FROM external_event_user_state"
+        " WHERE normalized_fingerprint = %s",
+        (fingerprint,)
+    )
+    state = cur.fetchone()
+    cur.close()
+    if not state:
+        return
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE external_events SET saved=%s, hidden=%s"
+        " WHERE normalized_fingerprint=%s",
+        (bool(state["saved"]), bool(state["hidden"]), fingerprint)
+    )
+    cur.close()
+
+
 def _upsert_event(conn, ev):
     fp = ev.get("normalized_fingerprint")
     dist, drive = compute_distance(ev.get("latitude"), ev.get("longitude"))
@@ -242,6 +306,8 @@ def _upsert_event(conn, ev):
     else:
         _do_insert(conn, ev)
 
+    _apply_user_state(conn, fp)
+
 
 def _do_update(conn, event_id, ev):
     cur = conn.cursor()
@@ -252,7 +318,7 @@ def _do_update(conn, event_id, ev):
              venue_name=%s, address=%s, city=%s, state=%s, postal_code=%s,
              latitude=%s, longitude=%s, category=%s, image_url=%s, admission=%s,
              distance_miles=%s, estimated_drive_minutes=%s,
-             raw_source_json=%s,
+             series_key=%s, raw_source_json=%s,
              last_seen_at=NOW(), updated_at=NOW()
            WHERE id=%s""",
         (
@@ -264,7 +330,7 @@ def _do_update(conn, event_id, ev):
             ev.get("latitude"), ev.get("longitude"), ev.get("category"),
             ev.get("image_url"), ev.get("admission"),
             ev.get("distance_miles"), ev.get("estimated_drive_minutes"),
-            ev.get("raw_source_json"),
+            ev.get("series_key"), ev.get("raw_source_json"),
             event_id,
         )
     )
@@ -280,10 +346,10 @@ def _do_insert(conn, ev):
              venue_name, address, city, state, postal_code,
              latitude, longitude, category, image_url, admission,
              distance_miles, estimated_drive_minutes,
-             normalized_fingerprint, raw_source_json
+             normalized_fingerprint, series_key, raw_source_json
            ) VALUES (
              %s,%s,%s,%s, %s,%s,%s,%s,%s, %s,%s,%s,%s,%s,
-             %s,%s,%s,%s,%s, %s,%s, %s,%s
+             %s,%s,%s,%s,%s, %s,%s, %s,%s,%s
            )""",
         (
             ev.get("source_key"), ev.get("source_event_id"),
@@ -295,7 +361,8 @@ def _do_insert(conn, ev):
             ev.get("latitude"), ev.get("longitude"),
             ev.get("category"), ev.get("image_url"), ev.get("admission"),
             ev.get("distance_miles"), ev.get("estimated_drive_minutes"),
-            ev.get("normalized_fingerprint"), ev.get("raw_source_json"),
+            ev.get("normalized_fingerprint"), ev.get("series_key"),
+            ev.get("raw_source_json"),
         )
     )
     cur.close()
@@ -306,11 +373,16 @@ def _do_insert(conn, ev):
 def _dedupe_external_events(conn):
     """Resolve any duplicate external_events rows that share a normalized_fingerprint.
 
-    For each duplicate group, keep the best row:
-      saved flag > hidden flag > has source_url > has latitude > has venue_name
-      > has admission > most recently updated
-    Merge saved and hidden flags from all duplicates into the kept row before
-    deleting the others. This applies only to the external_events runtime cache.
+    The new occurrence-safe fingerprint (source_key + source_event_id + start_datetime)
+    makes true duplicates rare. This function handles any that exist (e.g., from
+    a pre-migration schema or a source that returned the same event twice).
+
+    Safety: if rows share a fingerprint but have different start_datetimes, they
+    are NOT collapsed — they are distinct occurrences that happened to collide
+    (should not occur with the new fingerprint algorithm, but guarded defensively).
+
+    For genuine duplicates: keep the richest/user-touched row, merge saved/hidden
+    flags from all rows before deleting the others.
     """
     cur = conn.cursor(dictionary=True)
     cur.execute(
@@ -330,8 +402,8 @@ def _dedupe_external_events(conn):
         fp = group["normalized_fingerprint"]
         cur = conn.cursor(dictionary=True)
         cur.execute(
-            "SELECT id, saved, hidden, source_url, latitude, venue_name,"
-            "       admission, category, updated_at"
+            "SELECT id, saved, hidden, start_datetime, source_url, latitude,"
+            "       venue_name, admission, category, updated_at"
             " FROM external_events"
             " WHERE normalized_fingerprint = %s ORDER BY id",
             (fp,)
@@ -341,8 +413,17 @@ def _dedupe_external_events(conn):
         if len(rows) <= 1:
             continue
 
+        # Safety: rows with different start_datetimes are distinct occurrences —
+        # do NOT collapse them even if they share a fingerprint (defensive guard).
+        datetimes = {str(r.get("start_datetime") or "") for r in rows}
+        if len(datetimes) > 1:
+            print(
+                f"[events] dedup SKIP: fingerprint {fp!r} has rows with "
+                f"different start_datetimes {datetimes!r} — keeping all"
+            )
+            continue
+
         def _row_score(r):
-            # Higher = prefer this row as the canonical copy
             ts = r.get("updated_at")
             ts_val = ts.timestamp() if hasattr(ts, "timestamp") else 0
             return (
@@ -360,7 +441,7 @@ def _dedupe_external_events(conn):
         keep = rows_sorted[0]
         delete_ids = [r["id"] for r in rows_sorted[1:]]
 
-        # Merge saved/hidden: if ANY duplicate was saved or hidden, preserve it
+        # Merge saved/hidden from all rows into kept row
         any_saved  = any(r.get("saved")  for r in rows)
         any_hidden = any(r.get("hidden") for r in rows)
 
@@ -394,12 +475,17 @@ def _purge_stale_for_source(conn, source_key,
                              saved_retention_days=None):
     """Delete old external_events rows for one source after a successful refresh.
 
-    Deletes unsaved rows (hidden or not) where the event has definitively
-    ended more than retention_days ago. Uses COALESCE(end_datetime,
-    start_datetime) so multi-day events are not removed before they finish.
-    Rows with no datetime are left alone (cannot determine staleness).
+    Deletes rows that Mollie has NOT interacted with (not saved, not hidden,
+    not user_touched) where the event ended more than retention_days ago.
+    Uses COALESCE(end_datetime, start_datetime) so multi-day events are not
+    removed before they finish. Rows with no datetime are left alone.
 
-    saved_retention_days: if None, saved events are kept indefinitely.
+    Preservation rules:
+      - saved=TRUE rows are kept indefinitely (unless saved_retention_days is set)
+      - hidden=TRUE rows are kept (Mollie explicitly chose to hide them)
+      - user_touched=TRUE in external_event_user_state keeps the row
+
+    saved_retention_days: if None (default), saved/hidden events are kept forever.
     """
     if retention_days is None:
         retention_days = EVENT_CACHE_RETENTION_DAYS
@@ -407,12 +493,17 @@ def _purge_stale_for_source(conn, source_key,
     cutoff = datetime.datetime.utcnow() - datetime.timedelta(days=retention_days)
     cur = conn.cursor()
 
+    # Delete untouched stale rows: not saved, not hidden, no user_state entry
     cur.execute(
-        "DELETE FROM external_events"
-        " WHERE source_key = %s"
-        "   AND saved = FALSE"
-        "   AND COALESCE(end_datetime, start_datetime) IS NOT NULL"
-        "   AND COALESCE(end_datetime, start_datetime) < %s",
+        "DELETE e FROM external_events e"
+        " LEFT JOIN external_event_user_state us"
+        "   ON e.normalized_fingerprint = us.normalized_fingerprint"
+        " WHERE e.source_key = %s"
+        "   AND e.saved = FALSE"
+        "   AND e.hidden = FALSE"
+        "   AND (us.normalized_fingerprint IS NULL OR us.user_touched = FALSE)"
+        "   AND COALESCE(e.end_datetime, e.start_datetime) IS NOT NULL"
+        "   AND COALESCE(e.end_datetime, e.start_datetime) < %s",
         (source_key, cutoff)
     )
     unsaved_removed = cur.rowcount
@@ -421,12 +512,16 @@ def _purge_stale_for_source(conn, source_key,
     if saved_retention_days is not None:
         saved_cutoff = (datetime.datetime.utcnow()
                         - datetime.timedelta(days=saved_retention_days))
+        # Only delete saved/hidden rows with no active user_state entry
         cur.execute(
-            "DELETE FROM external_events"
-            " WHERE source_key = %s"
-            "   AND saved = TRUE"
-            "   AND COALESCE(end_datetime, start_datetime) IS NOT NULL"
-            "   AND COALESCE(end_datetime, start_datetime) < %s",
+            "DELETE e FROM external_events e"
+            " LEFT JOIN external_event_user_state us"
+            "   ON e.normalized_fingerprint = us.normalized_fingerprint"
+            " WHERE e.source_key = %s"
+            "   AND (e.saved = TRUE OR e.hidden = TRUE)"
+            "   AND (us.normalized_fingerprint IS NULL OR us.user_touched = FALSE)"
+            "   AND COALESCE(e.end_datetime, e.start_datetime) IS NOT NULL"
+            "   AND COALESCE(e.end_datetime, e.start_datetime) < %s",
             (source_key, saved_cutoff)
         )
         saved_removed = cur.rowcount
@@ -436,9 +531,9 @@ def _purge_stale_for_source(conn, source_key,
 
     total = unsaved_removed + saved_removed
     if total:
-        parts = [f"{unsaved_removed} stale unsaved"]
+        parts = [f"{unsaved_removed} stale untouched"]
         if saved_removed:
-            parts.append(f"{saved_removed} stale saved")
+            parts.append(f"{saved_removed} stale saved/hidden")
         print(f"[events] {source_key}: purged {', '.join(parts)} event(s)")
     return total
 
@@ -766,6 +861,93 @@ def get_events(conn, filter_type=None, sort=None, saved_only=False,
 
 # ── DB migration ──────────────────────────────────────────────────────────────
 
+def _migrate_to_occurrence_fingerprint(conn):
+    """One-time migration: preserve user state then clear cache for repopulation.
+
+    The new fingerprint algorithm (source_key + source_event_id + start_datetime)
+    produces completely different hashes from the old algorithm (title + date_only
+    + venue_or_url). Existing rows in external_events have stale fingerprints that
+    will never match refreshed data from adapters.
+
+    Steps:
+    1. Migrate any saved/hidden rows to external_event_user_state with new
+       fingerprints computed from stored source_key + source_event_id + start_datetime.
+    2. Drop the old UNIQUE constraint (built on old fingerprints).
+    3. TRUNCATE external_events — it is runtime cache, repopulated immediately
+       because all sources will be stale after truncation.
+    4. Re-add the UNIQUE constraint on the fresh table.
+    """
+    print("[events] Running one-time migration to occurrence-safe fingerprints...")
+
+    # Step 1: Migrate saved/hidden state to user_state with new fingerprints
+    cur = conn.cursor(dictionary=True)
+    cur.execute(
+        "SELECT source_key, source_event_id, start_datetime,"
+        "       title, venue_name, source_url, saved, hidden"
+        " FROM external_events WHERE saved = TRUE OR hidden = TRUE"
+    )
+    user_rows = cur.fetchall()
+    cur.close()
+
+    migrated = 0
+    for row in user_rows:
+        new_fp = make_fingerprint(
+            row["source_key"],
+            row.get("source_event_id"),
+            str(row["start_datetime"]) if row["start_datetime"] else None,
+            row.get("title"),
+            row.get("venue_name") or row.get("source_url"),
+        )
+        cur = conn.cursor()
+        cur.execute(
+            """INSERT INTO external_event_user_state
+               (normalized_fingerprint, saved, hidden, user_touched)
+               VALUES (%s, %s, %s, TRUE)
+               ON DUPLICATE KEY UPDATE
+               saved = saved OR VALUES(saved),
+               hidden = hidden OR VALUES(hidden),
+               user_touched = TRUE,
+               last_touched_at = NOW()""",
+            (new_fp, bool(row["saved"]), bool(row["hidden"]))
+        )
+        cur.close()
+        migrated += 1
+
+    conn.commit()
+
+    # Step 2: Drop old UNIQUE constraint (may not exist — OK if it fails)
+    try:
+        cur = conn.cursor()
+        cur.execute("ALTER TABLE external_events DROP INDEX uniq_fingerprint")
+        conn.commit()
+        cur.close()
+    except Exception:
+        pass
+
+    # Step 3: Truncate external_events cache — will auto-repopulate on next refresh
+    cur = conn.cursor()
+    cur.execute("TRUNCATE TABLE external_events")
+    conn.commit()
+    cur.close()
+
+    # Step 4: Re-add UNIQUE constraint on fresh table
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "ALTER TABLE external_events"
+            " ADD UNIQUE KEY uniq_fingerprint (normalized_fingerprint)"
+        )
+        conn.commit()
+        cur.close()
+    except Exception:
+        pass
+
+    print(
+        f"[events] Migration complete: {migrated} user-state row(s) preserved;"
+        " event cache cleared and will repopulate on next refresh."
+    )
+
+
 _MIGRATION_SQL = """
 CREATE TABLE IF NOT EXISTS event_sources (
     id               INT AUTO_INCREMENT PRIMARY KEY,
@@ -805,6 +987,7 @@ CREATE TABLE IF NOT EXISTS external_events (
     estimated_drive_minutes INT,
     direction_bucket        VARCHAR(16),
     normalized_fingerprint  VARCHAR(64),
+    series_key              VARCHAR(64),
     raw_source_json         MEDIUMTEXT,
     hidden                  BOOLEAN DEFAULT FALSE,
     saved                   BOOLEAN DEFAULT FALSE,
@@ -814,9 +997,27 @@ CREATE TABLE IF NOT EXISTS external_events (
     updated_at              TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_source        (source_key),
     INDEX idx_fingerprint   (normalized_fingerprint),
+    INDEX idx_series        (series_key),
     INDEX idx_start         (start_datetime),
     INDEX idx_hidden        (hidden),
     INDEX idx_saved         (saved)
+);
+
+CREATE TABLE IF NOT EXISTS external_event_user_state (
+    normalized_fingerprint  VARCHAR(64) NOT NULL,
+    saved                   BOOLEAN NOT NULL DEFAULT FALSE,
+    hidden                  BOOLEAN NOT NULL DEFAULT FALSE,
+    user_touched            BOOLEAN NOT NULL DEFAULT FALSE,
+    first_touched_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_touched_at         TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    note                    VARCHAR(500) NULL,
+    PRIMARY KEY (normalized_fingerprint)
+);
+
+CREATE TABLE IF NOT EXISTS _event_migrations (
+    migration_key  VARCHAR(64) NOT NULL,
+    applied_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (migration_key)
 );
 """
 
@@ -843,14 +1044,31 @@ def ensure_tables(conn):
     except Exception:
         pass  # Column already exists — expected on re-run.
 
-    # Resolve any duplicate external_events rows before adding the UNIQUE
-    # constraint. This is a no-op if no duplicates exist (the common case).
-    _dedupe_external_events(conn)
+    # Safe backfill: add series_key column to existing external_events installs.
+    try:
+        cur.execute(
+            "ALTER TABLE external_events ADD COLUMN series_key VARCHAR(64) NULL,"
+            " ADD INDEX idx_series (series_key)"
+        )
+        conn.commit()
+        print("[events] Added series_key column to external_events.")
+    except Exception:
+        pass  # Column already exists — expected on re-run.
 
-    # Add UNIQUE constraint on normalized_fingerprint so the DB enforces
-    # idempotency as a safety net alongside the application-level upsert.
-    # MySQL allows multiple NULL values in a UNIQUE index, so nullable
-    # fingerprints are fine.
+    # One-time migration to occurrence-safe fingerprints (occurrence_fingerprint_v1).
+    # Tracked in _event_migrations so it runs exactly once per install.
+    cur.execute(
+        "SELECT migration_key FROM _event_migrations"
+        " WHERE migration_key = 'occurrence_fingerprint_v1'"
+    )
+    if not cur.fetchone():
+        _migrate_to_occurrence_fingerprint(conn)
+        cur.execute(
+            "INSERT IGNORE INTO _event_migrations (migration_key) VALUES ('occurrence_fingerprint_v1')"
+        )
+        conn.commit()
+
+    # After migration the table is fresh; add UNIQUE constraint if not present.
     try:
         cur.execute(
             "ALTER TABLE external_events"

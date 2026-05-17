@@ -1,5 +1,7 @@
 import os
 import json
+import decimal
+import shutil
 import datetime
 import bcrypt
 import requests as http_requests
@@ -718,11 +720,32 @@ def refresh_events():
 @app.route("/api/events/<int:ev_id>/save", methods=["POST"])
 def save_event(ev_id):
     data = request.get_json() or {}
-    saved = data.get("saved", True)
+    saved = bool(data.get("saved", True))
     conn = get_conn()
     try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            "SELECT normalized_fingerprint FROM external_events WHERE id=%s", (ev_id,)
+        )
+        row = cur.fetchone()
+        cur.close()
+        fp = row["normalized_fingerprint"] if row else None
+
         cur = conn.cursor()
         cur.execute("UPDATE external_events SET saved=%s WHERE id=%s", (saved, ev_id))
+
+        if fp:
+            cur.execute(
+                """INSERT INTO external_event_user_state
+                   (normalized_fingerprint, saved, hidden, user_touched, last_touched_at)
+                   VALUES (%s, %s, FALSE, TRUE, NOW())
+                   ON DUPLICATE KEY UPDATE
+                   saved = VALUES(saved),
+                   user_touched = TRUE,
+                   last_touched_at = NOW()""",
+                (fp, saved)
+            )
+
         conn.commit()
         cur.close()
         return jsonify({"ok": True})
@@ -734,11 +757,32 @@ def save_event(ev_id):
 @app.route("/api/events/<int:ev_id>/hide", methods=["POST"])
 def hide_event(ev_id):
     data = request.get_json() or {}
-    hidden = data.get("hidden", True)
+    hidden = bool(data.get("hidden", True))
     conn = get_conn()
     try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            "SELECT normalized_fingerprint FROM external_events WHERE id=%s", (ev_id,)
+        )
+        row = cur.fetchone()
+        cur.close()
+        fp = row["normalized_fingerprint"] if row else None
+
         cur = conn.cursor()
         cur.execute("UPDATE external_events SET hidden=%s WHERE id=%s", (hidden, ev_id))
+
+        if fp:
+            cur.execute(
+                """INSERT INTO external_event_user_state
+                   (normalized_fingerprint, saved, hidden, user_touched, last_touched_at)
+                   VALUES (%s, FALSE, %s, TRUE, NOW())
+                   ON DUPLICATE KEY UPDATE
+                   hidden = VALUES(hidden),
+                   user_touched = TRUE,
+                   last_touched_at = NOW()""",
+                (fp, hidden)
+            )
+
         conn.commit()
         cur.close()
         return jsonify({"ok": True})
@@ -814,6 +858,175 @@ def admin_get_events():
         return jsonify({"events": events, "sources": sources, "total": len(events)})
     finally:
         conn.close()
+
+
+# ── Seed snapshot ─────────────────────────────────────────────────────────────
+
+_SEED_FILE   = os.path.join(os.path.dirname(__file__), "data", "seed.sql")
+_SEED_BACKUP_DIR = os.path.join(os.path.dirname(__file__), "data", "backups")
+
+_CURATED_TABLES = ["categories", "locations", "crops", "notes", "user_notes", "event_sources"]
+_RUNTIME_TABLES = {"external_events", "external_event_user_state", "_event_migrations"}
+
+
+def _escape_sql_value(v):
+    """Format a Python value as a MySQL literal, safe for INSERT statements."""
+    if v is None:
+        return "NULL"
+    if isinstance(v, bool):
+        return "1" if v else "0"
+    if isinstance(v, decimal.Decimal):
+        return str(v)
+    if isinstance(v, int):
+        return str(v)
+    if isinstance(v, float):
+        return repr(v)
+    if isinstance(v, datetime.datetime):
+        return f"'{v.strftime('%Y-%m-%d %H:%M:%S')}'"
+    if isinstance(v, datetime.date):
+        return f"'{v.isoformat()}'"
+    if isinstance(v, (dict, list)):
+        s = json.dumps(v, ensure_ascii=False)
+    else:
+        s = str(v)
+    s = s.replace("\\", "\\\\").replace("'", "\\'") \
+         .replace("\n", "\\n").replace("\r", "\\r").replace("\0", "\\0")
+    return f"'{s}'"
+
+
+def _generate_seed_sql(conn):
+    """Generate a mysqldump-compatible seed SQL from the current database."""
+    from io import StringIO
+    out = StringIO()
+    now = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    out.write(f"""-- ============================================================
+-- Event Map — repo baseline seed
+-- Generated: {now}
+--
+-- This file is committed to a PUBLIC GitHub repository.
+-- It does NOT contain runtime event cache or private data.
+-- Admin credentials are managed by .htpasswd (not in DB).
+-- Seed data is Mollie's opinionated curated starter dataset.
+-- ============================================================
+
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+
+""")
+
+    cur = conn.cursor()
+    cur.execute("SHOW TABLES")
+    all_tables = [row[0] for row in cur.fetchall()]
+    cur.close()
+
+    # Phase A: schema for all tables
+    out.write("-- ============================================================\n")
+    out.write("-- Table structure\n")
+    out.write("-- ============================================================\n\n")
+
+    for table in all_tables:
+        cur = conn.cursor()
+        cur.execute(f"SHOW CREATE TABLE `{table}`")
+        ddl = cur.fetchone()[1]
+        cur.close()
+        out.write(f"DROP TABLE IF EXISTS `{table}`;\n")
+        out.write(f"{ddl};\n\n")
+
+    # Phase B: data for curated tables only
+    out.write("-- ============================================================\n")
+    out.write("-- Curated baseline data\n")
+    out.write("-- external_events excluded (runtime cache, repopulated on refresh)\n")
+    out.write("-- ============================================================\n\n")
+
+    for table in _CURATED_TABLES:
+        if table not in all_tables:
+            continue
+        cur = conn.cursor()
+        cur.execute(f"SELECT * FROM `{table}`")
+        rows = cur.fetchall()
+        columns = [d[0] for d in cur.description]
+        cur.close()
+
+        if not rows:
+            out.write(f"-- (no rows in `{table}`)\n\n")
+            continue
+
+        col_list = ", ".join(f"`{c}`" for c in columns)
+        value_rows = []
+        for row in rows:
+            vals = ", ".join(_escape_sql_value(v) for v in row)
+            value_rows.append(f"({vals})")
+        out.write(f"INSERT INTO `{table}` ({col_list}) VALUES\n")
+        out.write(",\n".join(value_rows))
+        out.write(";\n\n")
+
+    # Reset event_sources runtime timestamps
+    out.write("-- Reset event_sources runtime state (stale timestamps shouldn't ship)\n")
+    out.write("UPDATE `event_sources`\n")
+    out.write("  SET `last_success_at` = NULL,\n")
+    out.write("      `last_attempt_at` = NULL,\n")
+    out.write("      `last_error`      = NULL;\n\n")
+
+    out.write("/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;\n")
+    out.write("/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;\n")
+
+    return out.getvalue()
+
+
+@app.route("/api/admin/seed-snapshot", methods=["POST"])
+def admin_seed_snapshot():
+    err = _require_auth()
+    if err:
+        return err
+
+    conn = get_conn()
+    try:
+        # Count rows for the summary
+        cur = conn.cursor()
+        counts = {}
+        for t in _CURATED_TABLES:
+            try:
+                cur.execute(f"SELECT COUNT(*) FROM `{t}`")
+                counts[t] = cur.fetchone()[0]
+            except Exception:
+                counts[t] = 0
+        cur.close()
+
+        sql_content = _generate_seed_sql(conn)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": f"SQL generation failed: {exc}"}), 500
+    finally:
+        conn.close()
+
+    # Backup existing seed.sql before overwriting
+    stamp = datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    backup_path = None
+    try:
+        os.makedirs(_SEED_BACKUP_DIR, exist_ok=True)
+        if os.path.exists(_SEED_FILE):
+            backup_path = os.path.join(_SEED_BACKUP_DIR, f"seed-{stamp}.sql")
+            shutil.copy2(_SEED_FILE, backup_path)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": f"Backup failed: {exc}"}), 500
+
+    # Write seed file
+    try:
+        with open(_SEED_FILE, "w", encoding="utf-8") as fh:
+            fh.write(sql_content)
+        seed_bytes = len(sql_content.encode("utf-8"))
+    except Exception as exc:
+        return jsonify({"ok": False, "error": f"Write failed: {exc}"}), 500
+
+    return jsonify({
+        "ok": True,
+        "seed_file": "api/data/seed.sql",
+        "seed_bytes": seed_bytes,
+        "backup_file": f"api/data/backups/seed-{stamp}.sql" if backup_path else None,
+        "counts": counts,
+        "generated_at": stamp,
+        "note": "Local repo file updated. Run ./publish-seed.sh to review and push to GitHub.",
+    })
 
 
 if __name__ == "__main__":

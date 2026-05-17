@@ -1,12 +1,18 @@
 """
 Tests for external_events refresh hygiene:
   - _parse_int_env safe parsing
+  - make_fingerprint occurrence-safe identity (source_key + ID + full datetime)
+  - make_series_key recurring-event grouping key
   - _upsert_event idempotency (same event twice → no duplicate)
+  - _apply_user_state restores saved/hidden from external_event_user_state
   - _dedupe_external_events merge (saved/hidden flags preserved)
+  - _dedupe_external_events skips rows with different start_datetimes
   - _purge_stale_for_source stale cleanup behavior
-  - saved events are preserved when SAVED_EVENT_RETENTION_DAYS is unset
+  - saved/hidden/user_touched events preserved during stale cleanup
   - stale cleanup does NOT run when a source fetch fails
   - invalid retention env vars fall back to defaults without crashing
+  - same title/venue on different weekends → different fingerprints (not collapsed)
+  - same title/venue same day different times → different fingerprints (not collapsed)
 
 These tests load events.py directly and use lightweight mock DB objects.
 No real MySQL connection is required.
@@ -21,6 +27,11 @@ import datetime
 # Allow direct import of events.py from api/
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "api"))
 import events as _ev
+
+# Capture originals immediately — adapter test files monkey-patch _ev module
+# via sys.modules["events"], which would corrupt these references if accessed later.
+_make_fingerprint = _ev.make_fingerprint
+_make_series_key  = _ev.make_series_key
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -74,6 +85,7 @@ def _ev_dict(**kwargs):
         "image_url": None,
         "admission": None,
         "normalized_fingerprint": "abc123",
+        "series_key": None,
         "raw_source_json": None,
     }
     base.update(kwargs)
@@ -155,12 +167,19 @@ class TestUpsertIdempotency(unittest.TestCase):
     """Refreshing the same event twice must not create a duplicate row."""
 
     def _make_simple_conn(self, existing_row):
-        """Return a conn whose cursor fetchone always returns existing_row."""
+        """Return a conn whose cursor fetchone always returns existing_row.
+
+        Provides a third cursor for _apply_user_state (returns no user state
+        so it is a no-op — tests that need user_state use separate fixtures).
+        """
         conn = MagicMock()
         sel_cur = MagicMock()
         sel_cur.fetchone.return_value = existing_row
         upd_cur = MagicMock()
-        conn.cursor.side_effect = [sel_cur, upd_cur]
+        # _apply_user_state calls conn.cursor() for a SELECT; return None → no-op
+        state_cur = MagicMock()
+        state_cur.fetchone.return_value = None
+        conn.cursor.side_effect = [sel_cur, upd_cur, state_cur]
         return conn, sel_cur, upd_cur
 
     def test_no_existing_calls_insert(self):
@@ -355,7 +374,7 @@ class TestPurgeStaleForSource(unittest.TestCase):
         return conn, cur
 
     def test_stale_unsaved_are_deleted(self):
-        """Unsaved old events are deleted after successful refresh."""
+        """Untouched old events are deleted after successful refresh."""
         conn = MagicMock()
         cur = MagicMock()
         cur.rowcount = 5
@@ -372,7 +391,12 @@ class TestPurgeStaleForSource(unittest.TestCase):
         # The DELETE uses COALESCE(end_datetime, start_datetime)
         delete_sql = str(delete_calls[0][0][0])
         self.assertIn("COALESCE", delete_sql.upper())
-        self.assertIn("saved = FALSE", delete_sql)
+        # Multi-table DELETE aliases external_events as e
+        self.assertIn("e.saved = FALSE", delete_sql)
+        # Hidden events are also preserved
+        self.assertIn("e.hidden = FALSE", delete_sql)
+        # user_state JOIN preserves user_touched rows
+        self.assertIn("external_event_user_state", delete_sql)
 
     def test_saved_events_not_deleted_by_default(self):
         """With saved_retention_days=None (default), saved events are untouched."""
@@ -384,15 +408,15 @@ class TestPurgeStaleForSource(unittest.TestCase):
         _ev._purge_stale_for_source(conn, "test_source",
                                      retention_days=14,
                                      saved_retention_days=None)
-        # Only one DELETE call (for unsaved); no DELETE for saved rows
+        # Only one DELETE call (for untouched rows); no DELETE for saved/hidden
         delete_calls = [c for c in cur.execute.call_args_list
                         if "DELETE" in str(c[0][0]).upper()]
         self.assertEqual(len(delete_calls), 1,
-                         "Expected exactly one DELETE (unsaved only)")
-        self.assertIn("saved = FALSE", str(delete_calls[0][0][0]))
+                         "Expected exactly one DELETE (untouched rows only)")
+        self.assertIn("e.saved = FALSE", str(delete_calls[0][0][0]))
 
     def test_saved_events_deleted_when_retention_configured(self):
-        """When saved_retention_days is set, a second DELETE for saved rows runs."""
+        """When saved_retention_days is set, a second DELETE for saved/hidden rows runs."""
         conn = MagicMock()
         cur = MagicMock()
         cur.rowcount = 0
@@ -404,10 +428,11 @@ class TestPurgeStaleForSource(unittest.TestCase):
         delete_calls = [c for c in cur.execute.call_args_list
                         if "DELETE" in str(c[0][0]).upper()]
         self.assertEqual(len(delete_calls), 2,
-                         "Expected two DELETE calls (unsaved + saved)")
-        # Second DELETE targets saved=TRUE
+                         "Expected two DELETE calls (untouched + saved/hidden)")
+        # Second DELETE targets saved OR hidden
         second_sql = str(delete_calls[1][0][0])
-        self.assertIn("saved = TRUE", second_sql)
+        self.assertIn("e.saved = TRUE", second_sql)
+        self.assertIn("e.hidden = TRUE", second_sql)
 
     def test_source_key_scoped_to_correct_source(self):
         """DELETE is scoped to the specific source_key, not all sources."""
@@ -435,7 +460,7 @@ class TestPurgeStaleForSource(unittest.TestCase):
         delete_calls = [c for c in cur.execute.call_args_list
                         if "DELETE" in str(c[0][0]).upper()]
         sql = str(delete_calls[0][0][0])
-        self.assertIn("COALESCE(end_datetime, start_datetime)", sql)
+        self.assertIn("COALESCE(e.end_datetime, e.start_datetime)", sql)
 
 
 # ── Tests: stale cleanup not called on refresh failure ───────────────────────
@@ -544,6 +569,311 @@ class TestRetentionEnvParsing(unittest.TestCase):
     def test_retention_above_max_falls_back(self):
         mod = self._reload_events({"EVENT_CACHE_RETENTION_DAYS": "9999"})
         self.assertEqual(mod.EVENT_CACHE_RETENTION_DAYS, 14)
+
+
+# ── Tests: make_fingerprint occurrence-safe identity ─────────────────────────
+
+class TestMakeFingerprint(unittest.TestCase):
+
+    def test_path_a_uses_source_key_id_and_full_datetime(self):
+        """Path A: source_key + source_event_id + full start_datetime."""
+        fp = _make_fingerprint("src", "evt-1", "2026-09-01 10:00:00")
+        self.assertIsNotNone(fp)
+        self.assertEqual(len(fp), 32)  # MD5 hex
+
+    def test_same_id_different_time_different_fingerprint(self):
+        """Same title/venue on the same day at different times → different fingerprints."""
+        fp1 = _make_fingerprint("src", "evt-1", "2026-09-01 10:00:00")
+        fp2 = _make_fingerprint("src", "evt-1", "2026-09-01 19:00:00")
+        self.assertNotEqual(fp1, fp2,
+                            "Events with different times must not share a fingerprint")
+
+    def test_same_title_different_weekend_different_fingerprint(self):
+        """Same title and venue on different weekends → different fingerprints."""
+        fp1 = _make_fingerprint("src", "evt-1", "2026-09-05 10:00:00",
+                                "Jazz Night", "Club A")
+        fp2 = _make_fingerprint("src", "evt-1", "2026-09-12 10:00:00",
+                                "Jazz Night", "Club A")
+        self.assertNotEqual(fp1, fp2,
+                            "Events on different weekends must not share a fingerprint")
+
+    def test_same_occurrence_same_fingerprint(self):
+        """Exact same source + id + datetime always yields the same fingerprint."""
+        fp1 = _make_fingerprint("heinz_history", "12345", "2026-09-01 14:00:00")
+        fp2 = _make_fingerprint("heinz_history", "12345", "2026-09-01 14:00:00")
+        self.assertEqual(fp1, fp2,
+                         "Same occurrence must always produce the same fingerprint")
+
+    def test_different_sources_same_id_different_fingerprint(self):
+        """Different sources with same event ID must not collide."""
+        fp1 = _make_fingerprint("source_a", "99", "2026-09-01 10:00:00")
+        fp2 = _make_fingerprint("source_b", "99", "2026-09-01 10:00:00")
+        self.assertNotEqual(fp1, fp2,
+                            "Same event ID from different sources must not collide")
+
+    def test_path_b_fallback_no_event_id(self):
+        """Path B fallback: source_key + title + datetime + venue (no event ID)."""
+        fp = _make_fingerprint("src", None, "2026-09-01 10:00:00",
+                               "Jazz Night", "Club A")
+        self.assertIsNotNone(fp)
+        self.assertEqual(len(fp), 32)
+
+    def test_path_b_different_times_different_fingerprint(self):
+        """Path B: same title/venue/source, different times → different fingerprints."""
+        fp1 = _make_fingerprint("src", None, "2026-09-01 10:00:00",
+                                "Jazz Night", "Club A")
+        fp2 = _make_fingerprint("src", None, "2026-09-01 20:00:00",
+                                "Jazz Night", "Club A")
+        self.assertNotEqual(fp1, fp2,
+                            "Path B: different times must yield different fingerprints")
+
+    def test_path_b_different_weekends_different_fingerprint(self):
+        """Path B: same title/venue/source, different weekends → different fingerprints."""
+        fp1 = _make_fingerprint("src", None, "2026-09-05 19:00:00",
+                                "Jazz Night", "Club A")
+        fp2 = _make_fingerprint("src", None, "2026-09-12 19:00:00",
+                                "Jazz Night", "Club A")
+        self.assertNotEqual(fp1, fp2)
+
+    def test_none_inputs_do_not_crash(self):
+        """None inputs should not crash fingerprint generation."""
+        fp = _make_fingerprint(None, None, None, None, None)
+        self.assertIsNotNone(fp)
+        self.assertEqual(len(fp), 32)
+
+    def test_empty_source_event_id_uses_path_b(self):
+        """Empty string event ID falls through to Path B (source_key + title + dt)."""
+        fp_b = _make_fingerprint("src", "", "2026-09-01 10:00:00",
+                                 "Jazz Night", "Club A")
+        fp_a = _make_fingerprint("src", "X", "2026-09-01 10:00:00",
+                                 "Jazz Night", "Club A")
+        self.assertNotEqual(fp_b, fp_a,
+                            "Empty event ID should not produce same FP as event with ID 'X'")
+
+
+# ── Tests: make_series_key ────────────────────────────────────────────────────
+
+class TestMakeSeriesKey(unittest.TestCase):
+
+    def test_same_source_and_title_same_series_key(self):
+        """All occurrences of the same event share a series_key."""
+        sk1 = _make_series_key("heinz_history", "Jazz Night")
+        sk2 = _make_series_key("heinz_history", "Jazz Night")
+        self.assertEqual(sk1, sk2)
+
+    def test_different_times_same_series_key(self):
+        """series_key is NOT affected by date/time."""
+        sk1 = _make_series_key("src", "Jazz Night")
+        sk2 = _make_series_key("src", "Jazz Night")
+        self.assertEqual(sk1, sk2,
+                         "series_key must ignore datetime entirely")
+
+    def test_different_titles_different_series_key(self):
+        """Different event names always produce different series keys."""
+        sk1 = _make_series_key("src", "Jazz Night")
+        sk2 = _make_series_key("src", "Blues Night")
+        self.assertNotEqual(sk1, sk2)
+
+    def test_different_sources_different_series_key(self):
+        """Same title from different sources gets different series keys."""
+        sk1 = _make_series_key("source_a", "Jazz Night")
+        sk2 = _make_series_key("source_b", "Jazz Night")
+        self.assertNotEqual(sk1, sk2)
+
+    def test_series_key_not_equal_to_fingerprint(self):
+        """series_key must never accidentally equal a normalized_fingerprint
+        (they have different inputs and must never be confused)."""
+        fp = _make_fingerprint("src", "99", "2026-09-01 10:00:00")
+        sk = _make_series_key("src", "Jazz Night")
+        self.assertNotEqual(fp, sk)
+
+    def test_none_inputs_do_not_crash(self):
+        sk = _make_series_key(None, None)
+        self.assertIsNotNone(sk)
+
+
+# ── Tests: _apply_user_state ──────────────────────────────────────────────────
+
+class TestApplyUserState(unittest.TestCase):
+
+    def test_no_user_state_no_update(self):
+        """When no user_state entry exists, external_events is not modified."""
+        conn = MagicMock()
+        sel_cur = MagicMock()
+        sel_cur.fetchone.return_value = None  # no user state
+        conn.cursor.return_value = sel_cur
+
+        _ev._apply_user_state(conn, "fp-123")
+
+        # No UPDATE should have been called
+        update_calls = [c for c in sel_cur.execute.call_args_list
+                        if "UPDATE" in str(c[0][0]).upper()]
+        self.assertEqual(len(update_calls), 0)
+
+    def test_user_state_found_applies_saved_hidden(self):
+        """When user_state exists, saved/hidden are applied to external_events."""
+        conn = MagicMock()
+        sel_cur = MagicMock()
+        sel_cur.fetchone.return_value = {"saved": True, "hidden": False}
+        upd_cur = MagicMock()
+        conn.cursor.side_effect = [sel_cur, upd_cur]
+
+        _ev._apply_user_state(conn, "fp-abc")
+
+        # UPDATE must have been called
+        self.assertTrue(upd_cur.execute.called)
+        sql = upd_cur.execute.call_args[0][0]
+        params = upd_cur.execute.call_args[0][1]
+        self.assertIn("UPDATE", sql.upper())
+        self.assertIn("saved", sql)
+        # saved=True, hidden=False, fingerprint="fp-abc"
+        self.assertEqual(params, (True, False, "fp-abc"))
+
+    def test_none_fingerprint_skips_lookup(self):
+        """If fingerprint is None/empty, _apply_user_state must be a no-op."""
+        conn = MagicMock()
+        _ev._apply_user_state(conn, None)
+        conn.cursor.assert_not_called()
+
+        _ev._apply_user_state(conn, "")
+        conn.cursor.assert_not_called()
+
+
+# ── Tests: _dedupe skips rows with different start_datetimes ─────────────────
+
+class TestDedupeSkipsDifferentDatetimes(unittest.TestCase):
+
+    def test_different_start_datetimes_are_not_collapsed(self):
+        """If two rows share a fingerprint but have different start_datetimes,
+        they must NOT be deduplicated — they are distinct occurrences."""
+        conn = MagicMock()
+        scan_cur = MagicMock()
+        scan_cur.fetchall.return_value = [
+            {"normalized_fingerprint": "fp-recurring", "cnt": 2}
+        ]
+        detail_cur = MagicMock()
+        detail_cur.fetchall.return_value = [
+            {"id": 1, "saved": False, "hidden": False,
+             "start_datetime": "2026-09-05 19:00:00",
+             "source_url": None, "latitude": None, "venue_name": None,
+             "admission": None, "category": None,
+             "updated_at": datetime.datetime(2026, 9, 1)},
+            {"id": 2, "saved": False, "hidden": False,
+             "start_datetime": "2026-09-12 19:00:00",
+             "source_url": None, "latitude": None, "venue_name": None,
+             "admission": None, "category": None,
+             "updated_at": datetime.datetime(2026, 9, 1)},
+        ]
+        conn.cursor.side_effect = [scan_cur, detail_cur]
+
+        result = _ev._dedupe_external_events(conn)
+
+        # Must return 0 — neither row deleted
+        self.assertEqual(result, 0,
+                         "Rows with different datetimes must not be deleted")
+        # commit must not be called (no deletions)
+        conn.commit.assert_not_called()
+
+    def test_same_start_datetime_is_deduplicated(self):
+        """Two rows with identical start_datetimes and same fingerprint are collapsed."""
+        now = datetime.datetime(2026, 9, 5, 19, 0, 0)
+        conn = MagicMock()
+        scan_cur = MagicMock()
+        scan_cur.fetchall.return_value = [
+            {"normalized_fingerprint": "fp-dup", "cnt": 2}
+        ]
+        detail_cur = MagicMock()
+        detail_cur.fetchall.return_value = [
+            {"id": 3, "saved": False, "hidden": False,
+             "start_datetime": now,
+             "source_url": None, "latitude": None, "venue_name": None,
+             "admission": None, "category": None, "updated_at": now},
+            {"id": 4, "saved": False, "hidden": False,
+             "start_datetime": now,
+             "source_url": "http://a.com", "latitude": 40.4, "venue_name": "Venue",
+             "admission": None, "category": None, "updated_at": now},
+        ]
+        merge_cur = MagicMock()
+        conn.cursor.side_effect = [scan_cur, detail_cur, merge_cur]
+
+        result = _ev._dedupe_external_events(conn)
+
+        self.assertEqual(result, 1, "One duplicate should be removed")
+
+
+# ── Tests: user state survives refresh ───────────────────────────────────────
+
+class TestUserStateSurvivesRefresh(unittest.TestCase):
+
+    def test_upsert_applies_user_state_from_table(self):
+        """After upsert, if user_state exists for fingerprint, saved/hidden are restored."""
+        # Simulate an INSERT (no existing row), then user_state lookup returns saved=True
+        conn = MagicMock()
+        sel_cur = MagicMock()
+        sel_cur.fetchone.return_value = None  # no existing row → INSERT
+        ins_cur = MagicMock()
+        state_sel_cur = MagicMock()
+        state_sel_cur.fetchone.return_value = {"saved": True, "hidden": False}
+        state_upd_cur = MagicMock()
+        conn.cursor.side_effect = [sel_cur, ins_cur, state_sel_cur, state_upd_cur]
+
+        ev = _ev_dict(normalized_fingerprint="fp-known")
+        _ev._upsert_event(conn, ev)
+
+        # state_upd_cur should have been called with an UPDATE for saved/hidden
+        self.assertTrue(state_upd_cur.execute.called)
+        sql = state_upd_cur.execute.call_args[0][0]
+        self.assertIn("UPDATE", sql.upper())
+
+    def test_upsert_no_state_leaves_saved_hidden_alone(self):
+        """If no user_state entry exists, upsert does not touch saved/hidden."""
+        conn = MagicMock()
+        sel_cur = MagicMock()
+        sel_cur.fetchone.return_value = None  # no existing row → INSERT
+        ins_cur = MagicMock()
+        state_sel_cur = MagicMock()
+        state_sel_cur.fetchone.return_value = None  # no user state → no-op
+        conn.cursor.side_effect = [sel_cur, ins_cur, state_sel_cur]
+
+        ev = _ev_dict(normalized_fingerprint="fp-new")
+        _ev._upsert_event(conn, ev)
+
+        # No UPDATE for saved/hidden after INSERT
+        # state_sel_cur.execute was called for SELECT; no additional UPDATE cursor needed
+        execute_calls = [c[0][0] for c in ins_cur.execute.call_args_list]
+        for sql in execute_calls:
+            self.assertNotIn("saved", sql.lower(),
+                             "_do_insert must not set saved/hidden")
+
+    def test_purge_preserves_hidden_events(self):
+        """Hidden events (hidden=TRUE) must not be deleted by stale cleanup."""
+        conn = MagicMock()
+        cur = MagicMock()
+        cur.rowcount = 0
+        conn.cursor.return_value = cur
+
+        _ev._purge_stale_for_source(conn, "test_source", retention_days=14)
+
+        delete_calls = [c for c in cur.execute.call_args_list
+                        if "DELETE" in str(c[0][0]).upper()]
+        sql = str(delete_calls[0][0][0])
+        self.assertIn("e.hidden = FALSE", sql,
+                      "Stale purge must skip hidden events")
+
+    def test_purge_preserves_user_touched_via_join(self):
+        """user_touched rows in user_state are preserved by the LEFT JOIN condition."""
+        conn = MagicMock()
+        cur = MagicMock()
+        cur.rowcount = 0
+        conn.cursor.return_value = cur
+
+        _ev._purge_stale_for_source(conn, "test_source", retention_days=14)
+
+        delete_calls = [c for c in cur.execute.call_args_list
+                        if "DELETE" in str(c[0][0]).upper()]
+        sql = str(delete_calls[0][0][0])
+        self.assertIn("user_touched", sql,
+                      "Stale purge must preserve user_touched rows via JOIN")
 
 
 if __name__ == "__main__":

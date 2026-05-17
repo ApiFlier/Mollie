@@ -28,6 +28,7 @@
     <div class="admin-tabs">
       <button class="admin-tab" data-tab="map">Map</button>
       <button class="admin-tab admin-tab-active" data-tab="events">Events</button>
+      <button class="admin-tab" data-tab="maintenance">Maintenance</button>
     </div>
 
     <!-- Map tab -->
@@ -46,6 +47,17 @@
     <div id="tab-events" class="admin-tab-panel">
       <div id="events-flash"></div>
       <div id="events-content">Loading events...</div>
+    </div>
+
+    <!-- Maintenance tab -->
+    <div id="tab-maintenance" class="admin-tab-panel" style="display:none;">
+      <div class="maintenance-section">
+        <h2 class="section-title">Seed Snapshot</h2>
+        <p>Saves the current curated locations, categories, and event sources into <code>api/data/seed.sql</code> so future fresh installs start with your data. A backup of the previous seed is created automatically.</p>
+        <p style="font-size:0.85em;color:#666;">This updates the <strong>local repo file only</strong>. To publish to GitHub, run <code>./publish-seed.sh</code> from your terminal after reviewing the diff.</p>
+        <button id="btn-seed-snapshot" class="btn btn-primary" type="button">Create Seed Snapshot</button>
+        <div id="seed-snapshot-result" style="margin-top:1rem;"></div>
+      </div>
     </div>
 
     <div class="modal-overlay" id="creds-modal" style="display:none">
@@ -85,8 +97,8 @@
     </div>
   </main>
 
-  <script src="/admin/admin.js?v=20260516s"></script>
-  <script>AdminList.init(); AdminCredsModal.init(); AdminTabs.init();</script>
+  <script src="/admin/admin.js?v=20260517b"></script>
+  <script>AdminList.init(); AdminCredsModal.init(); AdminTabs.init(); AdminMaintenance.init();</script>
   <script>
     (function() {
       var b = document.getElementById("btn-logout");

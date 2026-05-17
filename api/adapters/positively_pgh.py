@@ -172,11 +172,18 @@ def _normalize(ev):
     url = _best_url(ev)
     raw = json.dumps(ev, default=str, ensure_ascii=False)
     desc = (ev.get("Short") or ev.get("Description") or "")[:300]
-    fp = _ev_module.make_fingerprint(ev.get("Name"), start_dt, ev.get("Venue"))
+    event_id = str(ev.get("Id") or ev.get("PId") or "")
+    # Occurrence fingerprint: source_key + upstream event ID + full start datetime
+    fp = _ev_module.make_fingerprint(
+        PositivelyPgh.source_key, event_id, start_dt,
+        ev.get("Name"), ev.get("Venue")
+    )
+    # Series key: source_key + title (no date) — for future recurring-event queries
+    sk = _ev_module.make_series_key(PositivelyPgh.source_key, ev.get("Name"))
 
     return {
         "source_key": PositivelyPgh.source_key,
-        "source_event_id": str(ev.get("Id") or ev.get("PId") or ""),
+        "source_event_id": event_id,
         "source_url": url,
         "official_url": url,
         "title": ev.get("Name", ""),
@@ -195,6 +202,7 @@ def _normalize(ev):
         "image_url": ev.get("MediumImg") or ev.get("SmallImg"),
         "admission": _parse_price(ev),
         "normalized_fingerprint": fp,
+        "series_key": sk,
         "raw_source_json": raw,
     }
 

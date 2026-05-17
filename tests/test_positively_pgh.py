@@ -34,7 +34,8 @@ _adapters_base.BaseAdapter = _BaseAdapter
 
 # events stub
 _ev = _stub_module("events")
-_ev.make_fingerprint = lambda title, date_str, venue: "stub-fp"
+_ev.make_fingerprint = lambda src, eid, dt, title=None, venue=None: "stub-fp"
+_ev.make_series_key = lambda src, title: "stub-sk"
 
 # requests stub (network not touched in unit tests)
 _stub_module("requests")

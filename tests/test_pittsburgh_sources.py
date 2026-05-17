@@ -41,7 +41,8 @@ class _BaseAdapter:
 _adapters_base.BaseAdapter = _BaseAdapter
 
 _ev = _stub_module("events")
-_ev.make_fingerprint = lambda title, date_str, venue: f"fp-{title}-{date_str}"
+_ev.make_fingerprint = lambda src, eid, dt, title=None, venue=None: f"fp-{src}-{eid}-{dt}"
+_ev.make_series_key = lambda src, title: f"sk-{src}-{title}"
 
 _stub_module("requests")
 

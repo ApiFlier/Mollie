@@ -17,6 +17,7 @@ services:
       - HOME_LNG=${HOME_LNG:--79.805208}
     volumes:
       - ./.htpasswd:/app/.htpasswd
+      - ./api/data:/app/data
     depends_on:
       db:
         condition: service_healthy

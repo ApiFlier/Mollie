@@ -225,7 +225,7 @@ const AdminEdit = (() => {
     if (secHours) secHours.style.display = "none";
 
     // Show sections based on category
-    if (cat === "fair" || cat === "festival" || cat === "farmers-market" || cat === "other" || cat === "butcher") {
+    if (cat === "fair" || cat === "festival" || cat === "farmers-market" || cat === "other" || cat === "butcher" || cat === "hiking-trails") {
       if (secSchedule) secSchedule.style.display = "block";
     }
     if (cat === "farm") {
@@ -954,4 +954,60 @@ const AdminEvents = (() => {
   }
 
   return { load: load };
+})();
+
+// ── AdminMaintenance ──────────────────────────────────────────────────────────
+var AdminMaintenance = (function() {
+  function init() {
+    var btn = document.getElementById("btn-seed-snapshot");
+    var resultDiv = document.getElementById("seed-snapshot-result");
+    if (!btn || !resultDiv) return;
+
+    btn.addEventListener("click", function() {
+      btn.disabled = true;
+      btn.textContent = "Creating snapshot…";
+      resultDiv.innerHTML = "";
+
+      fetch("/api/admin/seed-snapshot", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" }
+      })
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(res) {
+          btn.disabled = false;
+          btn.textContent = "Create Seed Snapshot";
+          if (res.ok && res.data.ok) {
+            var d = res.data;
+            var counts = d.counts || {};
+            var countParts = Object.keys(counts).map(function(t) {
+              return counts[t] + " " + t;
+            }).join(", ");
+            resultDiv.innerHTML =
+              '<div class="flash flash-success" style="margin-top:0.5rem;">' +
+              "<strong>Seed snapshot created.</strong><br>" +
+              "File: <code>" + d.seed_file + "</code><br>" +
+              (d.backup_file ? "Backup: <code>" + d.backup_file + "</code><br>" : "") +
+              "Rows: " + countParts + "<br>" +
+              "<em style='color:#555;font-size:0.85em;'>" + d.note + "</em>" +
+              "</div>";
+          } else {
+            resultDiv.innerHTML =
+              '<div class="flash flash-error" style="margin-top:0.5rem;">' +
+              "<strong>Snapshot failed:</strong> " + ((res.data && res.data.error) || "Unknown error") +
+              "</div>";
+          }
+        })
+        .catch(function(e) {
+          btn.disabled = false;
+          btn.textContent = "Create Seed Snapshot";
+          resultDiv.innerHTML =
+            '<div class="flash flash-error" style="margin-top:0.5rem;">' +
+            "<strong>Request failed:</strong> " + e.message +
+            "</div>";
+        });
+    });
+  }
+
+  return { init: init };
 })();

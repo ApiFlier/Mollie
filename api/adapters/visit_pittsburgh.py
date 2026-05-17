@@ -117,8 +117,13 @@ def _normalize(hit):
     category = cats[0] if cats else "event"
 
     object_id = str(hit.get("objectID") or hit.get("id") or "")
-    date_str = start_dt[:10] if start_dt else None
-    fp = _ev_module.make_fingerprint(title, date_str, venue or source_url)
+    # Occurrence fingerprint: source_key + upstream event ID + full start datetime
+    fp = _ev_module.make_fingerprint(
+        VisitPittsburgh.source_key, object_id, start_dt,
+        title, venue or source_url
+    )
+    # Series key: source_key + title (no date) — for future recurring-event queries
+    sk = _ev_module.make_series_key(VisitPittsburgh.source_key, title)
 
     raw = json.dumps({k: v for k, v in hit.items() if not k.startswith("_")}, default=str, ensure_ascii=False)
 
@@ -143,6 +148,7 @@ def _normalize(hit):
         "image_url": image,
         "admission": None,
         "normalized_fingerprint": fp,
+        "series_key": sk,
         "raw_source_json": raw,
     }
 
