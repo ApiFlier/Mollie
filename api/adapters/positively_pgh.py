@@ -11,10 +11,11 @@ from adapters.base import BaseAdapter
 import events as _ev_module
 
 _ENDPOINT = "https://portal.cityspark.com/api/events/GetEvents/PopularPittsburgh"
-_PAGE_SIZE = 100               # CitySpark returns up to 100 events per response
-_MAX_PAGES = 40                # hard cap: 40 pages × 100 = 4000 events max
-_POSITIVELY_PGH_FETCH_DAYS = 90  # how many days ahead to fetch
-_TIMEOUT = 15                  # seconds
+_PAGE_SIZE = 100           # CitySpark returns up to 100 events per response
+_MAX_PAGES = 40            # safety guard — normal stop is coverage-based, not page-count-based
+_MIN_COVERAGE_DAYS = 30    # keep paging until events reach at least this many days ahead
+_FETCH_WINDOW_DAYS = 90    # upper-bound sent to CitySpark; end:null returns only today's events
+_TIMEOUT = 15              # seconds
 
 # Pittsburgh-area center coordinates used for the CitySpark query.
 # HOME_LAT / HOME_LNG drive the per-query sort; distance is recalculated
@@ -115,6 +116,21 @@ def _best_url(ev):
     return None
 
 
+def _event_date_str(ev):
+    """Return YYYY-MM-DD from a CitySpark event's DateStart / StartUTC / Date, or ''.
+
+    Intentionally date-only to avoid UTC/local off-by-one issues — we just need
+    to know how far ahead CitySpark's results reach, not exact times.
+    """
+    for key in ("DateStart", "StartUTC", "Date"):
+        val = ev.get(key)
+        if val:
+            s = str(val).strip()
+            if len(s) >= 10 and s[4] == "-":
+                return s[:10]
+    return ""
+
+
 def _parse_city_state(city_state):
     if not city_state:
         return None, None
@@ -191,19 +207,19 @@ class PositivelyPgh(BaseAdapter):
         events = []
         seen_ids = set()
         now = datetime.datetime.utcnow()
-        horizon = now + datetime.timedelta(days=_POSITIVELY_PGH_FETCH_DAYS)
-        horizon_date = horizon.strftime("%Y-%m-%d")
+        coverage_target = (now + datetime.timedelta(days=_MIN_COVERAGE_DAYS)).strftime("%Y-%m-%d")
         start_str = now.strftime("%Y-%m-%dT00:00:00")
-        end_str = horizon.strftime("%Y-%m-%dT23:59:59")
+        end_str = (now + datetime.timedelta(days=_FETCH_WINDOW_DAYS)).strftime("%Y-%m-%dT23:59:59")
 
         skip = 0
         pages_fetched = 0
+        latest_date_seen = ""  # furthest DateStart encountered across all fetched pages
 
         while pages_fetched < _MAX_PAGES:
             payload = {
                 "ppid": 8462,
                 "start": start_str,
-                "end": end_str,
+                "end": end_str,  # explicit 90-day window; end:null returns only today's events
                 "labels": [],
                 "pick": False,
                 "tps": None,
@@ -239,6 +255,12 @@ class PositivelyPgh(BaseAdapter):
             pages_fetched += 1
 
             for ev in batch:
+                # Track coverage from all events (including virtual) — measures
+                # how far CitySpark's results reach, regardless of what we keep.
+                ds = _event_date_str(ev)
+                if ds > latest_date_seen:
+                    latest_date_seen = ds
+
                 # Skip virtual/online events — not relevant for local in-person listings.
                 if ev.get("isVirtual"):
                     continue
@@ -250,7 +272,7 @@ class PositivelyPgh(BaseAdapter):
                 events.append(_normalize(ev))
 
             if not batch or len(batch) < _PAGE_SIZE:
-                break  # last page — stop
+                break  # exhausted CitySpark results
 
             skip += len(batch)
 
@@ -258,16 +280,18 @@ class PositivelyPgh(BaseAdapter):
             if possible and skip >= possible:
                 break
 
-            # Stop once all events in this page are past our fetch horizon.
-            batch_max_date = ""
-            for ev in batch:
-                ds = (ev.get("DateStart") or ev.get("Date") or "")[:10]
-                if ds > batch_max_date:
-                    batch_max_date = ds
-            if batch_max_date and batch_max_date >= horizon_date:
+            # Coverage target reached — events at least _MIN_COVERAGE_DAYS ahead seen.
+            if latest_date_seen >= coverage_target:
                 break
 
-        print(f"[positively_pgh] {len(events)} events in {pages_fetched} page(s), last skip={skip}")
-        if pages_fetched >= _MAX_PAGES:
-            print(f"[positively_pgh] WARNING: reached {_MAX_PAGES}-page cap — coverage may not extend to {horizon_date}")
+        if pages_fetched >= _MAX_PAGES and latest_date_seen < coverage_target:
+            print(
+                f"[positively_pgh] WARNING: hit {_MAX_PAGES}-page cap before coverage target "
+                f"— pages={pages_fetched}, skip={skip}, "
+                f"latest={latest_date_seen or 'none'}, target={coverage_target}"
+            )
+        print(
+            f"[positively_pgh] {len(events)} events in {pages_fetched} page(s), "
+            f"latest={latest_date_seen or 'none'}, target={coverage_target}"
+        )
         return events

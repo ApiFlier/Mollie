@@ -603,40 +603,86 @@ class TestFetchPagination(unittest.TestCase):
         self.assertIsInstance(parsed, dict)
         self.assertEqual(len(parsed["Description"]), 5000)
 
-    # ── Horizon stop ──────────────────────────────────────────────────────────
+    # ── Coverage-based stop ───────────────────────────────────────────────────
 
-    def test_fetch_days_constant_is_90(self):
-        """_POSITIVELY_PGH_FETCH_DAYS must be 90."""
-        self.assertEqual(_mod._POSITIVELY_PGH_FETCH_DAYS, 90)
+    def test_min_coverage_days_constant_is_30(self):
+        """_MIN_COVERAGE_DAYS must be 30."""
+        self.assertEqual(_mod._MIN_COVERAGE_DAYS, 30)
 
-    def test_fetch_sends_90_day_end_date(self):
-        """Request payload must include end date ~90 days from now."""
+    def test_fetch_payload_sends_explicit_end_date(self):
+        """Payload must send an explicit end date ~90 days out; end:null returns only today's events."""
         import datetime
         mock_req = self._mock_requests([self._page([self._ev(1)])])
         with unittest.mock.patch.object(_mod, "requests", mock_req):
             _mod.PositivelyPgh().fetch()
         payload = mock_req.post.call_args_list[0].kwargs["json"]
+        self.assertIsNotNone(payload.get("end"))
         end_date = datetime.datetime.fromisoformat(payload["end"]).date()
-        expected = (datetime.datetime.utcnow() + datetime.timedelta(days=90)).date()
+        expected = (datetime.datetime.utcnow() + datetime.timedelta(days=_mod._FETCH_WINDOW_DAYS)).date()
         self.assertEqual(end_date, expected)
 
-    def test_stops_at_date_horizon(self):
-        """Fetch must stop once a batch's events are past the 90-day horizon."""
+    def test_stops_after_coverage_target_reached(self):
+        """Fetch must stop once a page contains events at or past the 30-day target."""
         import datetime
         ps = _mod._PAGE_SIZE
         now = datetime.datetime.utcnow()
-        near = (now + datetime.timedelta(days=30)).strftime("%Y-%m-%dT10:00:00")
-        far  = (now + datetime.timedelta(days=_mod._POSITIVELY_PGH_FETCH_DAYS + 1)).strftime("%Y-%m-%dT10:00:00")
+        near   = (now + datetime.timedelta(days=5)).strftime("%Y-%m-%dT10:00:00")
+        target = (now + datetime.timedelta(days=_mod._MIN_COVERAGE_DAYS)).strftime("%Y-%m-%dT10:00:00")
         pages = [
-            self._page([self._ev(i,      date=near) for i in range(ps)]),
-            self._page([self._ev(i + ps, date=far)  for i in range(ps)]),
-            # third page must not be requested
+            self._page([self._ev(i,      date=near)   for i in range(ps)]),
+            self._page([self._ev(i + ps, date=target) for i in range(ps)]),
+            # third page must NOT be requested
         ]
         mock_req = self._mock_requests(pages)
         with unittest.mock.patch.object(_mod, "requests", mock_req):
             result = _mod.PositivelyPgh().fetch()
         self.assertEqual(mock_req.post.call_count, 2)
         self.assertEqual(len(result), ps * 2)
+
+    def test_continues_past_same_day_pages_until_coverage(self):
+        """Adapter must keep paging through near-future events until coverage target is reached."""
+        import datetime
+        ps = _mod._PAGE_SIZE
+        now = datetime.datetime.utcnow()
+        near   = (now + datetime.timedelta(days=1)).strftime("%Y-%m-%dT10:00:00")
+        target = (now + datetime.timedelta(days=_mod._MIN_COVERAGE_DAYS)).strftime("%Y-%m-%dT10:00:00")
+        pages = [
+            self._page([self._ev(i,        date=near)   for i in range(ps)]),
+            self._page([self._ev(i + ps,   date=near)   for i in range(ps)]),
+            self._page([self._ev(i + 2*ps, date=target) for i in range(ps)]),
+            # page 4 must NOT be requested
+        ]
+        mock_req = self._mock_requests(pages)
+        with unittest.mock.patch.object(_mod, "requests", mock_req):
+            result = _mod.PositivelyPgh().fetch()
+        self.assertEqual(mock_req.post.call_count, 3)
+        self.assertEqual(len(result), ps * 3)
+
+    def test_logs_warning_when_cap_hit_before_coverage(self):
+        """Must log a WARNING with pages, skip, latest date, and target when cap fires early."""
+        import datetime, io, contextlib
+        ps = _mod._PAGE_SIZE
+        now = datetime.datetime.utcnow()
+        near = (now + datetime.timedelta(days=1)).strftime("%Y-%m-%dT10:00:00")
+
+        def _infinite_post(url, **kwargs):
+            skip = kwargs["json"]["skip"]
+            m = unittest.mock.MagicMock()
+            m.raise_for_status.return_value = None
+            evs = [self._ev(skip + i, date=near) for i in range(ps)]
+            m.json.return_value = self._page(evs)
+            return m
+
+        mock_req = unittest.mock.MagicMock()
+        mock_req.post.side_effect = _infinite_post
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            with unittest.mock.patch.object(_mod, "requests", mock_req):
+                _mod.PositivelyPgh().fetch()
+        output = buf.getvalue()
+        self.assertIn("WARNING", output)
+        self.assertIn("cap", output.lower())
+        self.assertIn("target", output.lower())
 
     def test_duplicate_ids_not_double_counted(self):
         """Same CitySpark ID appearing on two pages must produce only one event."""
