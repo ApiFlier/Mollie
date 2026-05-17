@@ -14,18 +14,18 @@ import events as _ev
 class TestClampCoverageDays(unittest.TestCase):
     """Unit tests for events._clamp_coverage_days."""
 
-    def test_default_30(self):
-        self.assertEqual(_ev._clamp_coverage_days(None), 30)
+    def test_default_60(self):
+        self.assertEqual(_ev._clamp_coverage_days(None), 60)
 
     def test_blank_string_fallback(self):
-        self.assertEqual(_ev._clamp_coverage_days(""), 30)
+        self.assertEqual(_ev._clamp_coverage_days(""), 60)
 
     def test_non_numeric_fallback(self):
-        self.assertEqual(_ev._clamp_coverage_days("abc"), 30)
+        self.assertEqual(_ev._clamp_coverage_days("abc"), 60)
 
     def test_float_string_converts(self):
         # int("45.0") raises, so floats-as-strings fall back to default
-        self.assertEqual(_ev._clamp_coverage_days("45.0"), 30)
+        self.assertEqual(_ev._clamp_coverage_days("45.0"), 60)
 
     def test_valid_30(self):
         self.assertEqual(_ev._clamp_coverage_days(30), 30)

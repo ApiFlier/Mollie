@@ -1,6 +1,6 @@
 -- ============================================================
 -- Event Map — repo baseline seed
--- Generated: 2026-05-17 13:36:09 UTC
+-- Generated: 2026-05-17 13:48:53 UTC
 --
 -- This file is committed to a PUBLIC GitHub repository.
 -- It does NOT contain runtime event cache or private data.
@@ -71,7 +71,7 @@ CREATE TABLE `event_sources` (
   `last_error` text,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `coverage_days` int NOT NULL DEFAULT '30',
+  `coverage_days` int NOT NULL DEFAULT '60',
   PRIMARY KEY (`id`),
   UNIQUE KEY `source_key` (`source_key`)
 ) ENGINE=InnoDB AUTO_INCREMENT=132 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -262,7 +262,7 @@ UNLOCK TABLES;
 
 LOCK TABLES `event_sources` WRITE;
 /*!40000 ALTER TABLE `event_sources` DISABLE KEYS */;
-INSERT INTO `event_sources` VALUES (1,'positively_pgh','Positively Pittsburgh',1,'2026-05-17 13:25:59','2026-05-17 13:25:59',NULL,'2026-05-16 02:32:02','2026-05-17 13:25:59',30),(2,'visit_pittsburgh','Visit Pittsburgh',1,'2026-05-17 13:26:04','2026-05-17 13:26:04',NULL,'2026-05-16 02:32:08','2026-05-17 13:26:04',30),(15,'heinz_history','Heinz History Center',1,'2026-05-17 13:26:05','2026-05-17 13:26:05',NULL,'2026-05-17 04:25:19','2026-05-17 13:26:05',30),(16,'carnegie_museums','Carnegie Museums of Pittsburgh',1,'2026-05-17 13:26:05','2026-05-17 13:26:05',NULL,'2026-05-17 04:25:19','2026-05-17 13:26:05',30),(21,'carnegie_library','Carnegie Library of Pittsburgh',1,'2026-05-17 13:26:27','2026-05-17 13:26:27',NULL,'2026-05-17 04:40:56','2026-05-17 13:26:27',30),(22,'wqed_cultural','WQED Cultural Calendar',1,'2026-05-17 13:26:29','2026-05-17 13:26:29',NULL,'2026-05-17 04:40:56','2026-05-17 13:26:29',30),(39,'pittsburgh_parks','Pittsburgh Parks Conservancy',1,'2026-05-17 13:26:33','2026-05-17 13:26:33',NULL,'2026-05-17 05:12:42','2026-05-17 13:26:33',30),(40,'pittsburgh_glass_center','Pittsburgh Glass Center',1,'2026-05-17 13:26:35','2026-05-17 13:26:35',NULL,'2026-05-17 05:12:42','2026-05-17 13:26:35',30);
+INSERT INTO `event_sources` VALUES (1,'positively_pgh','Positively Pittsburgh',1,'2026-05-17 13:25:59','2026-05-17 13:25:59',NULL,'2026-05-16 02:32:02','2026-05-17 13:48:35',60),(2,'visit_pittsburgh','Visit Pittsburgh',1,'2026-05-17 13:26:04','2026-05-17 13:26:04',NULL,'2026-05-16 02:32:08','2026-05-17 13:48:35',60),(15,'heinz_history','Heinz History Center',1,'2026-05-17 13:26:05','2026-05-17 13:26:05',NULL,'2026-05-17 04:25:19','2026-05-17 13:48:35',60),(16,'carnegie_museums','Carnegie Museums of Pittsburgh',1,'2026-05-17 13:26:05','2026-05-17 13:26:05',NULL,'2026-05-17 04:25:19','2026-05-17 13:48:35',60),(21,'carnegie_library','Carnegie Library of Pittsburgh',1,'2026-05-17 13:26:27','2026-05-17 13:26:27',NULL,'2026-05-17 04:40:56','2026-05-17 13:48:35',60),(22,'wqed_cultural','WQED Cultural Calendar',1,'2026-05-17 13:26:29','2026-05-17 13:26:29',NULL,'2026-05-17 04:40:56','2026-05-17 13:48:35',60),(39,'pittsburgh_parks','Pittsburgh Parks Conservancy',1,'2026-05-17 13:26:33','2026-05-17 13:26:33',NULL,'2026-05-17 05:12:42','2026-05-17 13:48:35',60),(40,'pittsburgh_glass_center','Pittsburgh Glass Center',1,'2026-05-17 13:26:35','2026-05-17 13:26:35',NULL,'2026-05-17 05:12:42','2026-05-17 13:48:35',60);
 /*!40000 ALTER TABLE `event_sources` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;

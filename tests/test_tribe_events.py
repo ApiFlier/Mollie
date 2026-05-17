@@ -391,14 +391,14 @@ class TestTribeAdapterFetch(unittest.TestCase):
         self.assertIn('start_date', call_params)
         self.assertIn('end_date', call_params)
 
-    def test_coverage_days_30_default(self):
+    def test_coverage_days_60_default(self):
         mock = _mock_requests([_page([])])
         with unittest.mock.patch.object(_mod, "requests", mock):
             _ConcreteAdapter().fetch()
         params = mock.get.call_args_list[0].kwargs.get('params', {})
         start = datetime.datetime.strptime(params['start_date'][:10], '%Y-%m-%d').date()
         end   = datetime.datetime.strptime(params['end_date'][:10],   '%Y-%m-%d').date()
-        self.assertAlmostEqual((end - start).days, 30, delta=1)
+        self.assertAlmostEqual((end - start).days, 60, delta=1)
 
     def test_coverage_days_custom_45(self):
         mock = _mock_requests([_page([])])
@@ -427,14 +427,14 @@ class TestTribeAdapterFetch(unittest.TestCase):
         end   = datetime.datetime.strptime(params['end_date'][:10],   '%Y-%m-%d').date()
         self.assertLessEqual((end - start).days, 180)
 
-    def test_coverage_days_invalid_falls_back_to_30(self):
+    def test_coverage_days_invalid_falls_back_to_60(self):
         mock = _mock_requests([_page([])])
         with unittest.mock.patch.object(_mod, "requests", mock):
             _ConcreteAdapter().fetch(coverage_days=None)
         params = mock.get.call_args_list[0].kwargs.get('params', {})
         start = datetime.datetime.strptime(params['start_date'][:10], '%Y-%m-%d').date()
         end   = datetime.datetime.strptime(params['end_date'][:10],   '%Y-%m-%d').date()
-        self.assertAlmostEqual((end - start).days, 30, delta=1)
+        self.assertAlmostEqual((end - start).days, 60, delta=1)
 
     def test_per_page_is_100(self):
         mock = _mock_requests([_page([])])

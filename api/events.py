@@ -7,7 +7,7 @@ import os
 import datetime
 import threading
 
-def _clamp_coverage_days(val, default=30, min_val=7, max_val=180):
+def _clamp_coverage_days(val, default=60, min_val=7, max_val=180):
     """Parse and clamp a coverage_days value. Returns default for missing/invalid."""
     if val is None or val == "":
         return default
@@ -731,7 +731,7 @@ def get_source_coverage_days(conn, source_key):
     row = cur.fetchone()
     cur.close()
     if not row or row.get("coverage_days") is None:
-        return 30
+        return 60
     return _clamp_coverage_days(row["coverage_days"])
 
 
@@ -954,7 +954,7 @@ CREATE TABLE IF NOT EXISTS event_sources (
     source_key       VARCHAR(64) NOT NULL UNIQUE,
     display_name     VARCHAR(128) NOT NULL,
     enabled          BOOLEAN DEFAULT TRUE,
-    coverage_days    INT NOT NULL DEFAULT 30,
+    coverage_days    INT NOT NULL DEFAULT 60,
     last_success_at  DATETIME,
     last_attempt_at  DATETIME,
     last_error       TEXT,
@@ -1037,7 +1037,7 @@ def ensure_tables(conn):
     # Safe backfill: add coverage_days column to existing installs.
     try:
         cur.execute(
-            "ALTER TABLE event_sources ADD COLUMN coverage_days INT NOT NULL DEFAULT 30"
+            "ALTER TABLE event_sources ADD COLUMN coverage_days INT NOT NULL DEFAULT 60"
         )
         conn.commit()
         print("[events] Added coverage_days column to event_sources.")
@@ -1054,6 +1054,31 @@ def ensure_tables(conn):
         print("[events] Added series_key column to external_events.")
     except Exception:
         pass  # Column already exists — expected on re-run.
+
+    # One-time migration: update old default coverage_days=30 to the new default 60.
+    # Runs once per install; does NOT touch custom non-30 values (45, 90, 120, etc.).
+    cur.execute(
+        "SELECT migration_key FROM _event_migrations"
+        " WHERE migration_key = 'coverage_days_default_60_v1'"
+    )
+    if not cur.fetchone():
+        try:
+            cur.execute(
+                "ALTER TABLE event_sources"
+                " MODIFY COLUMN coverage_days INT NOT NULL DEFAULT 60"
+            )
+            cur.execute(
+                "UPDATE event_sources SET coverage_days = 60 WHERE coverage_days = 30"
+            )
+            conn.commit()
+            cur.execute(
+                "INSERT IGNORE INTO _event_migrations (migration_key)"
+                " VALUES ('coverage_days_default_60_v1')"
+            )
+            conn.commit()
+            print("[events] Migrated coverage_days default 30→60 for existing sources.")
+        except Exception as e:
+            print(f"[events] coverage_days migration warning: {e}")
 
     # One-time migration to occurrence-safe fingerprints (occurrence_fingerprint_v1).
     # Tracked in _event_migrations so it runs exactly once per install.

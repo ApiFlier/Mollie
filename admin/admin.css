@@ -554,3 +554,87 @@ table.locations-table {
   border-radius: 3px;
   font-size: 0.9em;
 }
+
+/* ── Event Sources collapsible panel ────────────────────────────────────── */
+.ev-sources-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0 10px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 10px;
+}
+
+.ev-sources-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.ev-sources-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.ev-sources-summary {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.ev-sources-toggle-btn {
+  flex-shrink: 0;
+  background: var(--bg);
+  color: var(--ink-soft);
+  border-color: var(--line);
+  font-size: 11px;
+}
+.ev-sources-toggle-btn:hover {
+  background: var(--bg-panel);
+  color: var(--ink);
+}
+
+/* ── Mobile admin header collapse ───────────────────────────────────────── */
+.header-actions-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.admin-menu-btn {
+  display: none; /* hidden on desktop */
+}
+
+@media (max-width: 640px) {
+  .admin-menu-btn {
+    display: inline-block;
+  }
+
+  .admin-header .actions {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px;
+    flex-direction: column;
+    gap: 6px;
+    z-index: 100;
+    min-width: 180px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+
+  .admin-header .actions.admin-actions-open {
+    display: flex;
+  }
+
+  .header-actions-wrap {
+    position: relative;
+  }
+}

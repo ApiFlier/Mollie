@@ -28,7 +28,7 @@ class PittsburghGlassCenter(TribeEventsAdapter):
     display_name = "Pittsburgh Glass Center"
     api_base     = "https://www.pittsburghglasscenter.org"
 
-    def fetch(self, coverage_days=30) -> list:
+    def fetch(self, coverage_days=60) -> list:
         events = super().fetch(coverage_days=coverage_days)
         # Venue data is missing from this source's API; apply known fallback.
         for ev in events:

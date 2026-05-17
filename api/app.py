@@ -11,6 +11,7 @@ import mysql.connector
 from mysql.connector import pooling
 
 import events as _events
+import migrations as _migrations
 from adapters.positively_pgh import PositivelyPgh
 from adapters.visit_pittsburgh import VisitPittsburgh
 from adapters.heinz_history import HeinzHistory
@@ -821,7 +822,7 @@ def admin_get_events():
             s["hidden_count"]  = int(s["hidden_count"] or 0)
             s["saved_count"]   = int(s["saved_count"] or 0)
             s["enabled"]       = bool(s["enabled"]) if s["enabled"] is not None else True
-            s["coverage_days"] = int(s["coverage_days"]) if s.get("coverage_days") is not None else 30
+            s["coverage_days"] = int(s["coverage_days"]) if s.get("coverage_days") is not None else 60
 
         # Event list — upcoming + recent, optionally including hidden
         cutoff = datetime.datetime.utcnow() - datetime.timedelta(hours=6)
@@ -1032,6 +1033,7 @@ def admin_seed_snapshot():
 if __name__ == "__main__":
     _conn = get_conn()
     _events.ensure_tables(_conn)
+    _migrations.ensure_app_migrations(_conn)
     _events.recalculate_all_distances(_conn)
     _conn.close()
     app.run(host="0.0.0.0", port=8080)

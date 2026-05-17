@@ -18,7 +18,7 @@ class PittsburghParks(TribeEventsAdapter):
     display_name = "Pittsburgh Parks Conservancy"
     api_base     = "https://www.pittsburghparks.org"
 
-    def fetch(self, coverage_days=30) -> list:
+    def fetch(self, coverage_days=60) -> list:
         events = super().fetch(coverage_days=coverage_days)
         # Fix data-entry error: some venues have positive longitude for Western PA.
         # PA longitude must be negative (~-74° to ~-80°). If both lat and lng are

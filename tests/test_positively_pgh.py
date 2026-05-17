@@ -606,17 +606,17 @@ class TestFetchPagination(unittest.TestCase):
 
     # ── Coverage-based stop ───────────────────────────────────────────────────
 
-    def test_min_coverage_days_constant_is_30(self):
-        """_MIN_COVERAGE_DAYS must be 30 (used as the fallback default)."""
-        self.assertEqual(_mod._MIN_COVERAGE_DAYS, 30)
+    def test_min_coverage_days_constant_is_60(self):
+        """_MIN_COVERAGE_DAYS must be 60 (used as the fallback default)."""
+        self.assertEqual(_mod._MIN_COVERAGE_DAYS, 60)
 
-    def test_default_coverage_days_uses_30(self):
-        """fetch() with no coverage_days arg must stop at a 30-day target."""
+    def test_default_coverage_days_uses_60(self):
+        """fetch() with no coverage_days arg must stop at a 60-day target."""
         import datetime
         ps = _mod._PAGE_SIZE
         now = datetime.datetime.utcnow()
         near   = (now + datetime.timedelta(days=5)).strftime("%Y-%m-%dT10:00:00")
-        target = (now + datetime.timedelta(days=30)).strftime("%Y-%m-%dT10:00:00")
+        target = (now + datetime.timedelta(days=60)).strftime("%Y-%m-%dT10:00:00")
         pages = [
             self._page([self._ev(i, date=near)     for i in range(ps)]),
             self._page([self._ev(i+ps, date=target) for i in range(ps)]),
@@ -661,20 +661,20 @@ class TestFetchPagination(unittest.TestCase):
         import datetime
         ps = _mod._PAGE_SIZE
         now = datetime.datetime.utcnow()
-        day30 = (now + datetime.timedelta(days=30)).strftime("%Y-%m-%dT10:00:00")
-        pages = [self._page([self._ev(i, date=day30) for i in range(ps // 2)])]
+        day180 = (now + datetime.timedelta(days=180)).strftime("%Y-%m-%dT10:00:00")
+        pages = [self._page([self._ev(i, date=day180) for i in range(ps // 2)])]
         mock_req = self._mock_requests(pages)
         with unittest.mock.patch.object(_mod, "requests", mock_req):
             result = _mod.PositivelyPgh().fetch(coverage_days=250)
         self.assertIsInstance(result, list)  # did not crash
 
     def test_coverage_days_invalid_fallback(self):
-        """fetch(coverage_days=None) must fall back to 30 without crashing."""
+        """fetch(coverage_days=None) must fall back to 60 without crashing."""
         import datetime
         ps = _mod._PAGE_SIZE
         now = datetime.datetime.utcnow()
-        day30 = (now + datetime.timedelta(days=30)).strftime("%Y-%m-%dT10:00:00")
-        pages = [self._page([self._ev(i, date=day30) for i in range(ps // 2)])]
+        day60 = (now + datetime.timedelta(days=60)).strftime("%Y-%m-%dT10:00:00")
+        pages = [self._page([self._ev(i, date=day60) for i in range(ps // 2)])]
         mock_req = self._mock_requests(pages)
         with unittest.mock.patch.object(_mod, "requests", mock_req):
             result = _mod.PositivelyPgh().fetch(coverage_days=None)
@@ -685,8 +685,8 @@ class TestFetchPagination(unittest.TestCase):
         import datetime, io, contextlib
         ps = _mod._PAGE_SIZE
         now = datetime.datetime.utcnow()
-        day30 = (now + datetime.timedelta(days=30)).strftime("%Y-%m-%dT10:00:00")
-        pages = [self._page([self._ev(i, date=day30) for i in range(ps // 2)])]
+        day45 = (now + datetime.timedelta(days=45)).strftime("%Y-%m-%dT10:00:00")
+        pages = [self._page([self._ev(i, date=day45) for i in range(ps // 2)])]
         mock_req = self._mock_requests(pages)
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):

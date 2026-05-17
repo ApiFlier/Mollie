@@ -172,11 +172,11 @@ class TribeEventsAdapter(BaseAdapter):
     """
     api_base: str = None
 
-    def fetch(self, coverage_days=30) -> list:
+    def fetch(self, coverage_days=60) -> list:
         try:
             cov = max(7, min(180, int(coverage_days)))
         except (ValueError, TypeError):
-            cov = 30
+            cov = 60
 
         now      = datetime.datetime.utcnow()
         start_str = now.strftime('%Y-%m-%dT00:00:00')

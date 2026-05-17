@@ -769,8 +769,31 @@ const AdminEvents = (() => {
   function _render(sources) {
     var el = document.getElementById("events-content");
 
+    // Collapsible section state (default: collapsed)
+    var _LS_KEY = "ev-sources-expanded";
+    var isExpanded = localStorage.getItem(_LS_KEY) === "1";
+
+    // Build summary for the section header
+    var enabledCount = sources.filter(function(s) { return s.enabled !== false; }).length;
+    var covValues = sources.map(function(s) { return (s.coverage_days != null) ? s.coverage_days : 60; });
+    var uniqueCov = covValues.filter(function(v, i, a) { return a.indexOf(v) === i; }).sort(function(a,b){return a-b;});
+    var covSummary = uniqueCov.length === 1 ? uniqueCov[0] + "-day coverage" : uniqueCov.join("/") + "-day coverage";
+    var summary = enabledCount + " of " + sources.length + " enabled · " + covSummary;
+
+    // Collapsible header
+    var headerHtml =
+      '<div class="ev-sources-header">' +
+        '<div class="ev-sources-title">' +
+          '<span class="ev-sources-label">Event Sources</span>' +
+          '<span class="ev-sources-summary">' + escapeHtml(summary) + '</span>' +
+        '</div>' +
+        '<button class="btn btn-small ev-sources-toggle-btn" id="ev-sources-toggle" aria-expanded="' + isExpanded + '">' +
+          (isExpanded ? '▲ Hide' : '▼ Show') +
+        '</button>' +
+      '</div>';
+
     // Stats + enable/disable cards
-    var statsHtml = '<div class="ev-admin-stats">';
+    var statsHtml = '<div class="ev-admin-stats" id="ev-admin-stats-panel"' + (isExpanded ? '' : ' style="display:none;"') + '>';
     sources.forEach(function(s) {
       var isEnabled = s.enabled !== false;
       var toggleLabel = isEnabled ? "Disable" : "Enable";
@@ -793,7 +816,7 @@ const AdminEvents = (() => {
         ' data-key="' + escapeHtml(s.source_key) + '"' +
         ' data-enabled="' + (isEnabled ? "1" : "0") + '">' +
         toggleLabel + "</button>";
-      var covDays = (s.coverage_days != null) ? s.coverage_days : 30;
+      var covDays = (s.coverage_days != null) ? s.coverage_days : 60;
       statsHtml += '<div class="ev-coverage-row">' +
         '<label class="ev-coverage-label">Fetch coverage days</label>' +
         '<input type="number" class="ev-coverage-input" min="7" max="180" value="' + covDays + '"' +
@@ -821,7 +844,25 @@ const AdminEvents = (() => {
     ctrlHtml += '<button class="btn btn-secondary btn-small" id="ev-admin-refresh">Refresh cache</button>';
     ctrlHtml += "</div>";
 
-    el.innerHTML = statsHtml + ctrlHtml + '<div id="ev-table-container"></div>';
+    el.innerHTML = headerHtml + statsHtml + ctrlHtml + '<div id="ev-table-container"></div>';
+
+    // Wire collapse toggle
+    document.getElementById("ev-sources-toggle").addEventListener("click", function() {
+      var panel = document.getElementById("ev-admin-stats-panel");
+      var btn   = document.getElementById("ev-sources-toggle");
+      var nowExpanded = panel.style.display !== "none";
+      if (nowExpanded) {
+        panel.style.display = "none";
+        btn.textContent = "▼ Show";
+        btn.setAttribute("aria-expanded", "false");
+        localStorage.setItem(_LS_KEY, "0");
+      } else {
+        panel.style.display = "";
+        btn.textContent = "▲ Hide";
+        btn.setAttribute("aria-expanded", "true");
+        localStorage.setItem(_LS_KEY, "1");
+      }
+    });
 
     // Bind source toggle buttons
     el.querySelectorAll(".ev-source-toggle").forEach(function(btn) {

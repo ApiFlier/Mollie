@@ -13,7 +13,7 @@ import events as _ev_module
 _ENDPOINT = "https://portal.cityspark.com/api/events/GetEvents/PopularPittsburgh"
 _PAGE_SIZE = 100           # CitySpark returns up to 100 events per response
 _MAX_PAGES = 40            # safety guard — normal stop is coverage-based, not page-count-based
-_MIN_COVERAGE_DAYS = 30    # keep paging until events reach at least this many days ahead
+_MIN_COVERAGE_DAYS = 60    # keep paging until events reach at least this many days ahead
 _FETCH_WINDOW_DAYS = 90    # upper-bound sent to CitySpark; end:null returns only today's events
 _TIMEOUT = 15              # seconds
 
@@ -211,7 +211,7 @@ class PositivelyPgh(BaseAdapter):
     source_key = "positively_pgh"
     display_name = "Positively Pittsburgh"
 
-    def fetch(self, coverage_days=30) -> list:
+    def fetch(self, coverage_days=60) -> list:
         # Clamp to valid range; fall back to 30 for any bad input.
         try:
             _cov = max(7, min(180, int(coverage_days)))
