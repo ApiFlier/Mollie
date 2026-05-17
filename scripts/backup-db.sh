@@ -2,15 +2,18 @@
 # =============================================================================
 # Event Map - Database Backup Script
 #
-# Creates a local backup at: ~/.event-map/backups/event-map-latest.sql.gz
-# Each run replaces the previous latest backup (no accumulating timestamped files).
-#
-# Optional: refresh the repo baseline seed file (checked into git):
-#   ./scripts/backup-db.sh --update-seed
+# Creates a full backup (timestamped + latest pointer):
+#   ~/.event-map/backups/event-map-YYYYmmdd-HHMMSS.sql.gz  (kept indefinitely)
+#   ~/.event-map/backups/event-map-latest.sql.gz            (replaced each run)
 #
 # Usage:
-#   ./scripts/backup-db.sh              # local neutral backup only
-#   ./scripts/backup-db.sh --update-seed  # also refresh api/data/seed.sql
+#   ./scripts/backup-db.sh           # full backup (recommended)
+#
+# To refresh api/data/seed.sql (the public repo baseline), use:
+#   ./update-seed.sh
+#
+# The --update-seed flag is kept for backward compatibility but redirects
+# to ./update-seed.sh.
 # =============================================================================
 
 set -e
@@ -19,11 +22,12 @@ APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="$APP_DIR/.env"
 
 BACKUP_DIR="$HOME/.event-map/backups"
-BACKUP_FILE="$BACKUP_DIR/event-map-latest.sql.gz"
-SEED_FILE="$APP_DIR/api/data/seed.sql"
+STAMP="$(date +%Y%m%d-%H%M%S)"
+TS_BACKUP="$BACKUP_DIR/event-map-${STAMP}.sql.gz"
+LATEST_BACKUP="$BACKUP_DIR/event-map-latest.sql.gz"
 
 UPDATE_SEED=false
-if [[ "$1" == "--update-seed" ]]; then
+if [[ "${1:-}" == "--update-seed" ]]; then
     UPDATE_SEED=true
 fi
 
@@ -46,45 +50,45 @@ if ! docker ps --format '{{.Names}}' | grep -qx "event-map-db"; then
     error "event-map-db container is not running. Start it with: docker compose up -d"
 fi
 
-# --- Local neutral backup ----------------------------------------------------
+# --- Full backup (timestamped + latest) --------------------------------------
 
 mkdir -p "$BACKUP_DIR"
 
-info "Writing local backup to: $BACKUP_FILE"
+info "Writing backup..."
 # Uses the container's own MYSQL_ROOT_PASSWORD env var — no host-side credential passing.
 docker exec event-map-db sh -lc \
     'mysqldump -h127.0.0.1 -P3306 -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines --triggers "$MYSQL_DATABASE"' \
-    | gzip > "$BACKUP_FILE"
+    | gzip > "$TS_BACKUP"
+cp "$TS_BACKUP" "$LATEST_BACKUP"
 
-SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
-info "Local backup complete. Size: $SIZE"
+_size="$(du -h "$TS_BACKUP" | cut -f1)"
+info "Backup complete. Size: ${_size}"
+info "  Timestamped: $TS_BACKUP"
+info "  Latest:      $LATEST_BACKUP"
 
-# --- Optional: refresh repo baseline seed file -------------------------------
+# --- --update-seed: redirect to dedicated tool -------------------------------
 
 if [ "$UPDATE_SEED" = true ]; then
     echo ""
-    warn "Refreshing repo baseline seed file: $SEED_FILE"
-    warn "This replaces api/data/seed.sql with a fresh dump of the live database."
-    printf "Continue? [y/N] "
-    read -r CONFIRM < /dev/tty || true
-    if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
-        info "Seed refresh skipped."
-    else
-        docker exec event-map-db sh -lc \
-            'mysqldump -h127.0.0.1 -P3306 -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines --triggers "$MYSQL_DATABASE"' \
-            > "$SEED_FILE"
-        info "Seed file updated: $SEED_FILE"
-        info "Stage and commit api/data/seed.sql when ready to record this as the repo baseline."
-    fi
+    warn "--update-seed has moved to the root-level ./update-seed.sh"
+    warn "The dedicated tool excludes runtime event cache data and resets"
+    warn "runtime timestamps for a clean public repo baseline."
+    echo ""
+    info "Running: ./update-seed.sh"
+    echo ""
+    exec "$APP_DIR/update-seed.sh"
 fi
 
 echo ""
 info "Done."
 echo ""
-echo "  Local backup:  $BACKUP_FILE"
-if [ "$UPDATE_SEED" = true ]; then
-echo "  Repo baseline: $SEED_FILE  (stage + commit when ready)"
-fi
+echo "  Timestamped backup: $TS_BACKUP"
+echo "  Latest backup:      $LATEST_BACKUP"
 echo ""
-echo "  To restore the local backup:"
-echo "    zcat $BACKUP_FILE | docker exec -i event-map-db sh -lc 'mysql -h127.0.0.1 -P3306 -u\"\$MYSQL_USER\" -p\"\$MYSQL_PASSWORD\" \"\$MYSQL_DATABASE\"'"
+echo "  To restore:"
+echo "    zcat $LATEST_BACKUP | docker exec -i event-map-db sh -lc \\"
+echo "      'mysql -h127.0.0.1 -P3306 -u\"\$MYSQL_USER\" -p\"\$MYSQL_PASSWORD\" \"\$MYSQL_DATABASE\"'"
+echo ""
+echo "  To refresh api/data/seed.sql (public repo baseline):"
+echo "    ./update-seed.sh"
+echo ""

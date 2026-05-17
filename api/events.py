@@ -34,6 +34,23 @@ def _parse_float_env(name, default, min_val=None, max_val=None):
     return val
 
 
+def _parse_int_env(name, default, min_val=None, max_val=None):
+    """Return int from env var, falling back to default on blank/invalid/out-of-range.
+    default may be None; None is returned for missing/blank/invalid values when default=None."""
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        val = int(raw)
+    except (ValueError, TypeError):
+        print(f"[events] WARNING: {name}={raw!r} is not a valid int; using default {default}")
+        return default
+    if (min_val is not None and val < min_val) or (max_val is not None and val > max_val):
+        print(f"[events] WARNING: {name}={val} out of range [{min_val}, {max_val}]; using default {default}")
+        return default
+    return val
+
+
 # Home coordinates for distance calculations.
 # Source of truth: HOME_LAT / HOME_LNG in .env → docker-compose environment.
 # Defaults: 133 Courtney Drive, Verona, PA 15147.
@@ -41,6 +58,22 @@ HOME_LAT = _parse_float_env("HOME_LAT", 40.487993, min_val=-90.0, max_val=90.0)
 HOME_LNG = _parse_float_env("HOME_LNG", -79.805208, min_val=-180.0, max_val=180.0)
 
 CACHE_HOURS = int(os.environ.get("EVENTS_CACHE_HOURS", "24"))
+
+# Stale event retention.
+# Unsaved external_events with a start/end older than this many days are
+# deleted automatically after each successful source refresh.
+# Set EVENT_CACHE_RETENTION_DAYS in .env to override (1–365, default 14).
+EVENT_CACHE_RETENTION_DAYS = _parse_int_env(
+    "EVENT_CACHE_RETENTION_DAYS", default=14, min_val=1, max_val=365
+)
+
+# Saved event retention.
+# None (default) means saved events are kept indefinitely.
+# Set SAVED_EVENT_RETENTION_DAYS in .env to a number of days to enable
+# automatic cleanup of saved events that are older than that threshold.
+_SAVED_RETENTION_DAYS = _parse_int_env(
+    "SAVED_EVENT_RETENTION_DAYS", default=None, min_val=1, max_val=3650
+)
 
 _ADAPTERS: dict = {}
 _refresh_lock = threading.Lock()
@@ -268,10 +301,156 @@ def _do_insert(conn, ev):
     cur.close()
 
 
+# ── Deduplication ────────────────────────────────────────────────────────────
+
+def _dedupe_external_events(conn):
+    """Resolve any duplicate external_events rows that share a normalized_fingerprint.
+
+    For each duplicate group, keep the best row:
+      saved flag > hidden flag > has source_url > has latitude > has venue_name
+      > has admission > most recently updated
+    Merge saved and hidden flags from all duplicates into the kept row before
+    deleting the others. This applies only to the external_events runtime cache.
+    """
+    cur = conn.cursor(dictionary=True)
+    cur.execute(
+        "SELECT normalized_fingerprint, COUNT(*) AS cnt"
+        " FROM external_events"
+        " WHERE normalized_fingerprint IS NOT NULL"
+        " GROUP BY normalized_fingerprint HAVING cnt > 1"
+    )
+    dup_groups = cur.fetchall()
+    cur.close()
+
+    if not dup_groups:
+        return 0
+
+    total_deleted = 0
+    for group in dup_groups:
+        fp = group["normalized_fingerprint"]
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            "SELECT id, saved, hidden, source_url, latitude, venue_name,"
+            "       admission, category, updated_at"
+            " FROM external_events"
+            " WHERE normalized_fingerprint = %s ORDER BY id",
+            (fp,)
+        )
+        rows = cur.fetchall()
+        cur.close()
+        if len(rows) <= 1:
+            continue
+
+        def _row_score(r):
+            # Higher = prefer this row as the canonical copy
+            ts = r.get("updated_at")
+            ts_val = ts.timestamp() if hasattr(ts, "timestamp") else 0
+            return (
+                bool(r.get("saved"))       * 100000 +
+                bool(r.get("hidden"))      * 10000 +
+                bool(r.get("source_url"))  * 1000 +
+                bool(r.get("latitude"))    * 100 +
+                bool(r.get("venue_name"))  * 10 +
+                bool(r.get("admission"))   * 5 +
+                bool(r.get("category"))    * 2 +
+                min(int(ts_val), 9999999)
+            )
+
+        rows_sorted = sorted(rows, key=_row_score, reverse=True)
+        keep = rows_sorted[0]
+        delete_ids = [r["id"] for r in rows_sorted[1:]]
+
+        # Merge saved/hidden: if ANY duplicate was saved or hidden, preserve it
+        any_saved  = any(r.get("saved")  for r in rows)
+        any_hidden = any(r.get("hidden") for r in rows)
+
+        cur2 = conn.cursor()
+        if bool(any_saved) != bool(keep.get("saved")) or \
+                bool(any_hidden) != bool(keep.get("hidden")):
+            cur2.execute(
+                "UPDATE external_events SET saved=%s, hidden=%s WHERE id=%s",
+                (bool(any_saved), bool(any_hidden), keep["id"])
+            )
+
+        placeholders = ",".join(["%s"] * len(delete_ids))
+        cur2.execute(
+            f"DELETE FROM external_events WHERE id IN ({placeholders})",
+            delete_ids
+        )
+        total_deleted += len(delete_ids)
+        conn.commit()
+        cur2.close()
+
+    if total_deleted:
+        print(f"[events] deduplication: removed {total_deleted} duplicate"
+              f" external_events row(s)")
+    return total_deleted
+
+
+# ── Stale event cleanup ───────────────────────────────────────────────────────
+
+def _purge_stale_for_source(conn, source_key,
+                             retention_days=None,
+                             saved_retention_days=None):
+    """Delete old external_events rows for one source after a successful refresh.
+
+    Deletes unsaved rows (hidden or not) where the event has definitively
+    ended more than retention_days ago. Uses COALESCE(end_datetime,
+    start_datetime) so multi-day events are not removed before they finish.
+    Rows with no datetime are left alone (cannot determine staleness).
+
+    saved_retention_days: if None, saved events are kept indefinitely.
+    """
+    if retention_days is None:
+        retention_days = EVENT_CACHE_RETENTION_DAYS
+
+    cutoff = datetime.datetime.utcnow() - datetime.timedelta(days=retention_days)
+    cur = conn.cursor()
+
+    cur.execute(
+        "DELETE FROM external_events"
+        " WHERE source_key = %s"
+        "   AND saved = FALSE"
+        "   AND COALESCE(end_datetime, start_datetime) IS NOT NULL"
+        "   AND COALESCE(end_datetime, start_datetime) < %s",
+        (source_key, cutoff)
+    )
+    unsaved_removed = cur.rowcount
+
+    saved_removed = 0
+    if saved_retention_days is not None:
+        saved_cutoff = (datetime.datetime.utcnow()
+                        - datetime.timedelta(days=saved_retention_days))
+        cur.execute(
+            "DELETE FROM external_events"
+            " WHERE source_key = %s"
+            "   AND saved = TRUE"
+            "   AND COALESCE(end_datetime, start_datetime) IS NOT NULL"
+            "   AND COALESCE(end_datetime, start_datetime) < %s",
+            (source_key, saved_cutoff)
+        )
+        saved_removed = cur.rowcount
+
+    conn.commit()
+    cur.close()
+
+    total = unsaved_removed + saved_removed
+    if total:
+        parts = [f"{unsaved_removed} stale unsaved"]
+        if saved_removed:
+            parts.append(f"{saved_removed} stale saved")
+        print(f"[events] {source_key}: purged {', '.join(parts)} event(s)")
+    return total
+
+
 # ── Refresh ───────────────────────────────────────────────────────────────────
 
 def refresh_source(conn, source_key):
-    """Fetch and upsert events for one source. Returns count of events upserted."""
+    """Fetch and upsert events for one source.
+
+    Returns count of events upserted. Stale cleanup runs only after a
+    successful fetch so a failed source does not lose its cached data.
+    """
     adapter = _ADAPTERS.get(source_key)
     if not adapter:
         raise ValueError(f"Unknown source: {source_key}")
@@ -296,7 +475,16 @@ def refresh_source(conn, source_key):
 
     conn.commit()
     _mark_success(conn, source_key)
-    print(f"[events] {source_key}: {count} events upserted")
+
+    # Stale cleanup runs only after a successful fetch so a failed source
+    # does not lose its cached rows before they can be refreshed.
+    stale_removed = _purge_stale_for_source(
+        conn, source_key,
+        retention_days=EVENT_CACHE_RETENTION_DAYS,
+        saved_retention_days=_SAVED_RETENTION_DAYS,
+    )
+
+    print(f"[events] {source_key}: {count} upserted, {stale_removed} stale removed")
     return count
 
 
@@ -644,6 +832,7 @@ def ensure_tables(conn):
             except Exception as e:
                 print(f"[events] migration stmt error: {e}")
     conn.commit()
+
     # Safe backfill: add coverage_days column to existing installs.
     try:
         cur.execute(
@@ -652,7 +841,26 @@ def ensure_tables(conn):
         conn.commit()
         print("[events] Added coverage_days column to event_sources.")
     except Exception:
-        pass  # Column already exists — expected on fresh-migrated installs.
+        pass  # Column already exists — expected on re-run.
+
+    # Resolve any duplicate external_events rows before adding the UNIQUE
+    # constraint. This is a no-op if no duplicates exist (the common case).
+    _dedupe_external_events(conn)
+
+    # Add UNIQUE constraint on normalized_fingerprint so the DB enforces
+    # idempotency as a safety net alongside the application-level upsert.
+    # MySQL allows multiple NULL values in a UNIQUE index, so nullable
+    # fingerprints are fine.
+    try:
+        cur.execute(
+            "ALTER TABLE external_events"
+            " ADD UNIQUE KEY uniq_fingerprint (normalized_fingerprint)"
+        )
+        conn.commit()
+        print("[events] Added UNIQUE constraint on external_events.normalized_fingerprint.")
+    except Exception:
+        pass  # Already exists — expected on re-run.
+
     # Pre-seed all registered adapters so they appear in admin/source filters
     # before their first refresh. ON DUPLICATE KEY UPDATE is a safe no-op.
     for key, adapter in _ADAPTERS.items():

@@ -44,7 +44,17 @@ No external API keys required.
 
 ---
 
-## Updating
+## Common commands
+
+| Command | Purpose |
+|---------|---------|
+| `./setup.sh` | First-time setup — builds containers, generates secrets, loads seed data |
+| `./update.sh` | Pull latest code and rebuild the app container |
+| `./update-seed.sh` | Refresh `api/data/seed.sql` from the current curated database |
+
+---
+
+## Updating the app
 
 Normal update workflow:
 
@@ -152,21 +162,61 @@ The source JSON files used to build the dataset are in `api/data/` (farms, marke
 
 ## Database Backup and Restore
 
-### Local backup (neutral path outside the repo)
+### Regular local backup
 
 ```bash
 ./scripts/backup-db.sh
 ```
 
-Saves a compressed backup to `~/.event-map/backups/event-map-latest.sql.gz`. Each run **replaces** the previous latest backup — no accumulating timestamped files.
+Saves a full compressed backup in two forms:
 
-### Refresh the repo baseline seed file
+| File | Purpose |
+|------|---------|
+| `~/.event-map/backups/event-map-YYYYmmdd-HHMMSS.sql.gz` | Timestamped copy, kept indefinitely |
+| `~/.event-map/backups/event-map-latest.sql.gz` | Always points to the most recent backup |
+
+Run this before making any significant data changes. Backups live outside the repo and are never committed.
+
+### Refreshing the public repo baseline seed
+
+> **`api/data/seed.sql` is committed to a public GitHub repository.**
+> Only refresh it when you intentionally want future fresh installs to start with the current curated data.
+> Always inspect `git diff api/data/seed.sql` before committing — do not commit if you see private data.
 
 ```bash
-./scripts/backup-db.sh --update-seed
+./update-seed.sh
 ```
 
-This replaces `api/data/seed.sql` with a fresh dump of the live database. Stage and commit the file when you intentionally want to record a new baseline.
+`update-seed.sh` is a safe, step-by-step tool that guides you through refreshing the baseline:
+
+1. Verifies Docker and MySQL are running
+2. Creates a full timestamped safety backup (before changing anything)
+3. Generates a **selective** seed — curated data only, runtime cache excluded
+4. Runs a keyword safety scan on the generated seed
+5. Shows exactly what will be written and prompts for confirmation
+6. Writes `api/data/seed.sql` and prints the review commands
+
+**What the seed includes:**
+- `categories`, `locations`, `crops`, `notes`, `user_notes` — all curated place data
+- `event_sources` — source keys, display names, enabled/disabled settings, coverage days
+
+**What the seed excludes:**
+- `external_events` data — runtime fetch cache (3000+ rows); repopulated automatically on each refresh
+- `event_sources` runtime timestamps — `last_success_at`, `last_attempt_at`, `last_error` reset to NULL
+- Admin credentials — managed by `.htpasswd` on the host filesystem, not stored in the database
+
+**Recommended workflow:**
+
+```
+1. Run the app and curate data in the admin panel
+2. ./update-seed.sh
+3. git diff --stat                        ← see what changed
+4. git diff -- api/data/seed.sql          ← inspect the actual diff
+5. git add api/data/seed.sql
+6. git commit -m "Refresh repo baseline seed from curated database"
+```
+
+Do not commit `api/data/seed.sql` if `git diff` shows unexpected private data.
 
 ### How setup.sh chooses what to restore
 
