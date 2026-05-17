@@ -11,9 +11,17 @@ from mysql.connector import pooling
 import events as _events
 from adapters.positively_pgh import PositivelyPgh
 from adapters.visit_pittsburgh import VisitPittsburgh
+from adapters.heinz_history import HeinzHistory
+from adapters.carnegie_museums import CarnegieMuseums
+from adapters.carnegie_library import CarnegieLibrary
+from adapters.wqed_cultural import WqedCultural
 
 _events.register_adapter(PositivelyPgh())
 _events.register_adapter(VisitPittsburgh())
+_events.register_adapter(HeinzHistory())
+_events.register_adapter(CarnegieMuseums())
+_events.register_adapter(CarnegieLibrary())
+_events.register_adapter(WqedCultural())
 
 app = Flask(__name__, static_url_path='', static_folder='static')
 app.secret_key = os.environ.get("FLASK_SECRET") or os.urandom(32)

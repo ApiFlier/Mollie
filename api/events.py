@@ -652,6 +652,19 @@ def ensure_tables(conn):
         conn.commit()
         print("[events] Added coverage_days column to event_sources.")
     except Exception:
-        pass  # Column already exists — this is expected on fresh-migrated installs.
+        pass  # Column already exists — expected on fresh-migrated installs.
+    # Pre-seed all registered adapters so they appear in admin/source filters
+    # before their first refresh. ON DUPLICATE KEY UPDATE is a safe no-op.
+    for key, adapter in _ADAPTERS.items():
+        try:
+            cur.execute(
+                "INSERT INTO event_sources (source_key, display_name)"
+                " VALUES (%s, %s)"
+                " ON DUPLICATE KEY UPDATE display_name = %s",
+                (key, adapter.display_name, adapter.display_name)
+            )
+        except Exception as e:
+            print(f"[events] could not pre-seed source {key!r}: {e}")
+    conn.commit()
     cur.close()
     print("[events] Tables ready.")
