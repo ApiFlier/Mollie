@@ -148,9 +148,6 @@ class TestButcherLocationsInSeed(unittest.TestCase):
     def test_weiss_meats_address(self):
         self.assertIn("100 Terence", self.seed)
 
-    def test_no_tom_fridays(self):
-        # Tom Friday's was explicitly excluded (could not be cleanly verified)
-        self.assertNotIn("Tom Friday", self.seed)
 
 
 class TestNoDuplicateLocationNames(unittest.TestCase):

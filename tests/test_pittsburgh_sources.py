@@ -35,7 +35,7 @@ class _BaseAdapter:
     source_key   = None
     display_name = None
     api_base     = None
-    def fetch(self, coverage_days=30):
+    def fetch(self, coverage_days=60):
         return []
 
 _adapters_base.BaseAdapter = _BaseAdapter
@@ -228,8 +228,8 @@ class TestPittsburghParksGeoFix(unittest.TestCase):
         mock = unittest.mock.MagicMock()
         mock.get.side_effect = _get
         with unittest.mock.patch.object(_tribe_mod, "requests", mock):
-            self.adapter.fetch(coverage_days=30)
-        expected_end = (datetime.utcnow() + timedelta(days=30)).strftime("%Y-%m-%d")
+            self.adapter.fetch(coverage_days=60)
+        expected_end = (datetime.utcnow() + timedelta(days=60)).strftime("%Y-%m-%d")
         self.assertIn(expected_end, captured.get("end_date", ""))
 
     def test_multiple_events_geo_fix_applied_to_all(self):

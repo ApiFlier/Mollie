@@ -1055,11 +1055,11 @@ def ensure_tables(conn):
     except Exception:
         pass  # Column already exists — expected on re-run.
 
-    # One-time migration: update old default coverage_days=30 to the new default 60.
+    # One-time migration: update old default coverage_days=60 to the new default 60.
     # Runs once per install; does NOT touch custom non-30 values (45, 90, 120, etc.).
     cur.execute(
         "SELECT migration_key FROM _event_migrations"
-        " WHERE migration_key = 'coverage_days_default_60_v1'"
+        " WHERE migration_key = 'event_source_coverage_default_60_v1'"
     )
     if not cur.fetchone():
         try:
@@ -1073,7 +1073,7 @@ def ensure_tables(conn):
             conn.commit()
             cur.execute(
                 "INSERT IGNORE INTO _event_migrations (migration_key)"
-                " VALUES ('coverage_days_default_60_v1')"
+                " VALUES ('event_source_coverage_default_60_v1')"
             )
             conn.commit()
             print("[events] Migrated coverage_days default 30→60 for existing sources.")

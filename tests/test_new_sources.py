@@ -36,7 +36,7 @@ class _BaseAdapter:
     source_key   = None
     display_name = None
     api_base     = None
-    def fetch(self, coverage_days=30):
+    def fetch(self, coverage_days=60):
         return []
 
 _adapters_base.BaseAdapter = _BaseAdapter
@@ -201,7 +201,7 @@ class TestCarnegieLibraryFetch(unittest.TestCase):
         self.assertNotIn("&#8211;", results[0]["venue_name"])
         self.assertIn("–", results[0]["venue_name"])
 
-    def test_coverage_days_30_default(self):
+    def test_coverage_days_default(self):
         captured = {}
         def _get(url, params=None, **kwargs):
             captured.update(params or {})
@@ -212,8 +212,8 @@ class TestCarnegieLibraryFetch(unittest.TestCase):
         mock = unittest.mock.MagicMock()
         mock.get.side_effect = _get
         with unittest.mock.patch.object(_tribe_mod, "requests", mock):
-            self.adapter.fetch(coverage_days=30)
-        expected_end = (datetime.utcnow() + timedelta(days=30)).strftime("%Y-%m-%d")
+            self.adapter.fetch(coverage_days=60)
+        expected_end = (datetime.utcnow() + timedelta(days=60)).strftime("%Y-%m-%d")
         self.assertIn(expected_end, captured.get("end_date", ""))
 
     def test_coverage_days_clamps_low(self):

@@ -29,7 +29,7 @@ class _BaseAdapter:
     source_key   = None
     display_name = None
     api_base     = None
-    def fetch(self, coverage_days=30):
+    def fetch(self, coverage_days=60):
         return []
 
 _adapters_base.BaseAdapter = _BaseAdapter
@@ -386,7 +386,7 @@ class TestTribeAdapterFetch(unittest.TestCase):
     def test_payload_includes_start_and_end_date(self):
         mock = _mock_requests([_page([])])
         with unittest.mock.patch.object(_mod, "requests", mock):
-            _ConcreteAdapter().fetch(coverage_days=30)
+            _ConcreteAdapter().fetch(coverage_days=60)
         call_params = mock.get.call_args_list[0].kwargs.get('params', {})
         self.assertIn('start_date', call_params)
         self.assertIn('end_date', call_params)

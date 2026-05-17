@@ -45,7 +45,7 @@ import flask as _flask_real
 # Stub heavy adapter imports — each must have the class app.py imports
 class _FakeAdapter:
     source_key = "fake"; display_name = "Fake"
-    def fetch(self, coverage_days=30): return []
+    def fetch(self, coverage_days=60): return []
 
 _stub("adapters")
 _stub("adapters.positively_pgh",  PositivelyPgh=_FakeAdapter)

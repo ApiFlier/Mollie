@@ -479,7 +479,7 @@ class TestRefreshSourceCleanupOnFailure(unittest.TestCase):
         try:
             conn = MagicMock()
             cur = MagicMock()
-            cur.fetchone.return_value = {"coverage_days": 30}
+            cur.fetchone.return_value = {"coverage_days": 60}
             conn.cursor.return_value = cur
 
             with patch.object(_ev, "_purge_stale_for_source") as mock_purge:
@@ -501,7 +501,7 @@ class TestRefreshSourceCleanupOnFailure(unittest.TestCase):
         try:
             conn = MagicMock()
             cur = MagicMock()
-            cur.fetchone.return_value = {"coverage_days": 30}
+            cur.fetchone.return_value = {"coverage_days": 60}
             conn.cursor.return_value = cur
 
             with patch.object(_ev, "_purge_stale_for_source",
