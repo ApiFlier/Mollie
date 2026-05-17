@@ -182,6 +182,9 @@ info "  external_events: ${_ext_count} rows  (runtime cache — will be excluded
 # =============================================================================
 step "Step 4: Generating seed"
 
+echo "Running manifest export..."
+docker exec event-map-app python scripts/export_seed_manifest.py
+
 # Two-phase mysqldump:
 #   Phase A — schema only for ALL tables (no data).
 #             Ensures external_events table structure exists on fresh install.

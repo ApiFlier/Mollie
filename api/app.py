@@ -303,7 +303,7 @@ def update_location(loc_id):
             category_id = %s, event_date = %s, county = %s,
             season_start_month = %s, season_end_month = %s,
             organic = %s, pesticide_free = %s, low_chemical = %s,
-            payment_methods = %s, amenities = %s
+            payment_methods = %s, amenities = %s, user_modified = TRUE
             WHERE id = %s
         """
         params = (
@@ -448,14 +448,14 @@ def create_location():
                 hours, notes, category_id, event_date, county,
                 season_start_month, season_end_month,
                 organic, pesticide_free, low_chemical,
-                payment_methods, amenities
+                payment_methods, amenities, user_modified
             ) VALUES (
                 %s, %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s,
                 %s, %s,
                 %s, %s, %s,
-                %s, %s
+                %s, %s, TRUE
             )
         """
         params = (

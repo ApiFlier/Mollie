@@ -83,6 +83,12 @@ APP_PORT="$(grep -E '^APP_PORT=' "$ENV_FILE" | tail -n1 | cut -d= -f2- | tr -d '
 APP_PORT="${APP_PORT:-8090}"
 info "APP_PORT = $APP_PORT"
 
+# --- Backup DB before applying updates ---
+if [ -f "$APP_DIR/scripts/backup-db.sh" ]; then
+    info "Running safety backup before applying updates..."
+    bash "$APP_DIR/scripts/backup-db.sh" || warn "Backup script failed or missing"
+fi
+
 # --- Build and start ---
 info "Building and restarting containers..."
 cd "$APP_DIR"
@@ -109,7 +115,12 @@ info "Map URL:     http://localhost:${APP_PORT}/map"
 info "Admin URL:   http://localhost:${APP_PORT}/admin/"
 info "Health:      ${HEALTH}"
 info "Database volume preserved."
-info "App data migrations run automatically on startup."
+SYNC_REPORT="$(docker compose logs app | grep -Eo '\[migrations\] Seed sync complete:.*' | tail -n1 || echo '')"
+if [ -n "$SYNC_REPORT" ]; then
+    info "${SYNC_REPORT/\[migrations\] /}"
+else
+    info "App data migrations run automatically on startup."
+fi
 echo "================================================"
 echo ""
 

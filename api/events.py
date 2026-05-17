@@ -1044,6 +1044,18 @@ def ensure_tables(conn):
     except Exception:
         pass  # Column already exists — expected on re-run.
 
+    # Safe backfill: add seed sync tracking columns to locations.
+    try:
+        cur.execute(
+            "ALTER TABLE locations ADD COLUMN seed_managed BOOLEAN NOT NULL DEFAULT FALSE,"
+            " ADD COLUMN user_modified BOOLEAN NOT NULL DEFAULT FALSE,"
+            " ADD COLUMN hidden BOOLEAN NOT NULL DEFAULT FALSE"
+        )
+        conn.commit()
+        print("[events] Added seed sync tracking columns to locations.")
+    except Exception:
+        pass  # Columns already exist — expected on re-run.
+
     # Safe backfill: add series_key column to existing external_events installs.
     try:
         cur.execute(

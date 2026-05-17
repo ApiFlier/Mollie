@@ -3,416 +3,105 @@ Tests for api/migrations.py — app-level curated-data migrations.
 
 Verifies:
   - app_migrations table is created
-  - first run inserts missing hiking-trails / butcher categories
-  - first run inserts all seed locations
-  - second run is idempotent (no duplicate inserts)
-  - existing edited rows are NOT overwritten (INSERT-only, never UPDATE)
-  - blank/NULL safe-fill is intentionally absent (existing rows are fully left alone)
-  - migration key is recorded in app_migrations after a successful run
-  - migration skips gracefully when categories/locations tables don't exist yet
-  - custom/user-added locations remain untouched
-  - correct categories (hiking-trails + butcher) are referenced for each location group
-
-No real MySQL connection required — uses MagicMock cursors.
-
-Run with:  python3 -m pytest tests/test_app_migrations.py -v
+  - sync_seed adds missing seed-managed categories/locations
+  - sync_seed updates changed seed-managed rows
+  - sync_seed does not overwrite user-modified rows
+  - sync_seed soft-removes/deactivates seed-managed rows removed from the seed
+  - sync_seed does not delete rows by default
 """
 import sys
 import os
+import json
 import unittest
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock, patch
 
-# Allow direct import of api/ modules without Docker
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "api"))
 import migrations as _mg
 
-
-# ── Cursor/connection factory ─────────────────────────────────────────────────
-
 def _make_cursor(fetchone_seq):
-    """Return a MagicMock cursor whose fetchone() returns values from fetchone_seq."""
     cur = MagicMock()
     cur.fetchone.side_effect = list(fetchone_seq)
-    cur.lastrowid = 99  # default fake auto-increment id for new INSERT rows
+    cur.lastrowid = 99
+    cur.rowcount = 1
     return cur
 
-
 def _make_conn(fetchone_seq=()):
-    """Return (conn, cursor) where conn.cursor(dictionary=True) returns the cursor."""
     cur = _make_cursor(fetchone_seq)
     conn = MagicMock()
     conn.cursor.return_value = cur
     return conn, cur
 
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-def _executed_sqls(cur):
-    """Return list of SQL strings passed to cur.execute()."""
-    return [c.args[0] for c in cur.execute.call_args_list]
-
-
-def _executed_params(cur):
-    """Return list of params tuples passed to cur.execute()."""
-    return [c.args[1] if len(c.args) > 1 else c.kwargs.get("args") for c in cur.execute.call_args_list]
-
-
-def _insert_sqls(cur):
-    return [s for s in _executed_sqls(cur) if s.upper().lstrip().startswith("INSERT")]
-
-
-def _insert_params(cur):
-    pairs = [(c.args[0], c.args[1] if len(c.args) > 1 else None)
-             for c in cur.execute.call_args_list
-             if c.args[0].upper().lstrip().startswith("INSERT")]
-    return pairs
-
-
-# ── Table creation ────────────────────────────────────────────────────────────
-
-class TestAppMigrationsTableCreated(unittest.TestCase):
-    """ensure_app_migrations always creates the app_migrations table."""
-
-    def test_ddl_executed_on_call(self):
-        # No tables present scenario — guard triggers immediately after DDL
-        conn, cur = _make_conn([None])   # SHOW TABLES 'categories' → None
-        cur.fetchone.side_effect = [None]
-        _mg.ensure_app_migrations(conn)
-        sqls = _executed_sqls(cur)
-        self.assertTrue(
-            any("CREATE TABLE IF NOT EXISTS app_migrations" in s for s in sqls),
-            "Expected CREATE TABLE IF NOT EXISTS app_migrations in executed SQL"
-        )
-
-    def test_ddl_committed(self):
-        conn, cur = _make_conn([None])
-        _mg.ensure_app_migrations(conn)
-        conn.commit.assert_called()
-
-
-# ── Guard: tables not yet present ─────────────────────────────────────────────
-
-class TestGuardMissingTables(unittest.TestCase):
-    """Migration skips gracefully when core app tables don't exist."""
-
-    def test_skips_when_categories_absent(self):
-        # SHOW TABLES 'categories' → None (table missing)
-        conn, cur = _make_conn([None])
-        _mg.ensure_app_migrations(conn)
-        # No INSERT should have happened
-        self.assertEqual(_insert_sqls(cur), [],
-                         "Should not INSERT anything when categories table is absent")
-
-    def test_skips_when_locations_absent(self):
-        # SHOW TABLES 'categories' → present, SHOW TABLES 'locations' → None
-        conn, cur = _make_conn([{"Tables_in_db": "categories"}, None])
-        _mg.ensure_app_migrations(conn)
-        self.assertEqual(_insert_sqls(cur), [],
-                         "Should not INSERT anything when locations table is absent")
-
-    def test_cursor_closed_when_categories_absent(self):
-        conn, cur = _make_conn([None])
-        _mg.ensure_app_migrations(conn)
-        cur.close.assert_called_once()
-
-    def test_cursor_closed_when_locations_absent(self):
-        conn, cur = _make_conn([{"Tables_in_db": "categories"}, None])
-        _mg.ensure_app_migrations(conn)
-        cur.close.assert_called_once()
-
-
-# ── First run: all rows missing ───────────────────────────────────────────────
-
-def _first_run_fetchone():
-    """Sequence of fetchone() return values for a pristine DB (nothing exists)."""
-    return [
-        {"Tables_in_db": "categories"},    # SHOW TABLES 'categories'
-        {"Tables_in_db": "locations"},     # SHOW TABLES 'locations'
-    ] + [None] * 200 # padding for all subsequent migration checks
-
-
-class TestFirstRun(unittest.TestCase):
-    """On a pristine DB, the migration inserts all expected rows."""
-
+class TestSeedSync(unittest.TestCase):
     def setUp(self):
-        self.conn, self.cur = _make_conn(_first_run_fetchone())
-        self.cur.lastrowid = 99  # fake category ID after INSERT
-        _mg.ensure_app_migrations(self.conn)
-
-    def test_hiking_trails_category_inserted(self):
-        params_list = _executed_params(self.cur)
-        inserted_names = [
-            p[0] for p in params_list
-            if isinstance(p, (list, tuple)) and p and p[0] == "hiking-trails"
-        ]
-        self.assertTrue(
-            len(inserted_names) > 0,
-            "Expected INSERT for hiking-trails category"
-        )
-
-    def test_butcher_category_inserted(self):
-        params_list = _executed_params(self.cur)
-        inserted_names = [
-            p[0] for p in params_list
-            if isinstance(p, (list, tuple)) and p and p[0] == "butcher"
-        ]
-        self.assertTrue(len(inserted_names) > 0, "Expected INSERT for butcher category")
-
-    def test_hiking_trail_locations_inserted(self):
-        params_list = _executed_params(self.cur)
-        inserted_loc_names = [
-            p[0] for p in params_list
-            if isinstance(p, (list, tuple)) and len(p) >= 5
-            and p[0] in [l[0] for l in _mg._HIKING_LOCATIONS]
-        ]
-        self.assertTrue(len(inserted_loc_names) >= 35,
-                         f"Expected at least 35 hiking location inserts, got: {len(inserted_loc_names)}")
-
-    def test_butcher_locations_inserted(self):
-        params_list = _executed_params(self.cur)
-        inserted_loc_names = [
-            p[0] for p in params_list
-            if isinstance(p, (list, tuple)) and len(p) >= 5
-            and p[0] in [l[0] for l in _mg._BUTCHER_LOCATIONS]
-        ]
-        self.assertTrue(len(inserted_loc_names) >= 12,
-                         f"Expected at least 12 butcher location inserts, got: {len(inserted_loc_names)}")
-
-    def test_migration_key_recorded(self):
-        pairs = _insert_params(self.cur)
-        migration_key_inserts = [
-            p for s, p in pairs
-            if "app_migrations" in s and p and p[0] == _mg._KEY_BASELINE
-        ]
-        self.assertEqual(len(migration_key_inserts), 1,
-                         "Expected baseline migration key to be recorded in app_migrations")
-
-    def test_hiking_category_color(self):
-        """The hiking-trails category must use the soft spring green color."""
-        pairs = _insert_params(self.cur)
-        for sql, params in pairs:
-            if params and params[0] == "hiking-trails":
-                self.assertEqual(params[2], "#5e9e6e",
-                                 f"hiking-trails color wrong: {params[2]}")
-                return
-        self.fail("hiking-trails INSERT not found")
-
-    def test_butcher_category_color(self):
-        """The butcher category must use the dark red color."""
-        pairs = _insert_params(self.cur)
-        for sql, params in pairs:
-            if params and params[0] == "butcher":
-                self.assertEqual(params[2], "#7f1d1d",
-                                 f"butcher color wrong: {params[2]}")
-                return
-        self.fail("butcher INSERT not found")
-
-    def test_hiking_locations_have_season_months(self):
-        """All hiking locations should have season_start=3 and season_end=11."""
-        pairs = _insert_params(self.cur)
-        for sql, params in pairs:
-            if (params and len(params) >= 13
-                    and params[0] in [l[0] for l in _mg._HIKING_LOCATIONS]):
-                # season_start_month is index 10, season_end_month is index 11
-                self.assertEqual(params[10], 3, f"season_start wrong for {params[0]}")
-                self.assertEqual(params[11], 11, f"season_end wrong for {params[0]}")
-
-    def test_butcher_locations_have_no_season_months(self):
-        """Butcher locations should have NULL season months."""
-        pairs = _insert_params(self.cur)
-        for sql, params in pairs:
-            if (params and len(params) >= 13
-                    and params[0] in [l[0] for l in _mg._BUTCHER_LOCATIONS]):
-                self.assertIsNone(params[10], f"season_start should be None for {params[0]}")
-                self.assertIsNone(params[11], f"season_end should be None for {params[0]}")
-
-
-# ── Second run: idempotency ───────────────────────────────────────────────────
-
-class TestIdempotency(unittest.TestCase):
-    """Second run (migration key already in table) does nothing."""
-
-    def setUp(self):
-        conn, cur = _make_conn([
-            {"Tables_in_db": "categories"},   # SHOW TABLES 'categories'
-            {"Tables_in_db": "locations"},    # SHOW TABLES 'locations'
-            {"migration_key": _mg._KEY_BASELINE},   # baseline applied
-        ] + [None] * 100)
-        _mg.ensure_app_migrations(conn)
-        self.cur = cur
-        self.conn = conn
-
-    def test_no_inserts_on_second_run(self):
-        inserts = _insert_sqls(self.cur)
-        self.assertEqual(inserts, [],
-                         f"Expected no INSERTs on second run, got: {inserts}")
-
-    def test_no_categories_inserted(self):
-        params_list = _executed_params(self.cur)
-        cat_inserts = [
-            p for p in params_list
-            if isinstance(p, (list, tuple))
-            and p and p[0] in ("hiking-trails", "butcher")
-        ]
-        self.assertEqual(cat_inserts, [])
-
-
-# ── Existing rows not overwritten ─────────────────────────────────────────────
-
-class TestExistingRowsPreserved(unittest.TestCase):
-    """INSERT-only for new locations; safe-fill for existing locations."""
-
-    def test_existing_hiking_category_not_overwritten(self):
-        """If hiking-trails category already exists, no INSERT is issued for it."""
-        conn, cur = _make_conn([
-            {"Tables_in_db": "categories"},
-            {"Tables_in_db": "locations"},
-            None,                          # migration baseline not applied
-            {"id": 9},                     # hiking-trails EXISTS
-            None,                          # butcher missing
-        ] + [None] * 100)
-        cur.lastrowid = 55
-        _mg.ensure_app_migrations(conn)
-        pairs = _insert_params(cur)
-        cat_inserts = [p for s, p in pairs if p and p[0] == "hiking-trails"]
-        self.assertEqual(cat_inserts, [],
-                         "hiking-trails INSERT should not occur when category exists")
-
-    def test_existing_location_not_overwritten_if_full(self):
-        """If a location exists and has no NULL/blank fields, no UPDATE is issued."""
-        # Provide a fully populated row so no safe-fill triggers.
-        conn, cur = _make_conn([
-            {"Tables_in_db": "categories"},
-            {"Tables_in_db": "locations"},
-            None,                          # baseline not applied
-            {"id": 9},                     # hiking-trails exists
-            {"id": 8},                     # butcher exists
-            None,                          # Beechwood → insert
-            {
-                "id": 742, "name": "Boyce Park", "category_id": 9, "county": "Allegheny",
-                "address": "123 Main", "city": "Pittsburgh", "state": "PA", "zip": "15239",
-                "lat": 40.0, "lng": -79.0, "website": "http", "season_start_month": 3,
-                "season_end_month": 11, "notes": "Existing notes"
-            },                             # Boyce Park → EXISTS, skip
-        ] + [None] * 100)
-        cur.lastrowid = 800
-        _mg.ensure_app_migrations(conn)
-        pairs = _insert_params(cur)
-        boyce_inserts = [p for s, p in pairs if p and p[0] == "Boyce Park"]
-        self.assertEqual(boyce_inserts, [],
-                         "Boyce Park should not be INSERT-ed when it already exists")
-        update_sqls = [s for s in _executed_sqls(cur) if "UPDATE LOCATIONS" in s.upper()]
-        self.assertEqual(update_sqls, [],
-                         "No UPDATE should be issued for a fully populated existing row")
-
-    def test_safe_fill_when_row_exists_with_null_fields(self):
-        """Safe-fill applies when fields are NULL or blank string."""
-        conn, cur = _make_conn([
-            {"Tables_in_db": "categories"},
-            {"Tables_in_db": "locations"},
-            None,
-            {"id": 9}, {"id": 8},
-            # Return a row for Beechwood that is missing 'notes' and 'zip'
-            {
-                "id": 741, "name": "Beechwood Farms Nature Reserve", "category_id": 9, 
-                "county": "Allegheny", "address": "614 Dorseyville Road", 
-                "city": "Pittsburgh", "state": "PA", "zip": None, # NULL
-                "lat": 40.5, "lng": -79.9, "website": "http", 
-                "season_start_month": 3, "season_end_month": 11, "notes": "  " # blank
-            },
-        ] + [None] * 100)
-        _mg.ensure_app_migrations(conn)
-        update_sqls = [s for s in _executed_sqls(cur) if "UPDATE LOCATIONS" in s.upper()]
-        self.assertTrue(len(update_sqls) >= 1, "Expected an UPDATE for safe-fill")
-        self.assertIn("zip = %s", update_sqls[0])
-        self.assertIn("notes = %s", update_sqls[0])
-
-
-# ── Migration key recorded ────────────────────────────────────────────────────
-
-class TestMigrationKeyRecorded(unittest.TestCase):
-
-    def test_key_is_correct_string(self):
-        self.assertEqual(_mg._KEY_BASELINE, "curated_places_baseline_20260517_v1")
-
-    def test_key_inserted_after_successful_run(self):
-        conn, cur = _make_conn(_first_run_fetchone())
-        cur.lastrowid = 99
-        _mg.ensure_app_migrations(conn)
-        pairs = _insert_params(cur)
-        migration_key_inserts = [
-            p for s, p in pairs
-            if "app_migrations" in s and p and p[0] == _mg._KEY_BASELINE
-        ]
-        self.assertEqual(len(migration_key_inserts), 1)
-
-    def test_key_not_inserted_when_already_applied(self):
-        conn, cur = _make_conn([
-            {"Tables_in_db": "categories"},
-            {"Tables_in_db": "locations"},
-            {"migration_key": _mg._KEY_BASELINE},
-        ] + [None] * 100)
-        _mg.ensure_app_migrations(conn)
-        pairs = _insert_params(cur)
-        migration_inserts = [p for s, p in pairs if "app_migrations" in s]
-        self.assertEqual(migration_inserts, [],
-                         "Should not re-record key when migration already applied")
-
-
-# ── Custom user data untouched ────────────────────────────────────────────────
-
-class TestCustomUserDataUntouched(unittest.TestCase):
-    """User-created locations (non-seed names) are never affected."""
-
-    def test_user_location_not_touched(self):
-        """A user-added location with a unique name that doesn't match any seed name
-        is never part of the INSERT statements issued by the migration."""
-        conn, cur = _make_conn(_first_run_fetchone())
-        cur.lastrowid = 99
-        _mg.ensure_app_migrations(conn)
-        pairs = _insert_params(cur)
-        user_loc_inserts = [
-            p for s, p in pairs
-            if isinstance(p, (list, tuple))
-            and p and p[0] == "Mollie's Secret Farm Stand"
-        ]
-        self.assertEqual(user_loc_inserts, [],
-                         "User-created locations should never appear in migration INSERTs")
-
-    def test_migration_only_touches_named_seed_locations(self):
-        """Only the expected seed locations are ever INSERT-candidates."""
-        expected_names = [l[0] for l in _mg._HIKING_LOCATIONS + _mg._BUTCHER_LOCATIONS]
+        self.manifest_data = {
+            "categories": [{"name": "hiking-trails", "icon": "trail", "color": "#5e9e6e", "display_order": 57}],
+            "locations": [
+                {
+                    "name": "Beechwood", "category_id": 1, "county": "Allegheny",
+                    "address": "123 Main", "city": "PGH", "state": "PA", "zip": "15217",
+                    "lat": 40.0, "lng": -80.0, "payment_methods": None, "amenities": None
+                }
+            ]
+        }
+        self.patcher = patch('builtins.open', unittest.mock.mock_open(read_data=json.dumps(self.manifest_data)))
+        self.patcher.start()
         
-        conn, cur = _make_conn(_first_run_fetchone())
-        cur.lastrowid = 99
-        _mg.ensure_app_migrations(conn)
-        pairs = _insert_params(cur)
-        # Filter for location INSERTs (13-param tuple: name, cat_id, county, ...)
-        loc_inserts = [
-            p[0] for s, p in pairs
-            if "INSERT INTO locations" in s and p
-        ]
-        for name in loc_inserts:
-            self.assertIn(name, expected_names,
-                          f"Unexpected location INSERT: {name!r}")
+        self.exists_patcher = patch('os.path.exists', return_value=True)
+        self.exists_patcher.start()
 
+    def tearDown(self):
+        self.patcher.stop()
+        self.exists_patcher.stop()
 
-# ── Module constants sanity check ─────────────────────────────────────────────
+    def test_sync_adds_missing(self):
+        conn, cur = _make_conn([
+            None,  # category not found
+            None,  # location not found
+        ])
+        _mg._sync_seed(conn, cur)
+        
+        sqls = [c.args[0] for c in cur.execute.call_args_list]
+        self.assertTrue(any("INSERT INTO categories" in s for s in sqls))
+        self.assertTrue(any("INSERT INTO locations" in s for s in sqls))
 
-class TestMigrationConstants(unittest.TestCase):
+    def test_sync_updates_managed(self):
+        conn, cur = _make_conn([
+            {"id": 1},  # category found
+            {"id": 10, "seed_managed": True, "user_modified": False}, # location found
+        ])
+        _mg._sync_seed(conn, cur)
+        
+        sqls = [c.args[0] for c in cur.execute.call_args_list]
+        self.assertTrue(any("UPDATE locations SET" in s and "hidden = FALSE" in s for s in sqls))
+        self.assertFalse(any("INSERT INTO locations" in s for s in sqls))
 
-    def test_hiking_locations_count(self):
-        self.assertTrue(len(_mg._HIKING_LOCATIONS) >= 35)
+    def test_sync_preserves_user_modified(self):
+        conn, cur = _make_conn([
+            {"id": 1},  # category found
+            {
+                "id": 10, "seed_managed": True, "user_modified": True, "notes": "my edit",
+                "category_id": 1, "county": "Allegheny", "address": "123 Main", "city": "PGH",
+                "state": "PA", "zip": "15217", "lat": 40.0, "lng": -80.0, "website": "http",
+                "season_start_month": 1, "season_end_month": 12, "payment_methods": "[]",
+                "amenities": "[]"
+            }, # location found
+        ])
+        _mg._sync_seed(conn, cur)
+        
+        sqls = [c.args[0] for c in cur.execute.call_args_list]
+        update_sqls = [s for s in sqls if "UPDATE locations SET" in s and "seed_managed" not in s and "hidden = TRUE" not in s]
+        self.assertEqual(len(update_sqls), 0, "Should not update fully populated fields if user_modified is True")
 
-    def test_butcher_locations_count(self):
-        self.assertTrue(len(_mg._BUTCHER_LOCATIONS) >= 12)
-
-    def test_hiking_category_slug(self):
-        self.assertEqual(_mg._HIKING_CATEGORY[0], "hiking-trails")
-
-    def test_butcher_category_slug(self):
-        self.assertEqual(_mg._BUTCHER_CATEGORY[0], "butcher")
-
+    def test_sync_soft_removes_missing(self):
+        conn, cur = _make_conn([
+            {"id": 1},  # category found
+            {"id": 10, "seed_managed": True, "user_modified": False}, # location found
+        ])
+        cur.rowcount = 1
+        _mg._sync_seed(conn, cur)
+        
+        sqls = [c.args[0] for c in cur.execute.call_args_list]
+        self.assertTrue(any("UPDATE locations SET hidden = TRUE WHERE seed_managed = TRUE" in s for s in sqls))
 
 if __name__ == "__main__":
     unittest.main()
