@@ -184,8 +184,8 @@ When setting up a fresh database `setup.sh` checks for:
 
 ```bash
 zcat ~/.event-map/backups/event-map-latest.sql.gz | \
-  docker exec -i event-map-db mysql -uroot \
-  -p$(grep MYSQL_ROOT_PASSWORD .env | cut -d= -f2) event_map
+  docker exec -i event-map-db sh -lc \
+  'mysql -h127.0.0.1 -P3306 -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"'
 ```
 
 ---
@@ -360,6 +360,7 @@ docker compose logs event-map-db
 - **HTTPS:** point a domain at the server IP and enable the Cloudflare proxy for automatic SSL. Geolocation (browser blue dot) requires HTTPS.
 - **Existing volumes:** if a `event_map_db_data` volume already exists (prior install), the database is reused and the seed step is skipped if the `locations` table is already populated.
 - **Re-running setup:** safe to re-run — passwords and credentials are preserved if `.env` and `.htpasswd` already exist.
+- **Low-memory servers:** this app is designed to run on small private servers (~1 GiB RAM). `mysql/conf.d/low-memory.cnf` is mounted into the MySQL container and tunes InnoDB and connection limits for minimal footprint. A 2 GiB swapfile is recommended on machines with less than 2 GiB RAM.
 
 ---
 

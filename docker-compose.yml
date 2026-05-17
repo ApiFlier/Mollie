@@ -32,11 +32,13 @@ services:
       - MYSQL_PASSWORD=${DB_PASSWORD}
     volumes:
       - event_map_db_data:/var/lib/mysql
+      - ./mysql/conf.d:/etc/mysql/conf.d:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD-SHELL", "mysqladmin ping -h127.0.0.1 -P3306 -u$$MYSQL_USER -p$$MYSQL_PASSWORD --silent"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 30s
     restart: unless-stopped
 
 volumes:

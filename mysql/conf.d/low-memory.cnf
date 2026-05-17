@@ -1,0 +1,14 @@
+[mysqld]
+# Low-memory tuning for small private servers (~1 GiB RAM).
+# Sized for the Oracle Always Free VPS (954 MiB RAM, 2 GiB swap).
+performance_schema        = OFF
+innodb_buffer_pool_size   = 128M
+innodb_redo_log_capacity  = 64M
+max_connections           = 20
+table_open_cache          = 128
+tmp_table_size            = 16M
+max_heap_table_size       = 16M
+sort_buffer_size          = 256K
+read_buffer_size          = 256K
+read_rnd_buffer_size      = 512K
+join_buffer_size          = 256K

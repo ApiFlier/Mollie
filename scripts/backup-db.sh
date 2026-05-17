@@ -53,7 +53,7 @@ mkdir -p "$BACKUP_DIR"
 info "Writing local backup to: $BACKUP_FILE"
 # Uses the container's own MYSQL_ROOT_PASSWORD env var — no host-side credential passing.
 docker exec event-map-db sh -lc \
-    'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines --triggers "$MYSQL_DATABASE"' \
+    'mysqldump -h127.0.0.1 -P3306 -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines --triggers "$MYSQL_DATABASE"' \
     | gzip > "$BACKUP_FILE"
 
 SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
@@ -71,7 +71,7 @@ if [ "$UPDATE_SEED" = true ]; then
         info "Seed refresh skipped."
     else
         docker exec event-map-db sh -lc \
-            'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines --triggers "$MYSQL_DATABASE"' \
+            'mysqldump -h127.0.0.1 -P3306 -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines --triggers "$MYSQL_DATABASE"' \
             > "$SEED_FILE"
         info "Seed file updated: $SEED_FILE"
         info "Stage and commit api/data/seed.sql when ready to record this as the repo baseline."
@@ -87,4 +87,4 @@ echo "  Repo baseline: $SEED_FILE  (stage + commit when ready)"
 fi
 echo ""
 echo "  To restore the local backup:"
-echo "    zcat $BACKUP_FILE | docker exec -i event-map-db sh -lc 'mysql -u\"\$MYSQL_USER\" -p\"\$MYSQL_PASSWORD\" \"\$MYSQL_DATABASE\"'"
+echo "    zcat $BACKUP_FILE | docker exec -i event-map-db sh -lc 'mysql -h127.0.0.1 -P3306 -u\"\$MYSQL_USER\" -p\"\$MYSQL_PASSWORD\" \"\$MYSQL_DATABASE\"'"

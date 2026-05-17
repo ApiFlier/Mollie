@@ -20,28 +20,68 @@ warn()    { echo -e "${YELLOW}[WARN]${NC} $1"; }
 error()   { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
 # ---------------------------------------------------------------------------
-# Wait until the DB container's health check reports "healthy".
-# Uses docker inspect so no mysql client on the host is required.
+# Print diagnostics when MySQL readiness times out.
+# ---------------------------------------------------------------------------
+_db_timeout_diagnostics() {
+    echo ""
+    warn "MySQL readiness timeout — diagnostics:"
+    echo ""
+    echo "  Running containers (filter: event-map):"
+    docker ps --filter name=event-map
+    echo ""
+    echo "  DB container state / health:"
+    docker inspect --format '{{.Name}}  state={{.State.Status}}  health={{.State.Health.Status}}' \
+        event-map-db 2>/dev/null || true
+    echo ""
+    echo "  Recent DB logs (last 120 lines):"
+    docker logs --tail=120 event-map-db 2>&1
+    echo ""
+    warn "On low-resource machines (Oracle Always Free VPS), MySQL may need several"
+    warn "minutes to initialize on first start. If the logs above show MySQL still"
+    warn "starting, wait a moment and re-run: ./setup.sh"
+}
+
+# ---------------------------------------------------------------------------
+# Wait until MySQL inside the DB container is accepting TCP connections.
+# Uses docker inspect to poll the health status (which uses TCP in the
+# docker-compose healthcheck), then does a belt-and-suspenders TCP ping.
 # ---------------------------------------------------------------------------
 wait_for_db_healthy() {
-    local _max=120 _waited=0
-    info "Waiting for MySQL inside event-map-db to become healthy..."
+    local _max=300 _waited=0
+    info "Waiting for MySQL to become ready (timeout ${_max}s)..."
+    info "Note: first startup on a small or low-resource VPS can take several minutes."
+
+    # Phase 1: wait for Docker's health check to report healthy.
+    # The compose healthcheck uses TCP (-h127.0.0.1), so "healthy" means the
+    # port is open — not just that the container process started.
     until [ "$(docker inspect --format '{{.State.Health.Status}}' event-map-db 2>/dev/null)" = "healthy" ]; do
         if [ "$_waited" -ge "$_max" ]; then
-            echo ""
-            echo -e "${RED}[ERROR]${NC} event-map-db did not become healthy within ${_max}s."
-            echo ""
-            echo "  Container status:"
-            docker compose ps
-            echo ""
-            echo "  Recent DB logs:"
-            docker compose logs --tail=30 db
-            exit 1
+            _db_timeout_diagnostics
+            error "event-map-db did not become healthy within ${_max}s."
+        fi
+        sleep 5
+        _waited=$((_waited + 5))
+        if ((_waited % 15 == 0)); then
+            info "  Still waiting for MySQL... ${_waited}s elapsed"
+        fi
+    done
+
+    # Phase 2: belt-and-suspenders — confirm TCP is accepting connections.
+    info "Docker health check passed (${_waited}s). Verifying TCP connectivity..."
+    local _tcp_waited=0 _tcp_max=60
+    until docker exec event-map-db sh -lc \
+            'mysqladmin ping -h127.0.0.1 -P3306 -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" --silent' \
+            >/dev/null 2>&1; do
+        if [ "$_tcp_waited" -ge "$_tcp_max" ]; then
+            _db_timeout_diagnostics
+            error "MySQL TCP port not ready ${_tcp_max}s after health check passed."
         fi
         sleep 3
-        _waited=$((_waited + 3))
+        _tcp_waited=$((_tcp_waited + 3))
+        info "  TCP not yet ready... ${_tcp_waited}s"
     done
-    info "MySQL is healthy (waited ${_waited}s)."
+
+    info "MySQL is ready and accepting TCP connections (waited $((_waited + _tcp_waited))s total)."
 }
 
 # ---------------------------------------------------------------------------
@@ -53,7 +93,7 @@ wait_for_db_healthy() {
 import_sql_container() {
     local _sql_file="$1"
     if ! docker exec -i event-map-db sh -lc \
-            'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"' \
+            'mysql -h127.0.0.1 -P3306 -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"' \
             < "$_sql_file"; then
         echo ""
         echo -e "${RED}[ERROR]${NC} SQL import failed: $_sql_file"
@@ -234,7 +274,7 @@ LOCAL_BACKUP="$HOME/.event-map/backups/event-map-latest.sql.gz"
 # Check if the database already has data before offering restore.
 # Uses the container's own credentials — no host mysql client or root password needed.
 EXISTING=$(docker exec event-map-db sh -lc \
-    'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" -se "SELECT COUNT(*) FROM locations;"' \
+    'mysql -h127.0.0.1 -P3306 -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" -se "SELECT COUNT(*) FROM locations;"' \
     2>/dev/null || echo "0")
 
 if [ "${EXISTING:-0}" -gt 0 ] 2>/dev/null; then
@@ -283,14 +323,14 @@ else
             info "Loading repo baseline seed data..."
             import_sql_container "$SEED_PATH"
             LOC_COUNT=$(docker exec event-map-db sh -lc \
-                'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" -se "SELECT COUNT(*) FROM locations;"' \
+                'mysql -h127.0.0.1 -P3306 -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" -se "SELECT COUNT(*) FROM locations;"' \
                 2>/dev/null || echo "?")
             info "Seed data loaded. Locations: $LOC_COUNT"
             ;;
         local)
             info "Restoring from local backup: $LOCAL_BACKUP"
             if ! zcat "$LOCAL_BACKUP" | docker exec -i event-map-db sh -lc \
-                    'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"'; then
+                    'mysql -h127.0.0.1 -P3306 -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"'; then
                 echo ""
                 echo -e "${RED}[ERROR]${NC} Local backup restore failed."
                 echo ""
@@ -302,7 +342,7 @@ else
                 exit 1
             fi
             LOC_COUNT=$(docker exec event-map-db sh -lc \
-                'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" -se "SELECT COUNT(*) FROM locations;"' \
+                'mysql -h127.0.0.1 -P3306 -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" -se "SELECT COUNT(*) FROM locations;"' \
                 2>/dev/null || echo "?")
             info "Local backup restored. Locations: $LOC_COUNT"
             ;;
