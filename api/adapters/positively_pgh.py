@@ -11,9 +11,9 @@ from adapters.base import BaseAdapter
 import events as _ev_module
 
 _ENDPOINT = "https://portal.cityspark.com/api/events/GetEvents/PopularPittsburgh"
-_PAGE_SIZE = 25
-_MAX_PAGES = 8   # fetch up to 200 events per refresh
-_TIMEOUT = 15    # seconds
+_PAGE_SIZE = 100   # CitySpark returns up to 100 events per response
+_MAX_PAGES = 40    # hard cap: 40 pages × 100 = 4000 events max
+_TIMEOUT = 15      # seconds
 
 # Pittsburgh-area center coordinates used for the CitySpark query.
 # HOME_LAT / HOME_LNG drive the per-query sort; distance is recalculated
@@ -191,10 +191,12 @@ class PositivelyPgh(BaseAdapter):
         seen_ids = set()
         now = datetime.datetime.utcnow()
         start_str = now.strftime("%Y-%m-%dT00:00:00")
-        # Explicit 30-day window: CitySpark returns only today's events when end is null.
         end_str = (now + datetime.timedelta(days=30)).strftime("%Y-%m-%dT23:59:59")
 
-        for page in range(_MAX_PAGES):
+        skip = 0
+        pages_fetched = 0
+
+        while pages_fetched < _MAX_PAGES:
             payload = {
                 "ppid": 8462,
                 "start": start_str,
@@ -209,7 +211,7 @@ class PositivelyPgh(BaseAdapter):
                 "lat": _QUERY_LAT,
                 "lng": _QUERY_LNG,
                 "search": "",
-                "skip": page * _PAGE_SIZE,
+                "skip": skip,
                 "defFilter": "all",
             }
             try:
@@ -222,7 +224,7 @@ class PositivelyPgh(BaseAdapter):
                 resp.raise_for_status()
                 data = resp.json()
             except Exception as e:
-                print(f"[positively_pgh] page {page} fetch error: {e}")
+                print(f"[positively_pgh] skip={skip} fetch error: {e}")
                 break
 
             if not data.get("Success"):
@@ -230,6 +232,9 @@ class PositivelyPgh(BaseAdapter):
                 break
 
             batch = data.get("Value") or []
+            possible = data.get("Possible")  # total available events if provided
+            pages_fetched += 1
+
             for ev in batch:
                 # Skip virtual/online events — not relevant for local in-person listings.
                 if ev.get("isVirtual"):
@@ -241,7 +246,14 @@ class PositivelyPgh(BaseAdapter):
                     seen_ids.add(uid)
                 events.append(_normalize(ev))
 
-            if len(batch) < _PAGE_SIZE:
-                break  # last page
+            if not batch or len(batch) < _PAGE_SIZE:
+                break  # last page — stop
 
+            skip += len(batch)
+
+            # If CitySpark reports a positive total, stop once we've fetched them all.
+            if possible and skip >= possible:
+                break
+
+        print(f"[positively_pgh] {len(events)} events in {pages_fetched} page(s), last skip={skip}")
         return events

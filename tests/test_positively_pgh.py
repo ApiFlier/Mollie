@@ -8,6 +8,7 @@ import os
 import types
 import importlib.util
 import unittest
+import unittest.mock
 
 # ---------------------------------------------------------------------------
 # Stub heavy deps before loading the adapter module.
@@ -409,6 +410,214 @@ class TestRawJsonValidity(unittest.TestCase):
         import inspect
         src = inspect.getsource(_mod.PositivelyPgh.fetch)
         self.assertIn("isVirtual", src)
+
+
+class TestFetchPagination(unittest.TestCase):
+    """Tests for PositivelyPgh.fetch() pagination behavior."""
+
+    _DEFAULT_URL = object()  # sentinel to distinguish "use default" from explicit None
+
+    def _ev(self, pid, date="2026-05-16T10:00:00", virtual=False, free=False,
+            primary_url=_DEFAULT_URL, ticket_url=None):
+        purl = f"https://example.com/{pid}" if primary_url is self._DEFAULT_URL else primary_url
+        return {
+            "PId": pid, "Id": pid,
+            "Name": f"Event {pid}",
+            "DateStart": date, "DateEnd": date,
+            "Venue": "Test Venue", "CityState": "Pittsburgh, PA",
+            "isVirtual": virtual, "Free": free,
+            "Price": None, "PriceHigh": None, "PriceText": None,
+            "PrimaryUrl": purl,
+            "TicketUrl": ticket_url,
+            "Links": [], "Tickets": [],
+            "MediumImg": None, "SmallImg": None,
+            "Address": "123 Main St", "Zip": "15222",
+            "latitude": 40.4406, "longitude": -79.9959,
+            "Short": "Test desc.", "Description": "Longer test description.",
+        }
+
+    def _page(self, events, possible=None, success=True):
+        r = {"Success": success, "Value": events}
+        if possible is not None:
+            r["Possible"] = possible
+        return r
+
+    def _mock_requests(self, pages):
+        """Return a mock requests module that serves pages in sequence."""
+        idx = [0]
+
+        def _post(url, **kwargs):
+            i = idx[0]
+            idx[0] += 1
+            m = unittest.mock.MagicMock()
+            m.raise_for_status.return_value = None
+            m.json.return_value = pages[i] if i < len(pages) else self._page([])
+            return m
+
+        mock_req = unittest.mock.MagicMock()
+        mock_req.post.side_effect = _post
+        return mock_req
+
+    def _skips(self, mock_req):
+        """Extract skip values from recorded requests.post calls."""
+        return [c.kwargs["json"]["skip"] for c in mock_req.post.call_args_list]
+
+    # ── Pagination ────────────────────────────────────────────────────────────
+
+    def test_paginates_three_pages_and_includes_future_events(self):
+        """Adapter fetches until a short batch, and future-day events from later pages appear."""
+        ps = _mod._PAGE_SIZE
+        today_evs    = [self._ev(i,       "2026-05-16T10:00:00") for i in range(ps)]
+        tomorrow_evs = [self._ev(i+ps,    "2026-05-17T10:00:00") for i in range(ps)]
+        future_evs   = [self._ev(i+2*ps,  "2026-05-18T14:00:00") for i in range(ps // 2)]
+
+        pages = [
+            self._page(today_evs),
+            self._page(tomorrow_evs),
+            self._page(future_evs),   # fewer than _PAGE_SIZE → stops here
+        ]
+        mock_req = self._mock_requests(pages)
+        with unittest.mock.patch.object(_mod, "requests", mock_req):
+            result = _mod.PositivelyPgh().fetch()
+
+        self.assertEqual(mock_req.post.call_count, 3)
+        self.assertEqual(self._skips(mock_req), [0, ps, ps * 2])
+
+        # Future events from page 2 and 3 must be present
+        titles = {e["title"] for e in result}
+        self.assertTrue(any(f"Event {ps}" in t for t in titles), "page-2 (tomorrow) events missing")
+        self.assertTrue(any(f"Event {2*ps}" in t for t in titles), "page-3 (May 18) events missing")
+
+    def test_future_event_date_preserved(self):
+        """start_datetime of a future event must not be altered."""
+        evs = [self._ev(1, date="2026-05-18T14:00:00")]
+        mock_req = self._mock_requests([self._page(evs)])
+        with unittest.mock.patch.object(_mod, "requests", mock_req):
+            result = _mod.PositivelyPgh().fetch()
+        self.assertIn("2026-05-18", result[0]["start_datetime"])
+
+    # ── Stop conditions ───────────────────────────────────────────────────────
+
+    def test_stops_when_value_is_empty(self):
+        """A full page followed by an empty page must stop after the second request."""
+        ps = _mod._PAGE_SIZE
+        pages = [
+            self._page([self._ev(i) for i in range(ps)]),  # full page → request page 2
+            self._page([]),                                  # empty → stop
+        ]
+        mock_req = self._mock_requests(pages)
+        with unittest.mock.patch.object(_mod, "requests", mock_req):
+            result = _mod.PositivelyPgh().fetch()
+        self.assertEqual(mock_req.post.call_count, 2)
+        self.assertEqual(len(result), ps)
+
+    def test_stops_when_batch_smaller_than_page_size(self):
+        """A partial page must stop pagination."""
+        ps = _mod._PAGE_SIZE
+        pages = [
+            self._page([self._ev(i)    for i in range(ps)]),        # full page
+            self._page([self._ev(i+ps) for i in range(ps // 4)]),   # partial → stop
+        ]
+        mock_req = self._mock_requests(pages)
+        with unittest.mock.patch.object(_mod, "requests", mock_req):
+            result = _mod.PositivelyPgh().fetch()
+        self.assertEqual(mock_req.post.call_count, 2)
+        self.assertEqual(len(result), ps + ps // 4)
+
+    def test_stops_at_max_pages_cap(self):
+        """Must not exceed _MAX_PAGES even when CitySpark keeps returning full pages."""
+        def _infinite_post(url, **kwargs):
+            skip = kwargs["json"]["skip"]
+            m = unittest.mock.MagicMock()
+            m.raise_for_status.return_value = None
+            evs = [self._ev(skip + i) for i in range(25)]
+            m.json.return_value = self._page(evs)
+            return m
+
+        mock_req = unittest.mock.MagicMock()
+        mock_req.post.side_effect = _infinite_post
+        with unittest.mock.patch.object(_mod, "requests", mock_req):
+            _mod.PositivelyPgh().fetch()
+
+        self.assertLessEqual(mock_req.post.call_count, _mod._MAX_PAGES)
+
+    def test_stops_when_possible_count_reached(self):
+        """When Possible equals the batch size, must not request a second page."""
+        ps = _mod._PAGE_SIZE
+        evs = [self._ev(i) for i in range(ps)]
+        pages = [self._page(evs, possible=ps)]  # tells us exactly ps events exist
+        mock_req = self._mock_requests(pages)
+        with unittest.mock.patch.object(_mod, "requests", mock_req):
+            result = _mod.PositivelyPgh().fetch()
+        self.assertEqual(mock_req.post.call_count, 1)
+        self.assertEqual(len(result), ps)
+
+    # ── Existing behavior preserved ───────────────────────────────────────────
+
+    def test_virtual_events_skipped(self):
+        evs = [
+            self._ev(1, virtual=False),
+            self._ev(2, virtual=True),   # must not appear in results
+            self._ev(3, virtual=False),
+        ]
+        mock_req = self._mock_requests([self._page(evs)])
+        with unittest.mock.patch.object(_mod, "requests", mock_req):
+            result = _mod.PositivelyPgh().fetch()
+        ids = {e["source_event_id"] for e in result}
+        self.assertIn("1", ids)
+        self.assertNotIn("2", ids)
+        self.assertIn("3", ids)
+
+    def test_free_true_sets_admission_free(self):
+        evs = [self._ev(1, free=True)]
+        mock_req = self._mock_requests([self._page(evs)])
+        with unittest.mock.patch.object(_mod, "requests", mock_req):
+            result = _mod.PositivelyPgh().fetch()
+        self.assertEqual(result[0]["admission"], "Free")
+
+    def test_primary_url_null_falls_back_to_ticket_url(self):
+        ev = self._ev(1, primary_url=None, ticket_url="https://tickets.com/test")
+        mock_req = self._mock_requests([self._page([ev])])
+        with unittest.mock.patch.object(_mod, "requests", mock_req):
+            result = _mod.PositivelyPgh().fetch()
+        self.assertEqual(result[0]["source_url"], "https://tickets.com/test")
+
+    def test_links_fallback_when_primary_and_ticket_null(self):
+        ev = self._ev(1, primary_url=None)
+        ev["TicketUrl"] = None
+        ev["Links"] = [{"url": "https://links.com/event"}]
+        mock_req = self._mock_requests([self._page([ev])])
+        with unittest.mock.patch.object(_mod, "requests", mock_req):
+            result = _mod.PositivelyPgh().fetch()
+        self.assertEqual(result[0]["source_url"], "https://links.com/event")
+
+    def test_raw_source_json_valid_and_not_truncated(self):
+        import json as _json
+        ev = self._ev(1)
+        ev["Description"] = "X" * 5000  # exceeds old 4000-char limit
+        mock_req = self._mock_requests([self._page([ev])])
+        with unittest.mock.patch.object(_mod, "requests", mock_req):
+            result = _mod.PositivelyPgh().fetch()
+        raw = result[0]["raw_source_json"]
+        parsed = _json.loads(raw)   # must not raise
+        self.assertIsInstance(parsed, dict)
+        self.assertEqual(len(parsed["Description"]), 5000)
+
+    def test_duplicate_ids_not_double_counted(self):
+        """Same CitySpark ID appearing on two pages must produce only one event."""
+        ps = _mod._PAGE_SIZE
+        ev1 = self._ev(9999, "2026-05-16T10:00:00")
+        ev2 = self._ev(9999, "2026-05-16T10:00:00")   # same PId/Id
+        filler = [self._ev(i) for i in range(ps - 1)]
+        pages = [
+            self._page([ev1] + filler),   # full page (ev1 + ps-1 fillers)
+            self._page([ev2]),             # duplicate on page 2 (partial → stop)
+        ]
+        mock_req = self._mock_requests(pages)
+        with unittest.mock.patch.object(_mod, "requests", mock_req):
+            result = _mod.PositivelyPgh().fetch()
+        ids = [e["source_event_id"] for e in result]
+        self.assertEqual(ids.count("9999"), 1)
 
 
 if __name__ == "__main__":
