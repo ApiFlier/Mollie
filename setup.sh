@@ -360,29 +360,24 @@ echo ""
 echo "--- Step 7: Verify ---"
 echo ""
 
-sleep 5
+info "Waiting for app to become healthy (up to 60s — Gunicorn and migrations need time)..."
+HEALTH_RESP="unreachable"
+for _i in $(seq 1 30); do
+    RESP="$(curl -sf "http://127.0.0.1:${ACTUAL_APP_PORT}/health" 2>/dev/null || true)"
+    if echo "$RESP" | grep -q '"ok"'; then
+        HEALTH_RESP="$RESP"
+        break
+    fi
+    sleep 2
+done
 
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-    "http://127.0.0.1:${ACTUAL_APP_PORT}" 2>/dev/null || echo "000")
-if [ "$HTTP_CODE" = "200" ]; then
-    info "App is responding on port ${ACTUAL_APP_PORT}."
-else
-    warn "Port ${ACTUAL_APP_PORT} not yet responding (HTTP $HTTP_CODE). Give it a moment."
-fi
-
-HEALTH_OK=0
-if curl -s "http://127.0.0.1:${ACTUAL_APP_PORT}/health" 2>/dev/null \
-        | grep -q '"ok":.*true'; then
-    HEALTH_OK=1
-elif curl -s "http://127.0.0.1:${ACTUAL_APP_PORT}/api/health" 2>/dev/null \
-        | grep -q '"ok":.*true'; then
-    HEALTH_OK=1
-fi
-
-if [ $HEALTH_OK -eq 1 ]; then
+if [ "$HEALTH_RESP" != "unreachable" ]; then
     info "API health check passed."
 else
-    warn "API health check did not respond. Check: docker compose logs event-map-app"
+    warn "App did not respond within 60s."
+    warn "Check: docker compose logs app"
+    warn "On slow servers, Gunicorn and migrations can take several minutes."
+    warn "If the app is still starting, wait a moment then re-run: ./setup.sh"
 fi
 
 # ---------------------------------------------------------------------------
@@ -402,11 +397,8 @@ echo ""
 echo "  Point a domain at this server's IP and enable"
 echo "  Cloudflare proxy for automatic HTTPS."
 echo ""
-echo "  To take a local backup (saves to ~/.event-map/backups/):"
-echo "    ./scripts/backup-db.sh"
-echo ""
-echo "  To also refresh the repo baseline seed file:"
-echo "    ./scripts/backup-db.sh --update-seed"
+echo "  For all ongoing operations (backup, update, troubleshoot, seed):"
+echo "    ./menu.sh"
 echo ""
 
 # ---------------------------------------------------------------------------
