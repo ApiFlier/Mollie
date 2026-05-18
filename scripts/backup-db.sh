@@ -10,10 +10,10 @@
 #   ./scripts/backup-db.sh           # full backup (recommended)
 #
 # To refresh api/data/seed.sql (the public repo baseline), use:
-#   ./update-seed.sh
+#   scripts/commands/update-seed.sh
 #
 # The --update-seed flag is kept for backward compatibility but redirects
-# to ./update-seed.sh.
+# to scripts/commands/update-seed.sh.
 # =============================================================================
 
 set -e
@@ -76,13 +76,13 @@ info "  Latest:      $LATEST_BACKUP"
 
 if [ "$UPDATE_SEED" = true ]; then
     echo ""
-    warn "--update-seed has moved to the root-level ./update-seed.sh"
+    warn "--update-seed redirects to scripts/commands/update-seed.sh"
     warn "The dedicated tool excludes runtime event cache data and resets"
     warn "runtime timestamps for a clean public repo baseline."
     echo ""
-    info "Running: ./update-seed.sh"
+    info "Running: scripts/commands/update-seed.sh"
     echo ""
-    exec "$APP_DIR/update-seed.sh"
+    exec "$APP_DIR/scripts/commands/update-seed.sh"
 fi
 
 echo ""
@@ -96,5 +96,5 @@ echo "    zcat $LATEST_BACKUP | docker exec -i event-map-db sh -lc \\"
 echo "      'mysql -h127.0.0.1 -P3306 -u\"\$MYSQL_USER\" -p\"\$MYSQL_PASSWORD\" \"\$MYSQL_DATABASE\"'"
 echo ""
 echo "  To refresh api/data/seed.sql (public repo baseline):"
-echo "    ./update-seed.sh"
+echo "    scripts/commands/update-seed.sh"
 echo ""

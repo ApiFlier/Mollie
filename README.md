@@ -23,15 +23,16 @@ docker compose version
 
 Both commands must succeed before proceeding.
 
-### 3. Clone, configure, and run
+### 3. Clone and start
+
 ```bash
 git clone https://github.com/ApiFlier/event-map.git event-map
 cd event-map
-chmod +x setup.sh
-./setup.sh
+chmod +x menu.sh
+./menu.sh
 ```
 
-`setup.sh` will:
+Choose **[1] Start here: set up the app**. The setup step will:
 - Generate `.env` automatically with random passwords and secrets
 - Create a default admin account (`meeks` / `meeks`) — **change the password at first login**
 - Find an available host port automatically (starting at 8090)
@@ -52,16 +53,16 @@ No external API keys required.
 ./menu.sh
 ```
 
-The menu handles setup, update, backup, seed management, troubleshooting, and status — no need to remember individual script names.
+The menu handles setup, update, backup, troubleshooting, status, and advanced seed tools — no need to remember individual script names. Most people should only need `./menu.sh`.
 
-Advanced users can call helper scripts under `scripts/commands/` directly. Do not run seed publishing unless you understand that `api/data/seed.sql` may be public on GitHub.
+Advanced users can call scripts under `scripts/commands/` directly. Do not run seed publishing unless you understand that `api/data/seed.sql` may be public on GitHub.
 
 | Command | Purpose |
 |---------|---------|
 | `./menu.sh` | **Main entry point** — interactive menu for all operations |
-| `./setup.sh` | First-time setup — builds containers, generates secrets, loads seed data |
-| `./update.sh` | Pull latest code and rebuild the app container |
-| `scripts/commands/backup.sh` | Back up the running database to `~/.event-map/backups/` |
+| `./setup.sh` | First-time setup (also available via menu option [1]) |
+| `./update.sh` | Pull latest code and rebuild (also available via menu option [2]) |
+| `scripts/commands/backup.sh` | Back up the database to `~/.event-map/backups/` |
 | `scripts/commands/seed.sh` | Seed workflow: refresh, review, or publish `api/data/seed.sql` |
 | `scripts/commands/troubleshoot.sh` | Diagnose issues; optionally restart or rebuild containers |
 
