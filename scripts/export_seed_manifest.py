@@ -3,20 +3,34 @@ import os
 import sys
 import hashlib
 import re
+import mysql.connector
+import decimal
 
-# Allow direct import of api/ modules
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "api"))
-from app import get_conn
+
+def _get_direct_conn():
+    """Single direct (non-pooled) connection using the container env vars.
+
+    Avoids importing app.py, which would create a 15-connection pool and exceed
+    MySQL's max_connections=20 while the app container is already running.
+    """
+    return mysql.connector.connect(
+        host=os.environ.get("DB_HOST", "db"),
+        database=os.environ.get("DB_NAME", "event_map"),
+        user=os.environ.get("DB_USER", "event_map"),
+        password=os.environ.get("DB_PASSWORD", ""),
+        connection_timeout=10,
+    )
+
 
 def generate_seed_key(category_name, location_name):
-    # e.g., hiking-trails_beechwood_farms_nature_reserve
     cat = str(category_name).lower().strip()
     loc = str(location_name).lower().strip()
     slug = re.sub(r'[^a-z0-9]+', '_', f"{cat}_{loc}")
     return slug[:128]
 
+
 def hash_seed_data(loc_dict):
-    keys = ["name", "category_name", "county", "address", "city", "state", "zip", 
+    keys = ["name", "category_name", "county", "address", "city", "state", "zip",
             "lat", "lng", "website", "season_start_month", "season_end_month", "notes"]
     parts = []
     for k in keys:
@@ -30,50 +44,47 @@ def hash_seed_data(loc_dict):
     raw = "|".join(parts)
     return hashlib.md5(raw.encode('utf-8')).hexdigest()
 
+
+def _clean(d):
+    """Coerce Decimal to float so json.dumps doesn't choke."""
+    for k, v in list(d.items()):
+        if isinstance(v, decimal.Decimal):
+            d[k] = float(v)
+    return d
+
+
 def export_manifest():
-    conn = get_conn()
+    conn = _get_direct_conn()
     cur = conn.cursor(dictionary=True)
 
-    cur.execute("SELECT id, name, icon, color, display_order FROM categories")
+    cur.execute("SELECT id, name, icon, color, display_order FROM categories ORDER BY display_order")
     categories = cur.fetchall()
-
     cat_id_to_name = {c["id"]: c["name"] for c in categories}
 
+    # Export all curated locations (everything except runtime external_events).
+    # The old filter used seed_managed=TRUE which no longer exists in the live DB.
     cur.execute(
         "SELECT id, name, category_id, county, address, city, state, zip, lat, lng, "
         "phone, alt_phone, fax, email, website, facebook_url, hours, event_date, "
         "season_start_month, season_end_month, payment_methods, amenities, "
-        "organic, pesticide_free, low_chemical, notes, source_url, seed_managed "
+        "organic, pesticide_free, low_chemical, notes, source_url "
         "FROM locations "
-        "WHERE seed_managed = TRUE OR category_id IN (SELECT id FROM categories WHERE name IN ('hiking-trails', 'butcher'))"
+        "ORDER BY category_id, name"
     )
     locations = cur.fetchall()
 
-    def clean_dict(d):
-        for k, v in list(d.items()):
-            if v is not None:
-                if hasattr(v, "normalize"): # Decimal
-                    d[k] = float(v)
-        return d
-
     manifest_locs = []
     for loc in locations:
-        clean_dict(loc)
+        _clean(loc)
         cat_name = cat_id_to_name.get(loc.get("category_id"), "")
         loc["category_name"] = cat_name
-        
-        # Calculate seed_key and seed_hash
         s_key = generate_seed_key(cat_name, loc["name"])
         s_hash = hash_seed_data(loc)
-        loc["seed_key"] = s_key
-        loc["seed_hash"] = s_hash
-        
-        # We only want to export the fields that are actually managed by the seed
         manifest_locs.append({
             "seed_key": s_key,
             "seed_hash": s_hash,
             "name": loc.get("name"),
-            "category_name": loc.get("category_name"),
+            "category_name": cat_name,
             "county": loc.get("county"),
             "address": loc.get("address"),
             "city": loc.get("city"),
@@ -84,19 +95,19 @@ def export_manifest():
             "website": loc.get("website"),
             "season_start_month": loc.get("season_start_month"),
             "season_end_month": loc.get("season_end_month"),
-            "notes": loc.get("notes")
+            "notes": loc.get("notes"),
         })
 
     manifest = {
         "categories": categories,
-        "locations": manifest_locs
+        "locations": manifest_locs,
     }
 
-    # Print to stdout so bash can redirect it
     print(json.dumps(manifest, indent=2))
 
     cur.close()
     conn.close()
+
 
 if __name__ == "__main__":
     export_manifest()
