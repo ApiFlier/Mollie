@@ -414,10 +414,13 @@ echo ""
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Offer to remove local source files (the running app and volumes are unaffected,
 # but .env, .htpasswd, docker-compose.yml, and scripts/ live here too — warn the user).
-echo "  WARNING: This deletes ALL files in $REPO_DIR, including .env,"
-echo "           .htpasswd, docker-compose.yml, and scripts/."
-echo "           You will not be able to restart, update, or back up the"
-echo "           app without re-cloning the repo and re-running setup.sh."
+warn "────────────────────────────────────────────────────────"
+warn "DANGER: The next step permanently deletes ALL local source"
+warn "files in $REPO_DIR — including .env, .htpasswd,"
+warn "docker-compose.yml, and scripts/. You will lose the ability"
+warn "to restart, update, or back up the app until you re-clone."
+warn "Default is NO. Only type 'y' if you are absolutely sure."
+warn "────────────────────────────────────────────────────────"
 printf "Delete local source files now? [y/N] "
 DEL_CHOICE=""
 read -r DEL_CHOICE < /dev/tty || true

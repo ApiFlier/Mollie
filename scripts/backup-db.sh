@@ -59,6 +59,12 @@ info "Writing backup..."
 docker exec event-map-db sh -lc \
     'mysqldump -h127.0.0.1 -P3306 -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines --triggers "$MYSQL_DATABASE"' \
     | gzip > "$TS_BACKUP"
+
+if [ ! -s "$TS_BACKUP" ]; then
+    rm -f "$TS_BACKUP"
+    error "Backup file is empty — mysqldump produced no output. The latest backup was NOT replaced."
+fi
+
 cp "$TS_BACKUP" "$LATEST_BACKUP"
 
 _size="$(du -h "$TS_BACKUP" | cut -f1)"

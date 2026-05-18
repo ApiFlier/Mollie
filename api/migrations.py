@@ -37,8 +37,9 @@ def _sync_seed(conn, cur):
     stats = {
         "added": 0,
         "updated": 0,
-        "skipped_user_modified": 0,
-        "soft_removed": 0
+        "backfilled": 0,
+        "soft_removed": 0,
+        "skipped_user_modified": 0
     }
 
     print(f"[migrations] Syncing {len(categories)} categories and {len(locations)} locations from seed manifest...")
@@ -86,6 +87,7 @@ def _sync_seed(conn, cur):
                 cur.execute("UPDATE locations SET seed_key = %s, seed_managed = TRUE WHERE id = %s", (seed_key, db_L["id"]))
                 db_L["seed_key"] = seed_key
                 db_L["seed_managed"] = True
+                stats["backfilled"] += 1
 
         if not db_L:
             # INSERT new seed-managed location
@@ -103,19 +105,14 @@ def _sync_seed(conn, cur):
 
         else:
             loc_id = db_L["id"]
-            
-            is_seed_managed = db_L.get("seed_managed")
             is_user_modified = db_L.get("user_modified")
             current_hash = db_L.get("seed_hash")
 
             if is_user_modified:
                 stats["skipped_user_modified"] += 1
-                # Even if user modified, ensure seed_key is set (for future reference)
-                if not is_seed_managed or db_L.get("seed_key") != seed_key:
-                    cur.execute("UPDATE locations SET seed_managed = TRUE, seed_key = %s WHERE id = %s", (seed_key, loc_id))
             else:
-                if not is_seed_managed or current_hash != seed_hash or db_L.get("hidden") == True:
-                    # Fully overwrite with seed manifest data because hash differs (or reactivating)
+                if not db_L.get("seed_managed") or current_hash != seed_hash or db_L.get("hidden"):
+                    # Fully update managed fields because hash differs (or reactivating)
                     cols = ["name", "county", "address", "city", "state", "zip", "lat", "lng",
                             "website", "season_start_month", "season_end_month", "notes"]
                     
@@ -139,6 +136,7 @@ def _sync_seed(conn, cur):
                     
                     if getattr(cur, "rowcount", 1) > 0:
                         stats["updated"] += 1
+                        print(f"[migrations]   Updated location: {name}")
 
     conn.commit()
 
@@ -154,7 +152,7 @@ def _sync_seed(conn, cur):
             print(f"[migrations] Soft-hidden {cur.rowcount} seed-managed locations no longer in manifest.")
         conn.commit()
     
-    print(f"[migrations] Seed sync complete: {stats['added']} added rows, {stats['updated']} updated rows, {stats['soft_removed']} soft-removed/deactivated rows, {stats['skipped_user_modified']} skipped user-modified rows.")
+    print(f"[migrations] Seed sync complete: {stats['added']} added, {stats['updated']} updated, {stats['backfilled']} backfilled, {stats['soft_removed']} soft-removed, {stats['skipped_user_modified']} skipped user-modified.")
 
 def ensure_app_migrations(conn):
     """Create app_migrations table and sync seed data."""

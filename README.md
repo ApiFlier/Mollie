@@ -46,11 +46,16 @@ No external API keys required.
 
 ## Common commands
 
+`./manage.sh` opens an all-in-one menu for every operation below. Or call scripts directly:
+
 | Command | Purpose |
 |---------|---------|
+| `./manage.sh` | All-in-one menu — setup, update, backup, seed, troubleshoot |
 | `./setup.sh` | First-time setup — builds containers, generates secrets, loads seed data |
 | `./update.sh` | Pull latest code and rebuild the app container |
-| `./update-seed.sh` | Refresh `api/data/seed.sql` from the current curated database |
+| `./backup.sh` | Back up the running database to `~/.event-map/backups/` |
+| `./seed.sh` | Interactive menu: refresh, review, or publish `api/data/seed.sql` |
+| `./troubleshoot.sh` | Diagnose issues — check containers and health; optionally restart or rebuild |
 
 ---
 
@@ -174,7 +179,7 @@ Locations are geocoded using coordinates from public directories, the US Census 
 ### Regular local backup
 
 ```bash
-./scripts/backup-db.sh
+./backup.sh
 ```
 
 Saves a full compressed backup in two forms:
@@ -192,7 +197,9 @@ Run this before making any significant data changes. Backups live outside the re
 > Only refresh it when you intentionally want future fresh installs to start with the current curated data.
 > Always inspect `git diff api/data/seed.sql` before committing — do not commit if you see private data.
 
-There are two ways to create a seed snapshot:
+**Quickest path:** run `./seed.sh` — it presents a menu to refresh, review, or publish the seed in one place without remembering which script to call.
+
+There are two underlying ways to create a seed snapshot:
 
 #### Option A: Admin panel (recommended for Mollie/Charlie)
 

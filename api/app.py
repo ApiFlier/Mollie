@@ -1030,10 +1030,16 @@ def admin_seed_snapshot():
     })
 
 
-if __name__ == "__main__":
+def _startup():
+    """Run once on process startup: create/migrate tables and recalculate distances."""
     _conn = get_conn()
     _events.ensure_tables(_conn)
     _migrations.ensure_app_migrations(_conn)
     _events.recalculate_all_distances(_conn)
     _conn.close()
+
+# Runs when the module is imported — covers both `gunicorn app:app` and `python app.py`.
+_startup()
+
+if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
