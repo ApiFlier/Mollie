@@ -387,17 +387,17 @@ class TestHikingTrailsScheduleInAdmin(unittest.TestCase):
             "hiking-trails should appear in the condition that controls secSchedule visibility")
 
     def test_publish_seed_sh_exists(self):
-        path = os.path.join(os.path.dirname(__file__), "..", "publish-seed.sh")
+        path = os.path.join(os.path.dirname(__file__), "..", "scripts", "commands", "publish-seed.sh")
         self.assertTrue(os.path.exists(path))
 
     def test_publish_seed_sh_bash_syntax(self):
         import subprocess
-        path = os.path.join(os.path.dirname(__file__), "..", "publish-seed.sh")
+        path = os.path.join(os.path.dirname(__file__), "..", "scripts", "commands", "publish-seed.sh")
         result = subprocess.run(["bash", "-n", path], capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, f"bash -n failed: {result.stderr}")
 
     def test_publish_seed_sh_is_executable(self):
-        path = os.path.join(os.path.dirname(__file__), "..", "publish-seed.sh")
+        path = os.path.join(os.path.dirname(__file__), "..", "scripts", "commands", "publish-seed.sh")
         self.assertTrue(os.access(path, os.X_OK))
 
 
