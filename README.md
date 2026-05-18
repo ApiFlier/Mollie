@@ -46,16 +46,24 @@ No external API keys required.
 
 ## Common commands
 
-`./manage.sh` opens an all-in-one menu for every operation below. Or call scripts directly:
+**Start here:**
+
+```bash
+./menu.sh
+```
+
+The menu handles setup, update, backup, seed management, troubleshooting, and status — no need to remember individual script names.
+
+Advanced users can call helper scripts under `scripts/commands/` directly. Do not run seed publishing unless you understand that `api/data/seed.sql` may be public on GitHub.
 
 | Command | Purpose |
 |---------|---------|
-| `./manage.sh` | All-in-one menu — setup, update, backup, seed, troubleshoot |
+| `./menu.sh` | **Main entry point** — interactive menu for all operations |
 | `./setup.sh` | First-time setup — builds containers, generates secrets, loads seed data |
 | `./update.sh` | Pull latest code and rebuild the app container |
-| `./backup.sh` | Back up the running database to `~/.event-map/backups/` |
-| `./seed.sh` | Interactive menu: refresh, review, or publish `api/data/seed.sql` |
-| `./troubleshoot.sh` | Diagnose issues — check containers and health; optionally restart or rebuild |
+| `scripts/commands/backup.sh` | Back up the running database to `~/.event-map/backups/` |
+| `scripts/commands/seed.sh` | Seed workflow: refresh, review, or publish `api/data/seed.sql` |
+| `scripts/commands/troubleshoot.sh` | Diagnose issues; optionally restart or rebuild containers |
 
 ---
 
@@ -179,7 +187,9 @@ Locations are geocoded using coordinates from public directories, the US Census 
 ### Regular local backup
 
 ```bash
-./backup.sh
+./menu.sh   # then choose [3] Back up the database
+# or directly:
+scripts/commands/backup.sh --quick
 ```
 
 Saves a full compressed backup in two forms:
@@ -197,7 +207,7 @@ Run this before making any significant data changes. Backups live outside the re
 > Only refresh it when you intentionally want future fresh installs to start with the current curated data.
 > Always inspect `git diff api/data/seed.sql` before committing — do not commit if you see private data.
 
-**Quickest path:** run `./seed.sh` — it presents a menu to refresh, review, or publish the seed in one place without remembering which script to call.
+**Quickest path:** run `./menu.sh → [7] Advanced tools → Seed workflow` — it presents a menu to refresh, review, or publish the seed without remembering which script to call. Or run `scripts/commands/seed.sh` directly.
 
 There are two underlying ways to create a seed snapshot:
 
@@ -209,13 +219,13 @@ There are two underlying ways to create a seed snapshot:
 
 This updates `api/data/seed.sql` in the local repo immediately. A timestamped backup is created automatically at `api/data/backups/seed-TIMESTAMP.sql` (not committed — covered by `.gitignore`).
 
-The admin snapshot updates the **local repo file only**. To publish it to GitHub, run:
+The admin snapshot updates the **local repo file only**. To publish it to GitHub, use the seed workflow menu (`./menu.sh → [7] → Seed workflow → [3]`) or run:
 
 ```bash
-./publish-seed.sh
+scripts/commands/publish-seed.sh
 ```
 
-`publish-seed.sh` is a beginner-friendly script that:
+`publish-seed.sh` is a step-by-step script that:
 - Shows the git diff so you can review what changed
 - Asks for a commit message (default: `Update Mollie seed data`)
 - Commits only seed-related files unless you choose otherwise
@@ -225,7 +235,7 @@ The admin snapshot updates the **local repo file only**. To publish it to GitHub
 #### Option B: Terminal (full-featured)
 
 ```bash
-./update-seed.sh
+scripts/commands/update-seed.sh
 ```
 
 `update-seed.sh` guides you through the full backup-and-verify workflow:

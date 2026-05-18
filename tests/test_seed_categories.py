@@ -18,7 +18,7 @@ import unittest
 from pathlib import Path
 
 SEED_PATH = Path(__file__).parent.parent / "api" / "data" / "seed.sql"
-UPDATE_SEED_PATH = Path(__file__).parent.parent / "update-seed.sh"
+UPDATE_SEED_PATH = Path(__file__).parent.parent / "scripts" / "commands" / "update-seed.sh"
 
 
 def _read_seed():
