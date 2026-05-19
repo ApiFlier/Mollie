@@ -784,12 +784,9 @@ h1 .subtitle {
   display: flex;
 }
 
-/* Desktop: expand by default */
-@media (min-width: 641px) {
-  .map-filters-panel {
-    display: flex;
-  }
-}
+/* Panel open/closed state is managed entirely by JS (setMapFiltersOpen).
+   The media-query default-open override was removed because it prevented
+   the Refine toggle from closing the panel on desktop. */
 
 .map-filter-summary {
   flex: 1;

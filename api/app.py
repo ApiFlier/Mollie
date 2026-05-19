@@ -199,7 +199,7 @@ def get_categories():
     conn = get_conn()
     try:
         cur = conn.cursor(dictionary=True)
-        cur.execute("SELECT * FROM categories ORDER BY id")
+        cur.execute("SELECT * FROM categories ORDER BY display_order, id")
         res = cur.fetchall()
         cur.close()
         return jsonify(res)

@@ -105,7 +105,7 @@ const AdminList = (() => {
       categories.forEach(function(c) {
         var opt = document.createElement("option");
         opt.value = c.name;
-        opt.textContent = c.name.replace(/-/g, " ");
+        opt.textContent = c.name.charAt(0).toUpperCase() + c.name.slice(1).replace(/-/g, " ");
         categoryFilterEl.appendChild(opt);
       });
 
@@ -1232,6 +1232,7 @@ var AdminSettings = (function() {
       html += '</div>';
     });
 
+    html += '<p class="settings-fixed-note">Map category filter and crop/activity defaults are always <em>All categories</em> and <em>Any crop</em>.</p>';
     html += '<div class="settings-actions">';
     html += '<button class="btn btn-primary" id="settings-save-btn" type="button">Save Settings</button>';
     html += '<span class="settings-feedback" id="settings-feedback" aria-live="polite"></span>';

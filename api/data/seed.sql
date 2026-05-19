@@ -208,7 +208,7 @@ CREATE TABLE `user_notes` (
 
 LOCK TABLES `categories` WRITE;
 /*!40000 ALTER TABLE `categories` DISABLE KEYS */;
-INSERT INTO `categories` VALUES (2,'farm','apple','#2e6b3e',10),(3,'farmers-market','basket','#7a8b5a',20),(4,'festival','party','#9C27B0',30),(5,'fair','ferris-wheel','#FFD700',40),(6,'other','pin','#c4633a',50),(8,'butcher','shop','#7f1d1d',55);
+INSERT INTO `categories` VALUES (2,'farm','apple','#2e6b3e',10),(3,'farmers-market','basket','#7a8b5a',20),(4,'festival','party','#9C27B0',30),(5,'fair','ferris-wheel','#FFD700',40),(8,'butcher','shop','#7f1d1d',55),(9,'hiking-trails','trail','#5e9e6e',57),(6,'other','pin','#c4633a',90);
 /*!40000 ALTER TABLE `categories` ENABLE KEYS */;
 UNLOCK TABLES;
 
