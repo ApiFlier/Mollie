@@ -201,8 +201,9 @@ def _is_stale(conn, source_key):
 
 
 def any_source_stale(conn):
+    enabled = get_enabled_source_keys(conn)
     for key in _ADAPTERS:
-        if _is_stale(conn, key):
+        if key in enabled and _is_stale(conn, key):
             return True
     return False
 
@@ -585,17 +586,20 @@ def refresh_source(conn, source_key):
 
 def refresh_all(conn):
     """Refresh all enabled sources. Returns {source_key: count}."""
+    enabled = get_enabled_source_keys(conn)
     results = {}
     for key in list(_ADAPTERS.keys()):
-        results[key] = refresh_source(conn, key)
+        if key in enabled:
+            results[key] = refresh_source(conn, key)
     return results
 
 
 def refresh_all_stale(conn):
-    """Refresh only stale sources."""
+    """Refresh only stale enabled sources."""
+    enabled = get_enabled_source_keys(conn)
     results = {}
     for key in list(_ADAPTERS.keys()):
-        if _is_stale(conn, key):
+        if key in enabled and _is_stale(conn, key):
             results[key] = refresh_source(conn, key)
     return results
 
