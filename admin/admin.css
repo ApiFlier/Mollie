@@ -802,3 +802,88 @@ table.locations-table {
   color: var(--ink-soft);
   margin: 0.25rem 0 1rem;
 }
+
+/* ── Settings tab: sub-sections (Category Colors, Seed Snapshot) ─────────── */
+.settings-section {
+  max-width: 600px;
+  padding: 1.5rem 0;
+  border-top: 1px solid var(--line);
+  margin-top: 0.5rem;
+}
+.settings-section p {
+  margin-bottom: 0.75rem;
+  line-height: 1.5;
+}
+.settings-section code {
+  background: #f3f3f3;
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+/* ── form-footer: back on left, actions on right ────────────────────────── */
+.form-footer-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+/* ── Pin picker modal ────────────────────────────────────────────────────── */
+.modal-map {
+  max-width: 700px;
+  width: 100%;
+}
+
+#pin-picker-map {
+  height: 350px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+
+.pin-picker-hint {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin: 0 0 10px;
+  line-height: 1.4;
+}
+
+.pin-picker-footer {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pin-picker-coords-label {
+  font-size: 12px;
+  color: var(--ink-soft);
+  font-family: monospace;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Pin button aligned to bottom of the lat/lng row */
+.field-pin-btn {
+  align-self: flex-end;
+  flex-shrink: 0;
+}
+.field-pin-btn button {
+  white-space: nowrap;
+}
+
+/* ── Mobile tab sizing for 3 tabs ────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .admin-tab {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  #pin-picker-map {
+    height: 260px;
+  }
+}

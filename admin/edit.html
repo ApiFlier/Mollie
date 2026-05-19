@@ -10,13 +10,13 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/admin/admin.css?v=20260519a">
+  <link rel="stylesheet" href="/admin/admin.css?v=20260519b">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
 <body>
   <header class="admin-header">
     <h1><a href="/">Event Map</a><span class="subtitle">Admin</span></h1>
     <div class="actions">
-      <a href="/admin/" class="btn btn-secondary">&larr; Back to list</a>
       <button type="button" class="btn btn-secondary" id="btn-logout">Logout</button>
     </div>
   </header>
@@ -72,6 +72,9 @@
             <label for="f-lng">Longitude</label>
             <input type="number" id="f-lng" name="lng" step="0.0000001">
           </div>
+          <div class="field field-pin-btn">
+            <button type="button" class="btn btn-secondary btn-small" id="pin-picker-btn">&#128205; Select on map</button>
+          </div>
         </div>
       </div>
 
@@ -105,7 +108,7 @@
         <input type="hidden" id="f-event_date" name="event_date">
       </div>
 
-      <h3 class="section-title">Contact & Description</h3>
+      <h3 class="section-title">Contact &amp; Description</h3>
       <div class="form-grid">
         <div class="field">
           <label for="f-phone">Phone</label>
@@ -127,12 +130,12 @@
           <label for="f-facebook">Facebook URL</label>
           <input type="url" id="f-facebook" name="facebook_url" placeholder="https://www.facebook.com/...">
         </div>
-        
+
         <div class="field field-full" id="section-hours" style="display:none;">
           <label for="f-hours">Hours</label>
           <input type="text" id="f-hours" name="hours" placeholder="Mon-Fri 8am-6pm; Sat 8am-2pm; closed Sun">
         </div>
-        
+
         <div class="field field-full">
           <label for="f-notes">Description / Site Info (Public)</label>
           <textarea id="f-notes" name="notes"></textarea>
@@ -198,18 +201,37 @@
         <button type="button" class="btn btn-secondary btn-small" id="add-crop-btn">+ Add crop</button>
       </div>
 
+      <!-- Form actions: Back on the left, Delete + Save on the right -->
       <div class="form-footer">
-        <button type="button" class="btn btn-danger" id="delete-btn" style="display:none; margin-top:20px;">Delete this location</button>
-        <div style="display:flex; gap:8px; margin-left:auto; margin-top:20px;">
-          <a href="/admin/" class="btn btn-secondary">Cancel</a>
+        <a href="/admin/" class="btn btn-secondary" id="back-btn">&larr; Back to list</a>
+        <div class="form-footer-actions">
+          <button type="button" class="btn btn-danger" id="delete-btn" style="display:none;">Delete location</button>
           <button type="submit" class="btn btn-primary" id="save-btn">Save</button>
         </div>
       </div>
     </form>
+
+    <!-- Pin-picker modal: inline Leaflet map for selecting lat/lng -->
+    <div class="modal-overlay" id="pin-picker-modal" style="display:none;">
+      <div class="modal modal-map">
+        <button class="modal-close" id="pin-picker-close" aria-label="Close">&times;</button>
+        <h3 class="section-title" style="margin-top:0; margin-bottom:6px;">Select Location on Map</h3>
+        <p class="pin-picker-hint">Click anywhere to place a pin. Drag it to fine-tune. Then click <strong>Use location</strong>.</p>
+        <div id="pin-picker-map"></div>
+        <div class="pin-picker-footer">
+          <span id="pin-picker-coords" class="pin-picker-coords-label">No location selected</span>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-secondary" id="pin-picker-cancel" type="button">Cancel</button>
+            <button class="btn btn-primary" id="pin-picker-use" type="button" disabled>Use location</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </main>
 
-  <script src="/admin/admin.js?v=20260519a"></script>
-  <script>AdminEdit.init();</script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/admin/admin.js?v=20260519b"></script>
+  <script>AdminEdit.init(); AdminPinPicker.init();</script>
   <script>
     (function() {
       var b = document.getElementById("btn-logout");

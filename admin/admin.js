@@ -92,6 +92,12 @@ const AdminList = (() => {
     searchEl = document.getElementById("search-input");
     categoryFilterEl = document.getElementById("category-filter");
 
+    // Restore previous filter state when returning from edit page
+    var savedSearch = sessionStorage.getItem("admin-map-search") || "";
+    var savedCat    = sessionStorage.getItem("admin-map-category") || "";
+    if (savedSearch) searchEl.value = savedSearch;
+    if (savedCat)    categoryFilterEl.value = savedCat;
+
     searchEl.addEventListener("input", render);
     categoryFilterEl.addEventListener("change", render);
 
@@ -119,6 +125,10 @@ const AdminList = (() => {
   function render() {
     var search = (searchEl.value || "").toLowerCase().trim();
     var catFilter = categoryFilterEl.value;
+
+    // Persist current filter state so it can be restored after returning from edit
+    sessionStorage.setItem("admin-map-search", searchEl.value || "");
+    sessionStorage.setItem("admin-map-category", catFilter || "");
 
     var filtered = allLocations.filter(function(loc) {
       if (catFilter && loc.category !== catFilter) return false;
@@ -186,14 +196,25 @@ const AdminEdit = (() => {
       pageTitle.textContent = "Add New Location";
     }
 
-    // Update Back / Cancel links to return to the originating admin tab
-    var returnDest = getQueryParam("return") || "events";
-    var validReturn = { events: true, map: true, maintenance: true };
-    if (!validReturn[returnDest]) returnDest = "events";
-    var returnUrl = "/admin/#" + returnDest;
+    // Update back link to return to the originating admin tab
+    var returnDest = getQueryParam("return") || "";
+    var validReturn = { events: true, map: true, settings: true };
+    if (!validReturn[returnDest]) returnDest = "";
+    var returnUrl = returnDest ? "/admin/#" + returnDest : "/admin/";
     document.querySelectorAll('a.btn[href="/admin/"]').forEach(function(a) {
       a.href = returnUrl;
     });
+
+    // Set contextual back-button label
+    var backBtn = document.getElementById("back-btn");
+    if (backBtn) {
+      var backLabels = {
+        map:      "← Back to Map",
+        events:   "← Back to Events",
+        settings: "← Back to Settings"
+      };
+      backBtn.textContent = backLabels[returnDest] || "← Back to Admin";
+    }
 
     document.getElementById("add-crop-btn").addEventListener("click", function() {
       addCropRow();
@@ -715,8 +736,10 @@ const AdminTabs = (() => {
       });
     });
     // Default to Events; honour hash to restore the right tab.
+    // Legacy: #maintenance is now folded into #settings.
     var hash = window.location.hash.replace(/^#/, "");
-    var validTabs = { events: true, map: true, maintenance: true, settings: true };
+    var validTabs = { events: true, map: true, settings: true };
+    if (hash === "maintenance") hash = "settings";
     switchTab(validTabs[hash] ? hash : "events");
   }
 
@@ -1196,19 +1219,21 @@ var AdminSettings = (function() {
   function load() {
     if (_loaded) return;
     _loaded = true;
-    var panel = document.getElementById("tab-settings");
-    if (!panel) return;
-    panel.innerHTML = '<div style="color:var(--ink-soft);font-size:13px;padding:1rem 0;">Loading settings…</div>';
+    // Target only the defaults form area; Category Colors and Seed Snapshot
+    // are static HTML in the same panel and must not be clobbered.
+    var container = document.getElementById("settings-app-defaults");
+    if (!container) return;
+    container.innerHTML = '<div style="color:var(--ink-soft);font-size:13px;padding:1rem 0;">Loading settings…</div>';
     AdminAPI.listSettings().then(function(s) {
       _render(s);
     }).catch(function(err) {
-      panel.innerHTML = '<div class="flash flash-error">Could not load settings: ' + escapeHtml(err.message) + '</div>';
+      container.innerHTML = '<div class="flash flash-error">Could not load settings: ' + escapeHtml(err.message) + '</div>';
     });
   }
 
   function _render(current) {
-    var panel = document.getElementById("tab-settings");
-    if (!panel) return;
+    var container = document.getElementById("settings-app-defaults");
+    if (!container) return;
 
     var html = '<div class="settings-form">';
 
@@ -1239,7 +1264,7 @@ var AdminSettings = (function() {
     html += '</div>';
     html += '</div>';
 
-    panel.innerHTML = html;
+    container.innerHTML = html;
 
     document.getElementById("settings-save-btn").addEventListener("click", _save);
   }
@@ -1277,6 +1302,128 @@ var AdminSettings = (function() {
   }
 
   return { load: load };
+})();
+
+// ── AdminPinPicker ────────────────────────────────────────────────────────────
+// Inline Leaflet map for selecting lat/lng on the edit page.
+// Safe to include in the shared admin.js: init() exits immediately if Leaflet
+// or the required DOM elements are not present (e.g. on index.html).
+var AdminPinPicker = (function() {
+  var _map    = null;
+  var _marker = null;
+  var _selLat = null;
+  var _selLng = null;
+
+  function _makePinIcon() {
+    var svg =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 32" width="24" height="32">' +
+      '<path d="M12 0C5.4 0 0 5.4 0 12c0 8 12 20 12 20S24 20 24 12C24 5.4 18.6 0 12 0z"' +
+      ' fill="#3d72c8" stroke="#1a2740" stroke-width="1.5"/>' +
+      '<circle cx="12" cy="12" r="5" fill="#fff"/></svg>';
+    return L.divIcon({
+      html: svg,
+      className: "map-pin",
+      iconSize: [24, 32],
+      iconAnchor: [12, 32]
+    });
+  }
+
+  function _placeMarker(lat, lng) {
+    if (_marker) {
+      _marker.setLatLng([lat, lng]);
+    } else {
+      _marker = L.marker([lat, lng], { icon: _makePinIcon(), draggable: true }).addTo(_map);
+      _marker.on("dragend", function(e) {
+        var ll = e.target.getLatLng();
+        _selLat = ll.lat;
+        _selLng = ll.lng;
+        _updateCoords(ll.lat, ll.lng);
+      });
+    }
+  }
+
+  function _updateCoords(lat, lng) {
+    var el = document.getElementById("pin-picker-coords");
+    if (el) el.textContent = lat.toFixed(6) + ", " + lng.toFixed(6);
+  }
+
+  function _openPicker() {
+    var modal = document.getElementById("pin-picker-modal");
+    if (!modal) return;
+    modal.style.display = "";
+
+    var fLat = parseFloat(document.getElementById("f-lat").value);
+    var fLng = parseFloat(document.getElementById("f-lng").value);
+    var hasCoords = !isNaN(fLat) && !isNaN(fLng);
+
+    if (!_map) {
+      var center = hasCoords ? [fLat, fLng] : [40.5061, -79.8389];
+      var zoom   = hasCoords ? 14 : 9;
+      _map = L.map("pin-picker-map", { center: center, zoom: zoom });
+      var esri = "https://server.arcgisonline.com/ArcGIS/rest/services/";
+      L.tileLayer(esri + "World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+        attribution: "Tiles © Esri", maxZoom: 19
+      }).addTo(_map);
+      L.tileLayer(esri + "Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", {
+        attribution: "© Esri", maxZoom: 19
+      }).addTo(_map);
+
+      if (hasCoords) {
+        _selLat = fLat; _selLng = fLng;
+        _placeMarker(fLat, fLng);
+        _updateCoords(fLat, fLng);
+        document.getElementById("pin-picker-use").disabled = false;
+      }
+
+      _map.on("click", function(e) {
+        _selLat = e.latlng.lat;
+        _selLng = e.latlng.lng;
+        _placeMarker(_selLat, _selLng);
+        _updateCoords(_selLat, _selLng);
+        document.getElementById("pin-picker-use").disabled = false;
+      });
+    } else {
+      if (hasCoords) {
+        _selLat = fLat; _selLng = fLng;
+        _placeMarker(fLat, fLng);
+        _updateCoords(fLat, fLng);
+        _map.setView([fLat, fLng], 14);
+        document.getElementById("pin-picker-use").disabled = false;
+      }
+    }
+
+    setTimeout(function() { if (_map) _map.invalidateSize(); }, 80);
+  }
+
+  function _closePicker() {
+    var modal = document.getElementById("pin-picker-modal");
+    if (modal) modal.style.display = "none";
+  }
+
+  function init() {
+    if (typeof L === "undefined") return;
+    var openBtn = document.getElementById("pin-picker-btn");
+    if (!openBtn) return;
+
+    openBtn.addEventListener("click", _openPicker);
+    document.getElementById("pin-picker-close").addEventListener("click", _closePicker);
+    document.getElementById("pin-picker-cancel").addEventListener("click", _closePicker);
+
+    var modal = document.getElementById("pin-picker-modal");
+    if (modal) {
+      modal.addEventListener("click", function(e) { if (e.target === modal) _closePicker(); });
+    }
+
+    document.getElementById("pin-picker-use").addEventListener("click", function() {
+      if (_selLat !== null && _selLng !== null) {
+        document.getElementById("f-lat").value = _selLat.toFixed(7);
+        document.getElementById("f-lng").value = _selLng.toFixed(7);
+        _closePicker();
+      }
+    });
+  }
+
+  return { init: init };
 })();
 
 // ── AdminMaintenance ──────────────────────────────────────────────────────────
