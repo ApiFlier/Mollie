@@ -10,124 +10,171 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/css/styles.css?v=20260520b">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="/css/styles.css?v=20260519b">
 </head>
 <body>
   <div class="top-nav">
-    <a href="/" class="top-nav-link top-nav-active">Events</a>
-    <a href="/map" class="top-nav-link">Map</a>
+    <a href="/" class="top-nav-link" data-shell-view="events">Events</a>
+    <a href="/?view=map" class="top-nav-link" data-shell-view="map">Map</a>
     <a href="/admin/" class="top-nav-link top-nav-admin">Admin</a>
   </div>
 
-  <div id="events-app">
-    <header class="events-header">
-      <!-- Compact toolbar: title · summary · Filters (mobile) | title · search · summary (desktop) -->
-      <div class="ev-headerbar">
-        <button class="ev-filter-summary" id="ev-filter-summary"
-                aria-label="Open filters" aria-expanded="false"
-                aria-controls="ev-filters-panel">This weekend · 30 mi · Soonest</button>
-        <button class="ev-filters-toggle-btn" id="ev-filters-toggle"
-                aria-expanded="false" aria-controls="ev-filters-panel">Refine</button>
-        <div class="ev-search-wrap">
-          <input type="search" id="ev-search-input" class="ev-search-input"
-                 placeholder="Search events, venues, cities…" autocomplete="off" spellcheck="false">
-          <button id="ev-search-clear" class="ev-search-clear" aria-label="Clear search" style="display:none;">✕</button>
+  <!-- ── Events view ──────────────────────────────────────────────────────── -->
+  <div id="events-view">
+    <div id="events-app">
+      <header class="events-header">
+        <!-- Compact toolbar: title · summary · Filters (mobile) | title · search · summary (desktop) -->
+        <div class="ev-headerbar">
+          <button class="ev-filter-summary" id="ev-filter-summary"
+                  aria-label="Open filters" aria-expanded="false"
+                  aria-controls="ev-filters-panel">This weekend · 30 mi · Soonest</button>
+          <button class="ev-filters-toggle-btn" id="ev-filters-toggle"
+                  aria-expanded="false" aria-controls="ev-filters-panel">Refine</button>
+          <div class="ev-search-wrap">
+            <input type="search" id="ev-search-input" class="ev-search-input"
+                   placeholder="Search events, venues, cities…" autocomplete="off" spellcheck="false">
+            <button id="ev-search-clear" class="ev-search-clear" aria-label="Clear search" style="display:none;">✕</button>
+          </div>
         </div>
+
+        <!-- All Events / Saved Events view toggle -->
+        <div class="ev-view-row" id="ev-view-row">
+          <button class="ev-view-btn ev-view-btn-active" id="ev-view-all">All Events</button>
+          <button class="ev-view-btn" id="ev-view-saved">Saved Events</button>
+        </div>
+
+        <!-- Collapsible filter panel -->
+        <div class="ev-filters-panel" id="ev-filters-panel">
+
+          <!-- Date filter -->
+          <div class="ev-filter-group">
+            <span class="ev-group-label">When</span>
+            <div class="ev-filter-row" id="date-filter-row">
+              <button class="ev-filter-btn" data-date="">Any date</button>
+              <button class="ev-filter-btn" data-date="today">Today</button>
+              <button class="ev-filter-btn" data-date="this_weekend">This Weekend</button>
+              <button class="ev-filter-btn" data-date="next_weekend">Next Weekend</button>
+              <button class="ev-filter-btn" data-date="weekend_after_next">Following Weekend</button>
+              <button class="ev-filter-btn" data-date="custom">Custom…</button>
+            </div>
+            <div id="custom-date-row" class="ev-custom-row" style="display:none;">
+              <input type="date" id="start-date" class="ev-date-input" aria-label="Start date">
+              <span class="ev-date-sep">–</span>
+              <input type="date" id="end-date" class="ev-date-input" aria-label="End date">
+            </div>
+          </div>
+
+          <!-- Distance filter -->
+          <div class="ev-filter-group">
+            <span class="ev-group-label">Distance</span>
+            <div class="ev-filter-row" id="dist-filter-row">
+              <button class="ev-filter-btn" data-miles="15">15 mi</button>
+              <button class="ev-filter-btn" data-miles="30">30 mi</button>
+              <button class="ev-filter-btn" data-miles="60">60 mi</button>
+              <button class="ev-filter-btn" data-miles="">Any</button>
+              <button class="ev-filter-btn" data-miles="custom">Custom…</button>
+            </div>
+            <div id="custom-miles-row" class="ev-custom-row" style="display:none;">
+              <input type="number" id="custom-miles-input" class="ev-miles-input"
+                     min="1" max="500" placeholder="miles" aria-label="Custom distance in miles">
+              <button id="custom-miles-apply" class="ev-filter-btn">Apply</button>
+            </div>
+          </div>
+
+          <!-- Source filter (chips built dynamically by JS from /api/sources) -->
+          <div class="ev-filter-group" id="source-filter-group">
+            <span class="ev-group-label">Sources</span>
+            <div class="ev-filter-row" id="source-chip-row"></div>
+          </div>
+
+          <!-- Price filter -->
+          <div class="ev-filter-group">
+            <span class="ev-group-label">Price</span>
+            <div class="ev-filter-row" id="price-filter-row">
+              <button class="ev-filter-btn" data-price="any">Any price</button>
+              <button class="ev-filter-btn" data-price="free">Free</button>
+              <button class="ev-filter-btn" data-price="listed">Price listed</button>
+              <button class="ev-filter-btn" data-price="unknown">Price not listed</button>
+              <button class="ev-filter-btn" data-price="under10">Under $10</button>
+              <button class="ev-filter-btn" data-price="under20">Under $20</button>
+              <button class="ev-filter-btn" data-price="custom">Custom…</button>
+            </div>
+            <div id="custom-price-row" class="ev-custom-row" style="display:none;">
+              <span class="ev-label-small">Max $</span>
+              <input type="number" id="custom-price-input" class="ev-miles-input"
+                     min="0" max="9999" placeholder="max price" aria-label="Maximum price in dollars">
+              <button id="custom-price-apply" class="ev-filter-btn">Apply</button>
+            </div>
+          </div>
+
+          <!-- Sort -->
+          <div class="ev-quick-sort-row">
+            <div class="ev-sort-inline">
+              <span class="ev-sort-label">Sort:</span>
+              <button class="ev-sort-btn" data-sort="soonest">Soonest</button>
+              <button class="ev-sort-btn" data-sort="closest">Closest</button>
+            </div>
+          </div>
+
+        </div>
+      </header>
+
+      <div id="events-status" class="events-status" style="display:none;"></div>
+      <div id="events-list" class="events-list"></div>
+    </div>
+  </div>
+
+  <!-- ── Map view (hidden until activated) ────────────────────────────────── -->
+  <div id="map-view" style="display:none;">
+    <div id="app">
+      <header>
+        <h1>Event Map<span class="subtitle">regional farms &amp; local events</span></h1>
+        <div class="filters">
+          <div class="view-row">
+            <div class="view-toggle">
+              <button id="toggle-map" class="view-btn view-btn-active" aria-pressed="true">Map</button>
+              <button id="toggle-list" class="view-btn" aria-pressed="false">List</button>
+            </div>
+            <span class="result-count" id="result-count"></span>
+            <span class="map-filter-summary" id="map-filter-summary"></span>
+            <button class="map-refine-btn" id="map-filters-toggle"
+                    aria-expanded="false" aria-controls="map-filters-panel">Refine</button>
+          </div>
+          <div class="map-filters-panel" id="map-filters-panel">
+            <div class="chip-row" id="category-chips"></div>
+            <div class="dropdown-row">
+              <select id="month-select"></select>
+              <select id="crop-select"></select>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div id="map"></div>
+      <div id="list-view" style="display:none;"></div>
+
+      <div class="detail-panel" id="detail-panel">
+        <button class="close-btn" id="detail-close" aria-label="Close">&times;</button>
+        <button class="back-btn" id="detail-back" style="display:none;">&#8592; Back to list</button>
+        <div id="detail-minimap" style="display:none;"></div>
+        <div id="detail-content"></div>
       </div>
-
-      <!-- All Events / Saved Events view toggle -->
-      <div class="ev-view-row" id="ev-view-row">
-        <button class="ev-view-btn ev-view-btn-active" id="ev-view-all">All Events</button>
-        <button class="ev-view-btn" id="ev-view-saved">Saved Events</button>
-      </div>
-
-      <!-- Collapsible filter panel -->
-      <div class="ev-filters-panel" id="ev-filters-panel">
-
-        <!-- Date filter -->
-        <div class="ev-filter-group">
-          <span class="ev-group-label">When</span>
-          <div class="ev-filter-row" id="date-filter-row">
-            <button class="ev-filter-btn" data-date="">Any date</button>
-            <button class="ev-filter-btn" data-date="today">Today</button>
-            <button class="ev-filter-btn" data-date="this_weekend">This Weekend</button>
-            <button class="ev-filter-btn" data-date="next_weekend">Next Weekend</button>
-            <button class="ev-filter-btn" data-date="weekend_after_next">Following Weekend</button>
-            <button class="ev-filter-btn" data-date="custom">Custom…</button>
-          </div>
-          <div id="custom-date-row" class="ev-custom-row" style="display:none;">
-            <input type="date" id="start-date" class="ev-date-input" aria-label="Start date">
-            <span class="ev-date-sep">–</span>
-            <input type="date" id="end-date" class="ev-date-input" aria-label="End date">
-          </div>
-        </div>
-
-        <!-- Distance filter -->
-        <div class="ev-filter-group">
-          <span class="ev-group-label">Distance</span>
-          <div class="ev-filter-row" id="dist-filter-row">
-            <button class="ev-filter-btn" data-miles="15">15 mi</button>
-            <button class="ev-filter-btn" data-miles="30">30 mi</button>
-            <button class="ev-filter-btn" data-miles="60">60 mi</button>
-            <button class="ev-filter-btn" data-miles="">Any</button>
-            <button class="ev-filter-btn" data-miles="custom">Custom…</button>
-          </div>
-          <div id="custom-miles-row" class="ev-custom-row" style="display:none;">
-            <input type="number" id="custom-miles-input" class="ev-miles-input"
-                   min="1" max="500" placeholder="miles" aria-label="Custom distance in miles">
-            <button id="custom-miles-apply" class="ev-filter-btn">Apply</button>
-          </div>
-        </div>
-
-        <!-- Source filter (chips built dynamically by JS from /api/sources) -->
-        <div class="ev-filter-group" id="source-filter-group">
-          <span class="ev-group-label">Sources</span>
-          <div class="ev-filter-row" id="source-chip-row"></div>
-        </div>
-
-        <!-- Price filter -->
-        <div class="ev-filter-group">
-          <span class="ev-group-label">Price</span>
-          <div class="ev-filter-row" id="price-filter-row">
-            <button class="ev-filter-btn" data-price="any">Any price</button>
-            <button class="ev-filter-btn" data-price="free">Free</button>
-            <button class="ev-filter-btn" data-price="listed">Price listed</button>
-            <button class="ev-filter-btn" data-price="unknown">Price not listed</button>
-            <button class="ev-filter-btn" data-price="under10">Under $10</button>
-            <button class="ev-filter-btn" data-price="under20">Under $20</button>
-            <button class="ev-filter-btn" data-price="custom">Custom…</button>
-          </div>
-          <div id="custom-price-row" class="ev-custom-row" style="display:none;">
-            <span class="ev-label-small">Max $</span>
-            <input type="number" id="custom-price-input" class="ev-miles-input"
-                   min="0" max="9999" placeholder="max price" aria-label="Maximum price in dollars">
-            <button id="custom-price-apply" class="ev-filter-btn">Apply</button>
-          </div>
-        </div>
-
-        <!-- Sort -->
-        <div class="ev-quick-sort-row">
-          <div class="ev-sort-inline">
-            <span class="ev-sort-label">Sort:</span>
-            <button class="ev-sort-btn" data-sort="soonest">Soonest</button>
-            <button class="ev-sort-btn" data-sort="closest">Closest</button>
-          </div>
-        </div>
-
-      </div>
-    </header>
-
-    <div id="events-status" class="events-status" style="display:none;"></div>
-    <div id="events-list" class="events-list"></div>
+    </div>
   </div>
 
   <nav class="mob-nav" aria-label="Main navigation">
-    <a href="/" class="mob-nav-item mob-nav-active">Events</a>
-    <a href="/map" class="mob-nav-item">Map</a>
+    <a href="/" class="mob-nav-item" data-shell-view="events">Events</a>
+    <a href="/?view=map" class="mob-nav-item" data-shell-view="map">Map</a>
     <a href="/admin/" class="mob-nav-item mob-nav-admin-item">Admin</a>
   </nav>
 
-  <script src="/js/shell.js?v=20260519a"></script>
+  <script src="/js/shell.js?v=20260519b"></script>
   <script src="/js/events.js?v=20260520b"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/js/api.js?v=20260516q"></script>
+  <script src="/js/map.js?v=20260516q"></script>
+  <script src="/js/filters.js?v=20260520c"></script>
+  <script src="/js/main_v2.js?v=20260519b"></script>
 </body>
 </html>

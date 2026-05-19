@@ -28,13 +28,37 @@ html, body {
   font-size: 16px;
 }
 
-/* map.html wraps #app in a flex column with the top-nav above it */
+/* Unified shell: top-nav + view containers fill the full viewport. */
 body:has(.top-nav) {
   display: flex;
   flex-direction: column;
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
+}
+
+/* Events view container — fills remaining height, events-list scrolls inside. */
+#events-view {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Inside the unified shell, events-app fills events-view. */
+#events-view #events-app {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Map view container — fills remaining height, Leaflet handles its own layout. */
+#map-view {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 #app {
@@ -1535,13 +1559,13 @@ h1 .subtitle {
 }
 
 @media (max-width: 640px) {
-  /* Hide top nav on events page — bottom nav takes over */
-  body:has(#events-app) .top-nav {
+  /* Events view: hide top-nav, show mob-nav at bottom */
+  body.view-events-active .top-nav {
     display: none;
   }
 
-  /* Let events-app fill the full viewport height */
-  body:has(#events-app) #events-app {
+  /* Let events-app fill the events-view container on mobile */
+  body.view-events-active #events-app {
     min-height: 0;
     flex: 1 1 auto;
   }
@@ -1551,8 +1575,8 @@ h1 .subtitle {
     padding-bottom: 76px;
   }
 
-  /* Bottom nav bar */
-  .mob-nav {
+  /* Bottom nav bar — only shown in events view; map view keeps top-nav */
+  body.view-events-active .mob-nav {
     display: flex;
     position: fixed;
     bottom: 0;

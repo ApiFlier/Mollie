@@ -6,7 +6,7 @@ import shutil
 import datetime
 import bcrypt
 import requests as http_requests
-from flask import Flask, jsonify, request, session, send_from_directory
+from flask import Flask, jsonify, request, session, send_from_directory, redirect
 from flask_cors import CORS
 import mysql.connector
 from mysql.connector import pooling
@@ -663,7 +663,7 @@ def index():
 @app.route("/map")
 @app.route("/map/")
 def map_view():
-    return app.send_static_file("map.html")
+    return redirect("/?view=map", 302)
 
 @app.route("/admin/")
 def admin_index():

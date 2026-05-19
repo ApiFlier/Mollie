@@ -285,10 +285,12 @@
 
   // ── Bootstrap ─────────────────────────────────────────────────────────────────
 
-  document.addEventListener("DOMContentLoaded", function() {
-    detailPanel  = document.getElementById("detail-panel");
+  // bootMap: called once, either immediately (map is the active view on load)
+  // or deferred via PublicShell.onMapActivate (map is hidden until user switches).
+  function bootMap() {
+    detailPanel   = document.getElementById("detail-panel");
     detailContent = document.getElementById("detail-content");
-    resultCount  = document.getElementById("result-count");
+    resultCount   = document.getElementById("result-count");
 
     document.getElementById("detail-close").onclick = function() {
       detailPanel.classList.remove("open");
@@ -309,6 +311,7 @@
     document.getElementById("toggle-map").onclick  = function() { setView("map"); };
     document.getElementById("toggle-list").onclick = function() { setView("list"); };
 
+    // #map must be visible before Leaflet init or tiles will not render.
     EventMapMap.init("map");
 
     EventMapMap.setOnMarkerClick(function(loc) {
@@ -400,5 +403,15 @@
           defaultCrop:       s["map.default_crop"]       || "",
         });
       });
+  } // end bootMap
+
+  document.addEventListener("DOMContentLoaded", function() {
+    // In the unified shell, map is hidden until the user switches to it.
+    // Defer bootMap until the map view is visible so Leaflet gets a real container size.
+    if (typeof PublicShell !== "undefined") {
+      PublicShell.onMapActivate(bootMap);
+    } else {
+      bootMap();
+    }
   });
 })();
