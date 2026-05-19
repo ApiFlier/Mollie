@@ -1007,6 +1007,86 @@ const AdminEvents = (() => {
   return { load: load };
 })();
 
+// ── AdminCategories ───────────────────────────────────────────────────────────
+var AdminCategories = (function() {
+  var containerEl;
+
+  function init() {
+    containerEl = document.getElementById("cat-colors-list");
+    if (!containerEl) return;
+    _load();
+  }
+
+  function _load() {
+    containerEl.innerHTML = '<div style="color:var(--ink-soft);font-size:13px;">Loading…</div>';
+    AdminAPI.listCategories().then(function(cats) {
+      _render(cats);
+    }).catch(function(err) {
+      containerEl.innerHTML = '<div class="flash flash-error" style="margin:0;">Could not load categories: ' + escapeHtml(err.message) + '</div>';
+    });
+  }
+
+  function _render(cats) {
+    if (!cats || !cats.length) {
+      containerEl.innerHTML = '<div style="color:var(--ink-soft);font-size:13px;">No categories found.</div>';
+      return;
+    }
+    var html = '';
+    cats.forEach(function(c) {
+      var displayName = c.name.charAt(0).toUpperCase() + c.name.slice(1).replace(/-/g, ' ');
+      var color = c.color || '#3d72c8';
+      html += '<div class="cat-color-row" data-id="' + c.id + '">';
+      html += '<span class="cat-color-name">' + escapeHtml(displayName) + '</span>';
+      html += '<input type="color" class="cat-color-input" value="' + escapeHtml(color) + '" aria-label="Color for ' + escapeHtml(displayName) + '">';
+      html += '<button class="btn btn-secondary btn-small cat-color-save" type="button">Save</button>';
+      html += '<span class="cat-color-feedback" aria-live="polite"></span>';
+      html += '</div>';
+    });
+    containerEl.innerHTML = html;
+
+    containerEl.querySelectorAll('.cat-color-row').forEach(function(row) {
+      var id = parseInt(row.dataset.id, 10);
+      var input = row.querySelector('.cat-color-input');
+      var btn   = row.querySelector('.cat-color-save');
+      var fb    = row.querySelector('.cat-color-feedback');
+
+      btn.addEventListener('click', function() {
+        btn.disabled = true;
+        btn.textContent = 'Saving…';
+        fb.textContent = '';
+        fb.className = 'cat-color-feedback';
+        fetch('/api/admin/categories/' + id, {
+          method: 'PUT',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ color: input.value })
+        })
+          .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+          .then(function(res) {
+            btn.disabled = false;
+            btn.textContent = 'Save';
+            if (res.ok && res.data.ok) {
+              fb.textContent = '✓ Saved';
+              fb.className = 'cat-color-feedback cat-color-ok';
+              setTimeout(function() { fb.textContent = ''; fb.className = 'cat-color-feedback'; }, 2500);
+            } else {
+              fb.textContent = res.data.error || 'Save failed';
+              fb.className = 'cat-color-feedback cat-color-err';
+            }
+          })
+          .catch(function() {
+            btn.disabled = false;
+            btn.textContent = 'Save';
+            fb.textContent = 'Request failed';
+            fb.className = 'cat-color-feedback cat-color-err';
+          });
+      });
+    });
+  }
+
+  return { init: init };
+})();
+
 // ── AdminMaintenance ──────────────────────────────────────────────────────────
 var AdminMaintenance = (function() {
   function init() {

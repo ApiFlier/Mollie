@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import decimal
 import shutil
@@ -204,6 +205,32 @@ def get_categories():
         return jsonify(res)
     finally:
         conn.close()
+
+@app.route("/api/admin/categories/<int:cat_id>", methods=["PUT"])
+def admin_update_category(cat_id):
+    err = _require_auth()
+    if err: return err
+    data = request.get_json() or {}
+    color = data.get("color")
+    if not color or not isinstance(color, str):
+        return jsonify({"error": "color is required"}), 400
+    if not re.match(r'^#[0-9a-fA-F]{6}$', color):
+        return jsonify({"error": "color must be a valid #rrggbb hex value"}), 400
+    color = color.lower()
+    conn = get_conn()
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute("SELECT id FROM categories WHERE id = %s", (cat_id,))
+        if not cur.fetchone():
+            cur.close()
+            return jsonify({"error": "Category not found"}), 404
+        cur.execute("UPDATE categories SET color = %s WHERE id = %s", (color, cat_id))
+        conn.commit()
+        cur.close()
+        return jsonify({"ok": True, "id": cat_id, "color": color})
+    finally:
+        conn.close()
+
 
 @app.route("/crops/distinct")
 @app.route("/api/crops/distinct")

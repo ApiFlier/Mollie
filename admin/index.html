@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/admin/admin.css?v=20260519a">
+  <link rel="stylesheet" href="/admin/admin.css?v=20260520a">
 </head>
 <body>
   <header class="admin-header">
@@ -61,6 +61,11 @@
     <!-- Maintenance tab -->
     <div id="tab-maintenance" class="admin-tab-panel" style="display:none;">
       <div class="maintenance-section">
+        <h2 class="section-title">Category Colors</h2>
+        <p>Set the map marker and filter chip color for each location category. Changes take effect on the next page load — no restart needed.</p>
+        <div id="cat-colors-list"></div>
+      </div>
+      <div class="maintenance-section">
         <h2 class="section-title">Seed Snapshot</h2>
         <p>Saves the current curated locations, categories, and event sources into <code>api/data/seed.sql</code> so future fresh installs start with your data. A backup of the previous seed is created automatically.</p>
         <p style="font-size:0.85em;color:#666;">This updates the <strong>local repo file only</strong>. To publish to GitHub, run <code>./publish-seed.sh</code> from your terminal after reviewing the diff.</p>
@@ -106,8 +111,8 @@
     </div>
   </main>
 
-  <script src="/admin/admin.js?v=20260519a"></script>
-  <script>AdminList.init(); AdminCredsModal.init(); AdminTabs.init(); AdminMaintenance.init();</script>
+  <script src="/admin/admin.js?v=20260520a"></script>
+  <script>AdminList.init(); AdminCredsModal.init(); AdminTabs.init(); AdminCategories.init(); AdminMaintenance.init();</script>
   <script>
     (function() {
       // Logout

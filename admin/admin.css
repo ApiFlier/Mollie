@@ -716,3 +716,38 @@ table.locations-table {
   background: var(--line);
   margin: 4px 0;
 }
+
+/* ── Category color editor ──────────────────────────────────────────────── */
+.cat-color-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+.cat-color-row:last-child {
+  border-bottom: none;
+}
+.cat-color-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  min-width: 110px;
+}
+.cat-color-input {
+  width: 44px;
+  height: 34px;
+  padding: 2px 3px;
+  border: 1.5px solid var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+  background: var(--bg-panel);
+  flex-shrink: 0;
+}
+.cat-color-feedback {
+  font-size: 12px;
+  min-width: 76px;
+}
+.cat-color-ok  { color: var(--sage); }
+.cat-color-err { color: var(--danger); }
