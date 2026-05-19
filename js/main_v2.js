@@ -49,7 +49,7 @@
 
     if (loc.notes) {
       html += '<div class="section"><div class="section-label">Description / Site Info</div>';
-      html += '<div style="white-space:pre-wrap; font-size:14px; color: #555;">' + escapeHtml(loc.notes) + '</div></div>';
+      html += '<div style="white-space:pre-wrap; font-size:14px; color:var(--ink-soft);">' + escapeHtml(loc.notes) + '</div></div>';
     }
 
     var fullAddr = "";
@@ -318,6 +318,42 @@
       });
     });
 
+    // ── Map filter summary + Refine toggle ───────────────────────────────────
+
+    var mapFilterToggle = document.getElementById("map-filters-toggle");
+    var mapFiltersPanel = document.getElementById("map-filters-panel");
+
+    function setMapFiltersOpen(open) {
+      if (!mapFiltersPanel || !mapFilterToggle) return;
+      mapFiltersPanel.classList.toggle("map-filters-open", open);
+      mapFilterToggle.setAttribute("aria-expanded", open ? "true" : "false");
+      mapFilterToggle.classList.toggle("map-refine-active", open);
+    }
+
+    // Desktop: start expanded
+    if (window.innerWidth >= 641) {
+      setMapFiltersOpen(true);
+    }
+
+    if (mapFilterToggle) {
+      mapFilterToggle.addEventListener("click", function() {
+        var open = mapFiltersPanel.classList.contains("map-filters-open");
+        setMapFiltersOpen(!open);
+        if (!open) {
+          // Panel just opened — let Leaflet recalculate its size
+          setTimeout(function() { EventMapMap.invalidateSize(); }, 100);
+        }
+      });
+    }
+
+    function updateMapFilterSummary(f) {
+      var el = document.getElementById("map-filter-summary");
+      if (!el) return;
+      el.textContent = (f && f._empty) ? "No categories" : EventMapFilters.getSummary();
+    }
+
+    // ── Initialize filters ────────────────────────────────────────────────────
+
     EventMapFilters.init({
       categories: document.getElementById("category-chips"),
       crop:       document.getElementById("crop-select"),
@@ -326,6 +362,7 @@
       organic:    document.getElementById("organic-toggle")
     }, {
       onChange: function(f) {
+        updateMapFilterSummary(f);
         if (f._empty) {
           listEmptyReason   = "no-categories";
           currentLocations  = [];
@@ -339,6 +376,7 @@
           currentLocations = ls;
           EventMapMap.renderLocations(ls);
           if (resultCount) resultCount.textContent = ls.length + " item" + (ls.length === 1 ? "" : "s");
+          updateMapFilterSummary(f);
           if (currentView === "list") renderListView(ls);
         });
       }

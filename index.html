@@ -10,13 +10,12 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/css/styles.css?v=20260518b">
+  <link rel="stylesheet" href="/css/styles.css?v=20260519b">
 </head>
 <body>
   <div class="top-nav">
     <a href="/" class="top-nav-link top-nav-active">Events</a>
     <a href="/map" class="top-nav-link">Map</a>
-    <button class="top-nav-link top-nav-saved" id="top-saved-btn">Saved</button>
     <a href="/admin/" class="top-nav-link top-nav-admin">Admin</a>
   </div>
 
@@ -34,6 +33,12 @@
                  placeholder="Search events, venues, cities…" autocomplete="off" spellcheck="false">
           <button id="ev-search-clear" class="ev-search-clear" aria-label="Clear search" style="display:none;">✕</button>
         </div>
+      </div>
+
+      <!-- All Events / Saved Events view toggle -->
+      <div class="ev-view-row" id="ev-view-row">
+        <button class="ev-view-btn ev-view-btn-active" id="ev-view-all">All Events</button>
+        <button class="ev-view-btn" id="ev-view-saved">Saved Events</button>
       </div>
 
       <!-- Collapsible filter panel -->
@@ -100,9 +105,8 @@
           </div>
         </div>
 
-        <!-- Saved + Sort -->
+        <!-- Sort -->
         <div class="ev-quick-sort-row">
-          <button class="ev-filter-btn ev-saved-btn" data-quick="saved">Saved</button>
           <div class="ev-sort-inline">
             <span class="ev-sort-label">Sort:</span>
             <button class="ev-sort-btn" data-sort="soonest">Soonest</button>
@@ -120,10 +124,9 @@
   <nav class="mob-nav" aria-label="Main navigation">
     <a href="/" class="mob-nav-item mob-nav-active">Events</a>
     <a href="/map" class="mob-nav-item">Map</a>
-    <button class="mob-nav-item" id="mob-saved-btn" aria-pressed="false">&#9733; Saved</button>
     <a href="/admin/" class="mob-nav-item mob-nav-admin-item">Admin</a>
   </nav>
 
-  <script src="/js/events.js?v=20260519a"></script>
+  <script src="/js/events.js?v=20260519b"></script>
 </body>
 </html>

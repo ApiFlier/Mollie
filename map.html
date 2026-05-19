@@ -11,13 +11,12 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@500;600&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="/css/styles.css?v=20260518b">
+  <link rel="stylesheet" href="/css/styles.css?v=20260519b">
 </head>
 <body>
   <div class="top-nav">
     <a href="/" class="top-nav-link">Events</a>
     <a href="/map" class="top-nav-link top-nav-active">Map</a>
-    <a href="/?saved=1" class="top-nav-link">Saved</a>
     <a href="/admin/" class="top-nav-link top-nav-admin">Admin</a>
   </div>
   <div id="app">
@@ -30,11 +29,16 @@
             <button id="toggle-list" class="view-btn" aria-pressed="false">List</button>
           </div>
           <span class="result-count" id="result-count"></span>
+          <span class="map-filter-summary" id="map-filter-summary"></span>
+          <button class="map-refine-btn" id="map-filters-toggle"
+                  aria-expanded="false" aria-controls="map-filters-panel">Refine</button>
         </div>
-        <div class="chip-row" id="category-chips"></div>
-        <div class="dropdown-row">
-          <select id="month-select"></select>
-          <select id="crop-select"></select>
+        <div class="map-filters-panel" id="map-filters-panel">
+          <div class="chip-row" id="category-chips"></div>
+          <div class="dropdown-row">
+            <select id="month-select"></select>
+            <select id="crop-select"></select>
+          </div>
         </div>
       </div>
     </header>
@@ -53,7 +57,7 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/api.js?v=20260516q"></script>
   <script src="/js/map.js?v=20260516q"></script>
-  <script src="/js/filters.js?v=20260516q"></script>
-  <script src="/js/main_v2.js?v=20260516q"></script>
+  <script src="/js/filters.js?v=20260519b"></script>
+  <script src="/js/main_v2.js?v=20260519b"></script>
 </body>
 </html>

@@ -135,9 +135,6 @@
       refineBtn.classList.toggle("ev-refine-active", nActive > 0);
     }
 
-    // Top-nav Saved button (desktop)
-    var topSaved = document.getElementById("top-saved-btn");
-    if (topSaved) topSaved.classList.toggle("top-nav-saved-active", state.savedOnly);
   }
 
   function countActiveFilters() {
@@ -170,16 +167,11 @@
       btn.classList.toggle("ev-sort-active", btn.dataset.sort === state.sort);
     });
 
-    // Saved button (panel)
-    var savedBtn = document.querySelector(".ev-saved-btn");
-    if (savedBtn) savedBtn.classList.toggle("ev-filter-active", state.savedOnly);
-
-    // Saved button (mobile bottom nav)
-    var mobSaved = document.getElementById("mob-saved-btn");
-    if (mobSaved) {
-      mobSaved.classList.toggle("mob-saved-active", state.savedOnly);
-      mobSaved.setAttribute("aria-pressed", state.savedOnly ? "true" : "false");
-    }
+    // View toggle (All Events / Saved Events)
+    var viewAll   = document.getElementById("ev-view-all");
+    var viewSaved = document.getElementById("ev-view-saved");
+    if (viewAll)   viewAll.classList.toggle("ev-view-btn-active",  !state.savedOnly);
+    if (viewSaved) viewSaved.classList.toggle("ev-view-btn-active",  state.savedOnly);
 
     // Price filter buttons
     document.querySelectorAll("#price-filter-row .ev-filter-btn").forEach(function (btn) {
@@ -836,32 +828,20 @@
       if (e.key === "Enter") document.getElementById("custom-miles-apply").click();
     });
 
-    // ── Saved quick filter ────────────────────────────────────────────────────
-    var savedBtn = document.querySelector(".ev-saved-btn");
-    savedBtn.addEventListener("click", function () {
-      state.savedOnly = !state.savedOnly;
-      savedBtn.classList.toggle("ev-filter-active", state.savedOnly);
-      syncButtonStates();
-      updateFilterSummary();
-      loadEvents();
-    });
-
-    // Mobile bottom nav Saved button
-    var mobSavedBtn = document.getElementById("mob-saved-btn");
-    if (mobSavedBtn) {
-      mobSavedBtn.addEventListener("click", function () {
-        state.savedOnly = !state.savedOnly;
+    // ── All Events / Saved Events view toggle ────────────────────────────────
+    var viewAllBtn   = document.getElementById("ev-view-all");
+    var viewSavedBtn = document.getElementById("ev-view-saved");
+    if (viewAllBtn) {
+      viewAllBtn.addEventListener("click", function () {
+        state.savedOnly = false;
         syncButtonStates();
         updateFilterSummary();
         loadEvents();
       });
     }
-
-    // Desktop top-nav Saved button
-    var topSavedBtn = document.getElementById("top-saved-btn");
-    if (topSavedBtn) {
-      topSavedBtn.addEventListener("click", function () {
-        state.savedOnly = !state.savedOnly;
+    if (viewSavedBtn) {
+      viewSavedBtn.addEventListener("click", function () {
+        state.savedOnly = true;
         syncButtonStates();
         updateFilterSummary();
         loadEvents();

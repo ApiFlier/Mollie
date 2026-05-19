@@ -6,10 +6,8 @@
  */
 
 const EventMapFilters = (() => {
-  const DEFAULT_SELECTED = new Set(["farm", "festival", "fair"]);
-
   const state = {
-    categories: new Set(DEFAULT_SELECTED),
+    categories: new Set(), // empty = will be populated with all on first load
     crop: "",
     month: "",
     pyo_only: false,
@@ -19,6 +17,7 @@ const EventMapFilters = (() => {
   let onChangeHandler = null;
   let categoriesEl, cropEl, monthEl, pyoEl, organicEl;
   let pyoLabel, organicLabel;
+  let allCategoryNames = []; // populated once categories load
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -80,6 +79,17 @@ const EventMapFilters = (() => {
 
   // ── Category toggle ──────────────────────────────────────────────────────────
 
+  function updateAllChip() {
+    var allChip = document.getElementById("chip-all-btn");
+    if (!allChip) return;
+    var allActive = allCategoryNames.length > 0 &&
+                    state.categories.size === allCategoryNames.length;
+    allChip.style.background   = allActive ? "var(--berry)" : "";
+    allChip.style.borderColor  = allActive ? "var(--berry)" : "";
+    allChip.style.color        = allActive ? "#fff" : "";
+    allChip.style.fontWeight   = allActive ? "600" : "";
+  }
+
   function toggleCategory(value) {
     if (state.categories.has(value)) {
       state.categories.delete(value);
@@ -87,9 +97,10 @@ const EventMapFilters = (() => {
       state.categories.add(value);
     }
 
-    categoriesEl.querySelectorAll(".chip").forEach(function(c) {
+    categoriesEl.querySelectorAll(".chip:not(.chip-all)").forEach(function(c) {
       setChipActive(c, state.categories.has(c.dataset.value));
     });
+    updateAllChip();
 
     updateFarmControls();
     emitChange();
@@ -98,7 +109,32 @@ const EventMapFilters = (() => {
   // ── Build categories ─────────────────────────────────────────────────────────
 
   function buildCategoryChips(categories) {
+    allCategoryNames = categories.map(function(c) { return c.name; });
+
+    // First load: default to all categories selected
+    if (state.categories.size === 0) {
+      allCategoryNames.forEach(function(n) { state.categories.add(n); });
+    }
+
     categoriesEl.innerHTML = "";
+
+    // "All" reset chip at the start
+    var allChip = document.createElement("button");
+    allChip.className = "chip chip-all";
+    allChip.id = "chip-all-btn";
+    allChip.textContent = "All";
+    allChip.title = "Show all categories";
+    allChip.onclick = function() {
+      allCategoryNames.forEach(function(n) { state.categories.add(n); });
+      categoriesEl.querySelectorAll(".chip:not(.chip-all)").forEach(function(c) {
+        setChipActive(c, true);
+      });
+      updateAllChip();
+      updateFarmControls();
+      emitChange();
+    };
+    categoriesEl.appendChild(allChip);
+
     categories.forEach(function(c) {
       var btn = document.createElement("button");
       btn.className = "chip";
@@ -109,6 +145,38 @@ const EventMapFilters = (() => {
       btn.onclick = function() { toggleCategory(c.name); };
       categoriesEl.appendChild(btn);
     });
+
+    updateAllChip();
+  }
+
+  // ── Filter summary ────────────────────────────────────────────────────────────
+
+  function getSummary() {
+    var total    = allCategoryNames.length;
+    var selected = state.categories.size;
+    var parts    = [];
+
+    if (total === 0 || selected === total) {
+      parts.push("All categories");
+    } else if (selected === 0) {
+      parts.push("No categories");
+    } else if (selected <= 2) {
+      var names = Array.from(state.categories).map(function(n) {
+        return n.charAt(0).toUpperCase() + n.slice(1).replace(/-/g, " ");
+      });
+      parts.push(names.join(", "));
+    } else {
+      parts.push(selected + " of " + total + " types");
+    }
+
+    if (state.month) {
+      var months = ["","Jan","Feb","Mar","Apr","May","Jun",
+                    "Jul","Aug","Sep","Oct","Nov","Dec"];
+      parts.push(months[parseInt(state.month)] || "");
+    }
+    if (state.crop) parts.push(state.crop);
+
+    return parts.join(" · ");
   }
 
   // ── Build month dropdown ─────────────────────────────────────────────────────
@@ -183,5 +251,5 @@ const EventMapFilters = (() => {
     });
   }
 
-  return { init: init };
+  return { init: init, getSummary: getSummary };
 })();
