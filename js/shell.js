@@ -1,19 +1,30 @@
 /**
- * Public shell — Phase 2.
+ * Public shell — Phase 2 (hash routing).
  *
- * In-page switching between Events and Map views inside the unified shell at /.
- * Map is lazy-initialized on first activation via PublicShell.onMapActivate().
+ * Views are driven by URL hash: #events or #map.
+ * Backward-compat: ?view=events / ?view=map still work on initial load.
  *
  * PublicShell.navigateTo(view) — switch to 'events' or 'map'.
- * PublicShell.onMapActivate(fn) — register a callback for when map view first becomes active.
+ * PublicShell.onMapActivate(fn) — callback for when map view first becomes active.
  */
 (function () {
   var params    = new URLSearchParams(window.location.search);
   var viewParam = params.get("view");
+  var hash      = window.location.hash;  // "#map", "#events", or ""
   var path      = window.location.pathname;
   var isMapPath = (path === "/map" || path === "/map/");
 
-  var initialView = (viewParam === "map" || isMapPath) ? "map" : "events";
+  // Priority: hash → query param → path → default (events)
+  var initialView;
+  if (hash === "#map") {
+    initialView = "map";
+  } else if (hash === "#events") {
+    initialView = "events";
+  } else if (viewParam === "map" || isMapPath) {
+    initialView = "map";
+  } else {
+    initialView = "events";
+  }
 
   var mapBooted            = false;
   var mapActivateCallbacks = [];
@@ -24,7 +35,6 @@
     mapActivateCallbacks.forEach(function (fn) { try { fn(); } catch (e) { console.error(e); } });
   }
 
-  // Update active state on all data-shell-view nav links.
   function setNavActive(view) {
     document.querySelectorAll("[data-shell-view]").forEach(function (el) {
       var v = el.dataset.shellView;
@@ -37,21 +47,19 @@
     });
   }
 
-  // Core view switcher. pushState=true when user-initiated, false on load/popstate.
-  function switchView(view, pushState) {
+  // Core view switcher — only touches DOM, never touches the URL.
+  function switchView(view) {
     var evView  = document.getElementById("events-view");
     var mapView = document.getElementById("map-view");
-    if (!evView || !mapView) return; // not the unified shell (e.g. standalone map.html)
+    if (!evView || !mapView) return; // not the unified shell
 
     if (view === "map") {
       evView.style.display  = "none";
       mapView.style.display = "";
       document.body.classList.add("view-map-active");
       document.body.classList.remove("view-events-active");
-      if (pushState) history.pushState({ view: "map" }, "", "/?view=map");
       setNavActive("map");
       fireMapActivate();
-      // After repaint, recalculate Leaflet tile layout if already initialized.
       setTimeout(function () {
         if (typeof EventMapMap !== "undefined" && EventMapMap.isInitialized()) {
           EventMapMap.invalidateSize();
@@ -62,7 +70,6 @@
       mapView.style.display = "none";
       document.body.classList.add("view-events-active");
       document.body.classList.remove("view-map-active");
-      if (pushState) history.pushState({ view: "events" }, "", "/");
       setNavActive("events");
     }
 
@@ -87,10 +94,15 @@
       var hasShell = !!(document.getElementById("events-view") &&
                         document.getElementById("map-view"));
       if (hasShell) {
-        switchView(view, true);
+        var targetHash = (view === "map") ? "#map" : "#events";
+        if (window.location.hash !== targetHash) {
+          window.location.hash = targetHash; // triggers hashchange → switchView
+        } else {
+          switchView(view); // hash already matches, just switch DOM
+        }
       } else {
-        // Fallback: full-page navigation (standalone pages or no-JS fallback).
-        if (view === "map")    window.location.href = "/?view=map";
+        // Fallback: full-page navigation
+        if (view === "map")    window.location.href = "/#map";
         if (view === "events") window.location.href = "/";
       }
     }
@@ -99,26 +111,25 @@
   // ── DOMContentLoaded ──────────────────────────────────────────────────────────
 
   document.addEventListener("DOMContentLoaded", function () {
-    // Apply initial body class before first paint completes.
     document.body.classList.add(
       initialView === "map" ? "view-map-active" : "view-events-active"
     );
 
-    // Establish initial view (hides the inactive container, sets nav active state).
-    switchView(initialView, false);
+    switchView(initialView);
 
-    // Wire up nav links.
+    // Hash changes drive all in-page navigation (nav links, back/forward).
+    window.addEventListener("hashchange", function () {
+      var h = window.location.hash;
+      var v = (h === "#map") ? "map" : "events";
+      switchView(v);
+    });
+
+    // Support data-shell-view click handlers (intercepts href="#map" etc.).
     document.querySelectorAll("[data-shell-view]").forEach(function (el) {
       el.addEventListener("click", function (e) {
         e.preventDefault();
         PublicShell.navigateTo(el.dataset.shellView);
       });
-    });
-
-    // Handle browser back / forward buttons.
-    window.addEventListener("popstate", function (e) {
-      var v = (e.state && e.state.view) ? e.state.view : "events";
-      switchView(v, false);
     });
   });
 })();

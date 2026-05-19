@@ -663,7 +663,7 @@ def index():
 @app.route("/map")
 @app.route("/map/")
 def map_view():
-    return redirect("/?view=map", 302)
+    return redirect("/#map", 302)
 
 @app.route("/admin/")
 def admin_index():

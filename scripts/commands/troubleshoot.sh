@@ -207,9 +207,9 @@ echo ""
 if [ "$ISSUES" -eq 0 ]; then
     echo -e "  ${GREEN}${BOLD}All checks passed.${NC} The app looks healthy."
     echo ""
-    echo "  Events:  http://localhost:${APP_PORT}/"
-    echo "  Map:     http://localhost:${APP_PORT}/map"
-    echo "  Admin:   http://localhost:${APP_PORT}/admin/"
+    echo "  Events:  http://localhost:${APP_PORT}/#events"
+    echo "  Map:     http://localhost:${APP_PORT}/#map"
+    echo "  Admin:   http://localhost:${APP_PORT}/admin/#events"
     echo "  Health:  http://localhost:${APP_PORT}/health"
 else
     echo -e "  ${RED}${BOLD}${ISSUES} issue(s) found.${NC} See the ✗ lines above."

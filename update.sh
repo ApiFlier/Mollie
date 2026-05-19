@@ -110,9 +110,9 @@ done
 
 echo ""
 echo "================================================"
-info "Events URL:  http://localhost:${APP_PORT}/"
-info "Map URL:     http://localhost:${APP_PORT}/map"
-info "Admin URL:   http://localhost:${APP_PORT}/admin/"
+info "Events:   http://localhost:${APP_PORT}/#events"
+info "Map:      http://localhost:${APP_PORT}/#map"
+info "Admin:    http://localhost:${APP_PORT}/admin/#events"
 info "Health:      ${HEALTH}"
 info "Database volume preserved."
 SYNC_REPORT="$(docker compose logs app | grep -Eo '\[migrations\] Seed sync complete:.*' | tail -n1 || echo '')"

@@ -251,9 +251,9 @@ while true; do
                     | tail -n1 | cut -d= -f2- | tr -d '[:space:]')"
             fi
             APP_PORT="${APP_PORT:-8090}"
-            echo "  Events:  http://localhost:${APP_PORT}/"
-            echo "  Map:     http://localhost:${APP_PORT}/map"
-            echo "  Admin:   http://localhost:${APP_PORT}/admin/"
+            echo "  Events:  http://localhost:${APP_PORT}/#events"
+            echo "  Map:     http://localhost:${APP_PORT}/#map"
+            echo "  Admin:   http://localhost:${APP_PORT}/admin/#events"
             echo "  Health:  http://localhost:${APP_PORT}/health"
             echo ""
             ;;
