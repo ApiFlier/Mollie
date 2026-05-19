@@ -614,7 +614,7 @@ table.locations-table {
     display: inline-block;
   }
 
-  .admin-header .actions {
+  .header-actions-wrap .actions {
     display: none;
     position: absolute;
     top: 100%;
@@ -630,7 +630,7 @@ table.locations-table {
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
   }
 
-  .admin-header .actions.admin-actions-open {
+  .header-actions-wrap .actions.admin-actions-open {
     display: flex;
   }
 
