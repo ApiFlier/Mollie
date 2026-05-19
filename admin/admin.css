@@ -802,6 +802,40 @@ table.locations-table {
   color: var(--ink-soft);
   margin: 0.25rem 0 1rem;
 }
+.settings-hint {
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin: 0 0 1.25rem;
+  line-height: 1.5;
+}
+.settings-cat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+.settings-cat-chip {
+  padding: 5px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-panel);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.settings-cat-chip:hover {
+  border-color: var(--berry);
+  color: var(--berry);
+}
+.settings-cat-chip.chip-active {
+  background: var(--berry);
+  border-color: var(--berry);
+  color: #fff;
+}
 
 /* ── Settings tab: sub-sections (Category Colors, Seed Snapshot) ─────────── */
 .settings-section {

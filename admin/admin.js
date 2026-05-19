@@ -1126,10 +1126,10 @@ var AdminSettings = (function() {
           key: "events.default_date_filter",
           label: "Date range",
           options: [
-            { value: "",                 label: "Any date" },
-            { value: "today",            label: "Today" },
-            { value: "this_weekend",     label: "This weekend" },
-            { value: "next_weekend",     label: "Next weekend" },
+            { value: "",                   label: "Any date" },
+            { value: "today",              label: "Today" },
+            { value: "this_weekend",       label: "This weekend" },
+            { value: "next_weekend",       label: "Next weekend" },
             { value: "weekend_after_next", label: "Weekend after next" }
           ]
         },
@@ -1147,8 +1147,8 @@ var AdminSettings = (function() {
           key: "events.default_sort",
           label: "Sort order",
           options: [
-            { value: "soonest",  label: "Soonest first" },
-            { value: "closest",  label: "Closest first" }
+            { value: "soonest", label: "Soonest first" },
+            { value: "closest", label: "Closest first" }
           ]
         },
         {
@@ -1194,6 +1194,12 @@ var AdminSettings = (function() {
           ]
         },
         {
+          key: "map.default_categories",
+          label: "Default categories",
+          type: "category-chips"
+          // options built dynamically from /api/categories
+        },
+        {
           key: "map.default_month",
           label: "Default month",
           options: [
@@ -1211,6 +1217,12 @@ var AdminSettings = (function() {
             { value: "11", label: "November" },
             { value: "12", label: "December" }
           ]
+        },
+        {
+          key: "map.default_crop",
+          label: "Default crop/activity",
+          type: "crop-select"
+          // options built dynamically from /api/crops/distinct
         }
       ]
     }
@@ -1224,18 +1236,23 @@ var AdminSettings = (function() {
     var container = document.getElementById("settings-app-defaults");
     if (!container) return;
     container.innerHTML = '<div style="color:var(--ink-soft);font-size:13px;padding:1rem 0;">Loading settings…</div>';
-    AdminAPI.listSettings().then(function(s) {
-      _render(s);
+    Promise.all([
+      AdminAPI.listSettings(),
+      fetch("/api/categories").then(function(r) { return r.ok ? r.json() : []; }).catch(function() { return []; }),
+      fetch("/api/crops/distinct").then(function(r) { return r.ok ? r.json() : []; }).catch(function() { return []; })
+    ]).then(function(results) {
+      _render(results[0], results[1], results[2]);
     }).catch(function(err) {
       container.innerHTML = '<div class="flash flash-error">Could not load settings: ' + escapeHtml(err.message) + '</div>';
     });
   }
 
-  function _render(current) {
+  function _render(current, categories, crops) {
     var container = document.getElementById("settings-app-defaults");
     if (!container) return;
 
     var html = '<div class="settings-form">';
+    html += '<p class="settings-hint">Choose what the Map and Events page show when first opened. Visitors can still change filters anytime.</p>';
 
     SETTING_DEFS.forEach(function(grp) {
       html += '<div class="settings-group">';
@@ -1244,20 +1261,50 @@ var AdminSettings = (function() {
       grp.settings.forEach(function(def) {
         var currentVal = (current && current[def.key] != null) ? String(current[def.key]) : "";
         html += '<div class="field settings-field">';
-        html += '<label for="setting-' + escapeHtml(def.key) + '">' + escapeHtml(def.label) + '</label>';
-        html += '<select id="setting-' + escapeHtml(def.key) + '" data-key="' + escapeHtml(def.key) + '">';
-        def.options.forEach(function(opt) {
-          var sel = opt.value === currentVal ? ' selected' : '';
-          html += '<option value="' + escapeHtml(opt.value) + '"' + sel + '>' + escapeHtml(opt.label) + '</option>';
-        });
-        html += '</select>';
+        html += '<label';
+        if (def.type !== "category-chips") {
+          html += ' for="setting-' + escapeHtml(def.key) + '"';
+        }
+        html += '>' + escapeHtml(def.label) + '</label>';
+
+        if (def.type === "category-chips") {
+          // Chip row + hidden input — wired up in _initCatChips after innerHTML set
+          html += '<div class="settings-cat-chips" id="settings-cat-chips">';
+          html += '<button type="button" class="settings-cat-chip" data-cat="_all">All</button>';
+          (categories || []).forEach(function(c) {
+            var name = c.name || "";
+            var label = name.charAt(0).toUpperCase() + name.slice(1).replace(/-/g, " ");
+            html += '<button type="button" class="settings-cat-chip" data-cat="' + escapeHtml(name) + '">' + escapeHtml(label) + '</button>';
+          });
+          html += '</div>';
+          html += '<input type="hidden" id="setting-' + escapeHtml(def.key) + '" data-key="' + escapeHtml(def.key) + '" value="' + escapeHtml(currentVal || "all") + '">';
+
+        } else if (def.type === "crop-select") {
+          html += '<select id="setting-' + escapeHtml(def.key) + '" data-key="' + escapeHtml(def.key) + '">';
+          html += '<option value="">Any crop/activity</option>';
+          (crops || []).forEach(function(c) {
+            var v = c.name || "";
+            var sel = v === currentVal ? ' selected' : '';
+            html += '<option value="' + escapeHtml(v) + '"' + sel + '>' + escapeHtml(v) + '</option>';
+          });
+          html += '</select>';
+
+        } else {
+          // Standard select
+          html += '<select id="setting-' + escapeHtml(def.key) + '" data-key="' + escapeHtml(def.key) + '">';
+          (def.options || []).forEach(function(opt) {
+            var sel = opt.value === currentVal ? ' selected' : '';
+            html += '<option value="' + escapeHtml(opt.value) + '"' + sel + '>' + escapeHtml(opt.label) + '</option>';
+          });
+          html += '</select>';
+        }
+
         html += '</div>';
       });
       html += '</div>';
       html += '</div>';
     });
 
-    html += '<p class="settings-fixed-note">Map category filter and crop/activity defaults are always <em>All categories</em> and <em>Any crop</em>.</p>';
     html += '<div class="settings-actions">';
     html += '<button class="btn btn-primary" id="settings-save-btn" type="button">Save Settings</button>';
     html += '<span class="settings-feedback" id="settings-feedback" aria-live="polite"></span>';
@@ -1266,7 +1313,68 @@ var AdminSettings = (function() {
 
     container.innerHTML = html;
 
+    // Wire up category chips
+    var catCurrentVal = (current && current["map.default_categories"] != null)
+      ? String(current["map.default_categories"]) : "all";
+    _initCatChips(container, categories || [], catCurrentVal);
+
     document.getElementById("settings-save-btn").addEventListener("click", _save);
+  }
+
+  // Set up chip toggle logic and sync the hidden input.
+  function _initCatChips(container, categories, currentVal) {
+    var selected = new Set();
+    if (!currentVal || currentVal === "all") {
+      categories.forEach(function(c) { selected.add(c.name); });
+    } else {
+      currentVal.split(",").forEach(function(s) {
+        var t = s.trim();
+        if (t) selected.add(t);
+      });
+    }
+
+    function _updateUI() {
+      var allActive = selected.size === categories.length && categories.length > 0;
+      container.querySelectorAll(".settings-cat-chip").forEach(function(btn) {
+        var cat = btn.dataset.cat;
+        if (cat === "_all") {
+          btn.classList.toggle("chip-active", allActive);
+        } else {
+          btn.classList.toggle("chip-active", selected.has(cat));
+        }
+      });
+      var hidden = container.querySelector('input[data-key="map.default_categories"]');
+      if (hidden) {
+        if (allActive || selected.size === 0) {
+          hidden.value = "all";
+        } else {
+          hidden.value = Array.from(selected).join(",");
+        }
+      }
+    }
+
+    container.querySelectorAll(".settings-cat-chip").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        var cat = btn.dataset.cat;
+        if (cat === "_all") {
+          var allActive = selected.size === categories.length && categories.length > 0;
+          if (allActive) {
+            selected.clear();
+          } else {
+            categories.forEach(function(c) { selected.add(c.name); });
+          }
+        } else {
+          if (selected.has(cat)) {
+            selected.delete(cat);
+          } else {
+            selected.add(cat);
+          }
+        }
+        _updateUI();
+      });
+    });
+
+    _updateUI();
   }
 
   function _save() {
@@ -1278,8 +1386,13 @@ var AdminSettings = (function() {
     fb.className = "settings-feedback";
 
     var payload = {};
+    // Collect standard selects
     document.querySelectorAll("#tab-settings select[data-key]").forEach(function(sel) {
       payload[sel.dataset.key] = sel.value;
+    });
+    // Collect hidden inputs (e.g. category chips)
+    document.querySelectorAll("#tab-settings input[type=hidden][data-key]").forEach(function(inp) {
+      payload[inp.dataset.key] = inp.value;
     });
 
     AdminAPI.updateSettings(payload).then(function(res) {

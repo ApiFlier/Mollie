@@ -253,10 +253,19 @@ _SETTINGS_ALLOWED = {
     "events.default_saved_view":     {"true", "false"},
     "map.default_view":              {"map", "list"},
     "map.filters_start_collapsed":   {"auto", "true", "false"},
-    "map.default_categories":        {"all"},
+    "map.default_categories":        None,   # custom: "all" or comma-separated category slugs
     "map.default_month":             {"", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"},
-    "map.default_crop":              {""},
+    "map.default_crop":              None,   # custom: "" (any) or exact crop string
 }
+
+_CAT_SLUG_RE = re.compile(r'^[a-z][a-z0-9-]*$')
+
+def _validate_cat_setting(val):
+    """'all', '', or comma-separated lowercase category slugs."""
+    if not val or val == "all":
+        return True
+    slugs = [s.strip() for s in val.split(",") if s.strip()]
+    return bool(slugs) and all(_CAT_SLUG_RE.match(s) for s in slugs)
 
 
 @app.route("/api/settings")
@@ -291,10 +300,23 @@ def admin_update_settings():
         if key not in _SETTINGS_ALLOWED:
             errors.append(f"Unknown setting: {key!r}")
             continue
-        if str(value) not in _SETTINGS_ALLOWED[key]:
+        allowed = _SETTINGS_ALLOWED[key]
+        val = str(value)
+        if allowed is None:
+            # Custom per-key validation
+            if key == "map.default_categories":
+                if not _validate_cat_setting(val):
+                    errors.append(f"Invalid value for {key!r}: {value!r}")
+                    continue
+            # map.default_crop: accept any string up to 200 chars
+            elif key == "map.default_crop":
+                if len(val) > 200:
+                    errors.append(f"Value too long for {key!r}")
+                    continue
+        elif val not in allowed:
             errors.append(f"Invalid value for {key!r}: {value!r}")
             continue
-        updates.append((key, str(value)))
+        updates.append((key, val))
     if errors:
         return jsonify({"error": "; ".join(errors)}), 400
     if not updates:
