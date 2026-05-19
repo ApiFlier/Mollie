@@ -13,6 +13,7 @@ const EventMapMap = (() => {
   let userLocationMarker = null;
 
   function init(containerId, options) {
+    if (map) return map;  // guard: safe to call init() more than once
     options = options || {};
     map = L.map(containerId, {
       center: options.center || DEFAULT_CENTER,
@@ -105,6 +106,7 @@ const EventMapMap = (() => {
     panTo: panTo,
     showUserLocation: showUserLocation,
     makeIcon: makeIcon,
+    isInitialized: function() { return map !== null; },
     invalidateSize: function() { if (map) map.invalidateSize(); }
   };
 })();
