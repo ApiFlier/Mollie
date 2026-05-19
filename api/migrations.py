@@ -154,12 +154,52 @@ def _sync_seed(conn, cur):
     
     print(f"[migrations] Seed sync complete: {stats['added']} added, {stats['updated']} updated, {stats['backfilled']} backfilled, {stats['soft_removed']} soft-removed, {stats['skipped_user_modified']} skipped user-modified.")
 
+_APP_SETTINGS_DDL = (
+    "CREATE TABLE IF NOT EXISTS app_settings ("
+    "  `key`        VARCHAR(128) NOT NULL,"
+    "  `value`      TEXT,"
+    "  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,"
+    "  PRIMARY KEY (`key`)"
+    ")"
+)
+
+_APP_SETTINGS_DEFAULTS = [
+    ("events.default_date_filter",    "this_weekend"),
+    ("events.default_distance_miles", "30"),
+    ("events.default_sort",           "soonest"),
+    ("events.default_price_filter",   "any"),
+    ("events.default_saved_view",     "false"),
+    ("map.default_view",              "map"),
+    ("map.filters_start_collapsed",   "auto"),
+    ("map.default_categories",        "all"),
+    ("map.default_month",             ""),
+    ("map.default_crop",              ""),
+]
+
+def _create_app_settings(conn, cur):
+    """Create app_settings table if it does not exist."""
+    cur.execute(_APP_SETTINGS_DDL)
+    conn.commit()
+
+def _seed_default_settings(conn, cur):
+    """Insert factory defaults using INSERT IGNORE — never overwrites user-saved values."""
+    for key, value in _APP_SETTINGS_DEFAULTS:
+        cur.execute(
+            "INSERT IGNORE INTO app_settings (`key`, `value`) VALUES (%s, %s)",
+            (key, value)
+        )
+    conn.commit()
+    print("[migrations] app_settings defaults ensured.")
+
 def ensure_app_migrations(conn):
-    """Create app_migrations table and sync seed data."""
+    """Create app_migrations table, create app_settings, and sync seed data."""
     cur = conn.cursor(dictionary=True)
 
     cur.execute(_APP_MIGRATIONS_DDL)
     conn.commit()
+
+    _create_app_settings(conn, cur)
+    _seed_default_settings(conn, cur)
 
     # Guard: skip if the main app tables haven't been created yet
     cur.execute("SHOW TABLES LIKE 'categories'")
@@ -173,7 +213,7 @@ def ensure_app_migrations(conn):
         print("[migrations] 'locations' table not yet present; skipping data migrations.")
         cur.close()
         return
-        
+
     cur.execute("SHOW COLUMNS FROM locations LIKE 'seed_key'")
     if not cur.fetchone():
         print("[migrations] 'seed_key' column not yet present; skipping data migrations.")

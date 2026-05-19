@@ -1,4 +1,14 @@
 (function () {
+  // Holds the admin-configured defaults; updated from /api/settings before init.
+  // Fallback values match the in-state defaults so the badge counter is always correct.
+  var _appDefaults = {
+    dateFilter: "this_weekend",
+    maxMiles:   30,
+    sort:       "soonest",
+    priceFilter: "any",
+    savedOnly:  false,
+  };
+
   var state = {
     dateFilter:    "this_weekend",
     startDate:     "",
@@ -139,11 +149,11 @@
 
   function countActiveFilters() {
     var n = 0;
-    if (state.dateFilter !== "this_weekend") n++;
-    if (state.maxMiles !== 30) n++;
-    if (state.sort !== "soonest") n++;
-    if (state.savedOnly) n++;
-    if (state.priceFilter !== "any") n++;
+    if (state.dateFilter !== _appDefaults.dateFilter) n++;
+    if (state.maxMiles  !== _appDefaults.maxMiles)    n++;
+    if (state.sort      !== _appDefaults.sort)        n++;
+    if (state.savedOnly !== _appDefaults.savedOnly)   n++;
+    if (state.priceFilter !== _appDefaults.priceFilter) n++;
     if (state.sourcesFilter !== null) n++;
     return n;
   }
@@ -982,15 +992,59 @@
 
   // ── Init ──────────────────────────────────────────────────────────────────────
 
-  document.addEventListener("DOMContentLoaded", function () {
-    // Activate saved filter when arriving from map with ?saved=1
-    if (new URLSearchParams(window.location.search).get("saved") === "1") {
-      state.savedOnly = true;
+  function _applySettings(s) {
+    s = s || {};
+    // Parse and apply each setting to _appDefaults and state
+    var dateVal = s["events.default_date_filter"];
+    if (dateVal != null) {
+      _appDefaults.dateFilter = dateVal;
+      state.dateFilter = dateVal;
     }
-    syncButtonStates();
-    updateFilterSummary();
-    initControls();
-    loadSources();
-    loadEvents();
+
+    var distVal = s["events.default_distance_miles"];
+    if (distVal != null) {
+      var parsedMiles = (distVal === "" || distVal === null) ? null : parseInt(distVal, 10);
+      _appDefaults.maxMiles = parsedMiles;
+      state.maxMiles = parsedMiles;
+    }
+
+    var sortVal = s["events.default_sort"];
+    if (sortVal != null) {
+      _appDefaults.sort = sortVal;
+      state.sort = sortVal;
+    }
+
+    var priceVal = s["events.default_price_filter"];
+    if (priceVal != null) {
+      _appDefaults.priceFilter = priceVal;
+      state.priceFilter = priceVal;
+    }
+
+    var savedVal = s["events.default_saved_view"];
+    if (savedVal != null) {
+      var savedBool = savedVal === "true";
+      _appDefaults.savedOnly = savedBool;
+      state.savedOnly = savedBool;
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    fetch("/api/settings")
+      .then(function(r) { return r.ok ? r.json() : {}; })
+      .catch(function() { return {}; })
+      .then(function(settings) {
+        _applySettings(settings);
+
+        // URL param override: ?saved=1 always wins
+        if (new URLSearchParams(window.location.search).get("saved") === "1") {
+          state.savedOnly = true;
+        }
+
+        syncButtonStates();
+        updateFilterSummary();
+        initControls();
+        loadSources();
+        loadEvents();
+      });
   });
 })();

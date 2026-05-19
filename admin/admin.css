@@ -751,3 +751,49 @@ table.locations-table {
 }
 .cat-color-ok  { color: var(--sage); }
 .cat-color-err { color: var(--danger); }
+
+/* ── App settings form ──────────────────────────────────────────────────── */
+.settings-form {
+  max-width: 560px;
+  padding-top: 0.5rem;
+}
+.settings-group {
+  margin-bottom: 2rem;
+}
+.settings-group-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--line);
+}
+.settings-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.settings-field label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  min-width: 160px;
+  display: inline-block;
+}
+.settings-field select {
+  width: 100%;
+  max-width: 340px;
+}
+.settings-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-top: 0.5rem;
+}
+.settings-feedback {
+  font-size: 13px;
+}
+.settings-feedback-ok  { color: var(--sage); }
+.settings-feedback-err { color: var(--danger); }

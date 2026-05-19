@@ -44,7 +44,9 @@ const AdminAPI = (() => {
     getCredentials: () => request("/credentials"),
     updateCredentials: (data) => jsonRequest("/credentials", "PUT", data),
     getAdminSources: () => request("/admin/sources"),
-    updateSource: (key, data) => jsonRequest("/admin/sources/" + key, "PUT", data)
+    updateSource: (key, data) => jsonRequest("/admin/sources/" + key, "PUT", data),
+    listSettings: () => request("/settings"),
+    updateSettings: (data) => jsonRequest("/admin/settings", "PUT", data)
   };
 })();
 
@@ -714,7 +716,7 @@ const AdminTabs = (() => {
     });
     // Default to Events; honour hash to restore the right tab.
     var hash = window.location.hash.replace(/^#/, "");
-    var validTabs = { events: true, map: true, maintenance: true };
+    var validTabs = { events: true, map: true, maintenance: true, settings: true };
     switchTab(validTabs[hash] ? hash : "events");
   }
 
@@ -728,6 +730,8 @@ const AdminTabs = (() => {
     history.replaceState(null, "", "#" + name);
     if (name === "events") {
       AdminEvents.load();
+    } else if (name === "settings") {
+      AdminSettings.load();
     }
   }
 
@@ -1085,6 +1089,193 @@ var AdminCategories = (function() {
   }
 
   return { init: init };
+})();
+
+// ── AdminSettings ─────────────────────────────────────────────────────────────
+var AdminSettings = (function() {
+  var _loaded = false;
+
+  var SETTING_DEFS = [
+    {
+      group: "Events Defaults",
+      settings: [
+        {
+          key: "events.default_date_filter",
+          label: "Date range",
+          options: [
+            { value: "",                 label: "Any date" },
+            { value: "today",            label: "Today" },
+            { value: "this_weekend",     label: "This weekend" },
+            { value: "next_weekend",     label: "Next weekend" },
+            { value: "weekend_after_next", label: "Weekend after next" }
+          ]
+        },
+        {
+          key: "events.default_distance_miles",
+          label: "Distance",
+          options: [
+            { value: "",   label: "Any distance" },
+            { value: "15", label: "Within 15 miles" },
+            { value: "30", label: "Within 30 miles" },
+            { value: "60", label: "Within 60 miles" }
+          ]
+        },
+        {
+          key: "events.default_sort",
+          label: "Sort order",
+          options: [
+            { value: "soonest",  label: "Soonest first" },
+            { value: "closest",  label: "Closest first" }
+          ]
+        },
+        {
+          key: "events.default_price_filter",
+          label: "Price",
+          options: [
+            { value: "any",     label: "Any price" },
+            { value: "free",    label: "Free only" },
+            { value: "listed",  label: "Has listed price" },
+            { value: "under10", label: "Under $10" },
+            { value: "under20", label: "Under $20" },
+            { value: "unknown", label: "No price info" }
+          ]
+        },
+        {
+          key: "events.default_saved_view",
+          label: "Start in Saved view",
+          options: [
+            { value: "false", label: "No — show all events" },
+            { value: "true",  label: "Yes — show saved events first" }
+          ]
+        }
+      ]
+    },
+    {
+      group: "Map Defaults",
+      settings: [
+        {
+          key: "map.default_view",
+          label: "Default tab",
+          options: [
+            { value: "map",  label: "Map" },
+            { value: "list", label: "List" }
+          ]
+        },
+        {
+          key: "map.filters_start_collapsed",
+          label: "Filter panel",
+          options: [
+            { value: "auto",  label: "Auto (expanded on desktop, collapsed on mobile)" },
+            { value: "false", label: "Always expanded" },
+            { value: "true",  label: "Always collapsed" }
+          ]
+        },
+        {
+          key: "map.default_month",
+          label: "Default month",
+          options: [
+            { value: "",   label: "Any month" },
+            { value: "1",  label: "January" },
+            { value: "2",  label: "February" },
+            { value: "3",  label: "March" },
+            { value: "4",  label: "April" },
+            { value: "5",  label: "May" },
+            { value: "6",  label: "June" },
+            { value: "7",  label: "July" },
+            { value: "8",  label: "August" },
+            { value: "9",  label: "September" },
+            { value: "10", label: "October" },
+            { value: "11", label: "November" },
+            { value: "12", label: "December" }
+          ]
+        }
+      ]
+    }
+  ];
+
+  function load() {
+    if (_loaded) return;
+    _loaded = true;
+    var panel = document.getElementById("tab-settings");
+    if (!panel) return;
+    panel.innerHTML = '<div style="color:var(--ink-soft);font-size:13px;padding:1rem 0;">Loading settings…</div>';
+    AdminAPI.listSettings().then(function(s) {
+      _render(s);
+    }).catch(function(err) {
+      panel.innerHTML = '<div class="flash flash-error">Could not load settings: ' + escapeHtml(err.message) + '</div>';
+    });
+  }
+
+  function _render(current) {
+    var panel = document.getElementById("tab-settings");
+    if (!panel) return;
+
+    var html = '<div class="settings-form">';
+
+    SETTING_DEFS.forEach(function(grp) {
+      html += '<div class="settings-group">';
+      html += '<h3 class="settings-group-title">' + escapeHtml(grp.group) + '</h3>';
+      html += '<div class="settings-fields">';
+      grp.settings.forEach(function(def) {
+        var currentVal = (current && current[def.key] != null) ? String(current[def.key]) : "";
+        html += '<div class="field settings-field">';
+        html += '<label for="setting-' + escapeHtml(def.key) + '">' + escapeHtml(def.label) + '</label>';
+        html += '<select id="setting-' + escapeHtml(def.key) + '" data-key="' + escapeHtml(def.key) + '">';
+        def.options.forEach(function(opt) {
+          var sel = opt.value === currentVal ? ' selected' : '';
+          html += '<option value="' + escapeHtml(opt.value) + '"' + sel + '>' + escapeHtml(opt.label) + '</option>';
+        });
+        html += '</select>';
+        html += '</div>';
+      });
+      html += '</div>';
+      html += '</div>';
+    });
+
+    html += '<div class="settings-actions">';
+    html += '<button class="btn btn-primary" id="settings-save-btn" type="button">Save Settings</button>';
+    html += '<span class="settings-feedback" id="settings-feedback" aria-live="polite"></span>';
+    html += '</div>';
+    html += '</div>';
+
+    panel.innerHTML = html;
+
+    document.getElementById("settings-save-btn").addEventListener("click", _save);
+  }
+
+  function _save() {
+    var btn = document.getElementById("settings-save-btn");
+    var fb  = document.getElementById("settings-feedback");
+    btn.disabled = true;
+    btn.textContent = "Saving…";
+    fb.textContent = "";
+    fb.className = "settings-feedback";
+
+    var payload = {};
+    document.querySelectorAll("#tab-settings select[data-key]").forEach(function(sel) {
+      payload[sel.dataset.key] = sel.value;
+    });
+
+    AdminAPI.updateSettings(payload).then(function(res) {
+      btn.disabled = false;
+      btn.textContent = "Save Settings";
+      if (res && res.ok) {
+        fb.textContent = "✓ Saved";
+        fb.className = "settings-feedback settings-feedback-ok";
+        setTimeout(function() { fb.textContent = ""; fb.className = "settings-feedback"; }, 3000);
+      } else {
+        fb.textContent = (res && res.error) || "Save failed";
+        fb.className = "settings-feedback settings-feedback-err";
+      }
+    }).catch(function(err) {
+      btn.disabled = false;
+      btn.textContent = "Save Settings";
+      fb.textContent = err.message || "Request failed";
+      fb.className = "settings-feedback settings-feedback-err";
+    });
+  }
+
+  return { load: load };
 })();
 
 // ── AdminMaintenance ──────────────────────────────────────────────────────────

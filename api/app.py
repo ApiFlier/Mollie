@@ -232,6 +232,89 @@ def admin_update_category(cat_id):
         conn.close()
 
 
+_SETTINGS_DEFAULTS = {
+    "events.default_date_filter":    "this_weekend",
+    "events.default_distance_miles": "30",
+    "events.default_sort":           "soonest",
+    "events.default_price_filter":   "any",
+    "events.default_saved_view":     "false",
+    "map.default_view":              "map",
+    "map.filters_start_collapsed":   "auto",
+    "map.default_categories":        "all",
+    "map.default_month":             "",
+    "map.default_crop":              "",
+}
+
+_SETTINGS_ALLOWED = {
+    "events.default_date_filter":    {"", "today", "this_weekend", "next_weekend", "weekend_after_next"},
+    "events.default_distance_miles": {"", "15", "30", "60"},
+    "events.default_sort":           {"soonest", "closest"},
+    "events.default_price_filter":   {"any", "free", "listed", "unknown", "under10", "under20"},
+    "events.default_saved_view":     {"true", "false"},
+    "map.default_view":              {"map", "list"},
+    "map.filters_start_collapsed":   {"auto", "true", "false"},
+    "map.default_categories":        {"all"},
+    "map.default_month":             {"", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"},
+    "map.default_crop":              {""},
+}
+
+
+@app.route("/api/settings")
+def get_settings():
+    """Public read-only endpoint — returns app defaults for the frontend."""
+    try:
+        conn = get_conn()
+        try:
+            cur = conn.cursor(dictionary=True)
+            cur.execute("SELECT `key`, `value` FROM app_settings")
+            rows = cur.fetchall()
+            cur.close()
+        finally:
+            conn.close()
+        result = dict(_SETTINGS_DEFAULTS)
+        for row in rows:
+            if row["key"] in result:
+                result[row["key"]] = row["value"] if row["value"] is not None else ""
+        return jsonify(result)
+    except Exception:
+        return jsonify(dict(_SETTINGS_DEFAULTS))
+
+
+@app.route("/api/admin/settings", methods=["PUT"])
+def admin_update_settings():
+    err = _require_auth()
+    if err: return err
+    data = request.get_json() or {}
+    errors = []
+    updates = []
+    for key, value in data.items():
+        if key not in _SETTINGS_ALLOWED:
+            errors.append(f"Unknown setting: {key!r}")
+            continue
+        if str(value) not in _SETTINGS_ALLOWED[key]:
+            errors.append(f"Invalid value for {key!r}: {value!r}")
+            continue
+        updates.append((key, str(value)))
+    if errors:
+        return jsonify({"error": "; ".join(errors)}), 400
+    if not updates:
+        return jsonify({"ok": True, "updated": []})
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        for key, value in updates:
+            cur.execute(
+                "INSERT INTO app_settings (`key`, `value`) VALUES (%s, %s) "
+                "ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `updated_at` = NOW()",
+                (key, value)
+            )
+        conn.commit()
+        cur.close()
+        return jsonify({"ok": True, "updated": [k for k, _ in updates]})
+    finally:
+        conn.close()
+
+
 @app.route("/crops/distinct")
 @app.route("/api/crops/distinct")
 def get_distinct_crops():
@@ -893,7 +976,7 @@ def admin_get_events():
 _SEED_FILE   = os.path.join(os.path.dirname(__file__), "data", "seed.sql")
 _SEED_BACKUP_DIR = os.path.join(os.path.dirname(__file__), "data", "backups")
 
-_CURATED_TABLES = ["categories", "locations", "crops", "notes", "user_notes", "event_sources"]
+_CURATED_TABLES = ["categories", "locations", "crops", "notes", "user_notes", "event_sources", "app_settings"]
 _RUNTIME_TABLES = {"external_events", "external_event_user_state", "_event_migrations"}
 
 

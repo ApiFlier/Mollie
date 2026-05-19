@@ -108,12 +108,25 @@ const EventMapFilters = (() => {
 
   // ── Build categories ─────────────────────────────────────────────────────────
 
-  function buildCategoryChips(categories) {
+  function buildCategoryChips(categories, defaultCategories) {
     allCategoryNames = categories.map(function(c) { return c.name; });
 
-    // First load: default to all categories selected
+    // First load: apply defaultCategories setting
     if (state.categories.size === 0) {
-      allCategoryNames.forEach(function(n) { state.categories.add(n); });
+      if (!defaultCategories || defaultCategories === "all") {
+        // Default: select all
+        allCategoryNames.forEach(function(n) { state.categories.add(n); });
+      } else {
+        // Future: comma-separated slug list
+        var slugs = defaultCategories.split(",").map(function(s) { return s.trim(); });
+        slugs.forEach(function(s) {
+          if (allCategoryNames.indexOf(s) !== -1) state.categories.add(s);
+        });
+        // If no slugs matched (stale config), fall back to all
+        if (state.categories.size === 0) {
+          allCategoryNames.forEach(function(n) { state.categories.add(n); });
+        }
+      }
     }
 
     categoriesEl.innerHTML = "";
@@ -211,7 +224,7 @@ const EventMapFilters = (() => {
 
   // ── Init ─────────────────────────────────────────────────────────────────────
 
-  function init(elements, callbacks) {
+  function init(elements, callbacks, defaults) {
     categoriesEl = elements.categories;
     cropEl       = elements.crop;
     monthEl      = elements.month;
@@ -236,13 +249,27 @@ const EventMapFilters = (() => {
       };
     }
 
+    // Normalize defaults — supports "all", or a comma-separated slug list for future use
+    var cfg = defaults || {};
+
     Promise.all([
       EventMapAPI.getCategories(),
       EventMapAPI.getDistinctCrops()
     ]).then(function(results) {
-      buildCategoryChips(results[0]);
+      buildCategoryChips(results[0], cfg.defaultCategories);
       buildCropDropdown(results[1]);
       buildMonthDropdown();
+
+      // Apply month default
+      if (cfg.defaultMonth && monthEl) {
+        state.month = cfg.defaultMonth;
+        monthEl.value = cfg.defaultMonth;
+      }
+      // Apply crop default
+      if (cfg.defaultCrop && cropEl) {
+        state.crop = cfg.defaultCrop;
+        cropEl.value = cfg.defaultCrop;
+      }
 
       updateFarmControls();
       emitChange();  // trigger initial load with default-selected categories

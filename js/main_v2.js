@@ -330,11 +330,6 @@
       mapFilterToggle.classList.toggle("map-refine-active", open);
     }
 
-    // Desktop: start expanded
-    if (window.innerWidth >= 641) {
-      setMapFiltersOpen(true);
-    }
-
     if (mapFilterToggle) {
       mapFilterToggle.addEventListener("click", function() {
         var open = mapFiltersPanel.classList.contains("map-filters-open");
@@ -352,34 +347,58 @@
       el.textContent = (f && f._empty) ? "No categories" : EventMapFilters.getSummary();
     }
 
-    // ── Initialize filters ────────────────────────────────────────────────────
+    // ── Fetch settings then initialize filters ────────────────────────────────
 
-    EventMapFilters.init({
-      categories: document.getElementById("category-chips"),
-      crop:       document.getElementById("crop-select"),
-      month:      document.getElementById("month-select"),
-      pyo:        document.getElementById("pyo-toggle"),
-      organic:    document.getElementById("organic-toggle")
-    }, {
-      onChange: function(f) {
-        updateMapFilterSummary(f);
-        if (f._empty) {
-          listEmptyReason   = "no-categories";
-          currentLocations  = [];
-          EventMapMap.renderLocations([]);
-          if (resultCount) resultCount.textContent = "0 items";
-          if (currentView === "list") renderListView([]);
-          return;
+    fetch("/api/settings")
+      .then(function(r) { return r.ok ? r.json() : {}; })
+      .catch(function() { return {}; })
+      .then(function(s) {
+        // Apply map.default_view
+        var defaultView = s["map.default_view"] || "map";
+        if (defaultView === "list") {
+          setView("list");
         }
-        EventMapAPI.getLocations(f).then(function(ls) {
-          listEmptyReason  = ls.length === 0 ? "no-results" : "";
-          currentLocations = ls;
-          EventMapMap.renderLocations(ls);
-          if (resultCount) resultCount.textContent = ls.length + " item" + (ls.length === 1 ? "" : "s");
-          updateMapFilterSummary(f);
-          if (currentView === "list") renderListView(ls);
+
+        // Apply map.filters_start_collapsed
+        var collapseSetting = s["map.filters_start_collapsed"] || "auto";
+        if (collapseSetting === "false") {
+          setMapFiltersOpen(true);
+        } else if (collapseSetting === "auto") {
+          if (window.innerWidth >= 641) { setMapFiltersOpen(true); }
+        }
+        // "true" → stay collapsed (panel is hidden by default)
+
+        EventMapFilters.init({
+          categories: document.getElementById("category-chips"),
+          crop:       document.getElementById("crop-select"),
+          month:      document.getElementById("month-select"),
+          pyo:        document.getElementById("pyo-toggle"),
+          organic:    document.getElementById("organic-toggle")
+        }, {
+          onChange: function(f) {
+            updateMapFilterSummary(f);
+            if (f._empty) {
+              listEmptyReason   = "no-categories";
+              currentLocations  = [];
+              EventMapMap.renderLocations([]);
+              if (resultCount) resultCount.textContent = "0 items";
+              if (currentView === "list") renderListView([]);
+              return;
+            }
+            EventMapAPI.getLocations(f).then(function(ls) {
+              listEmptyReason  = ls.length === 0 ? "no-results" : "";
+              currentLocations = ls;
+              EventMapMap.renderLocations(ls);
+              if (resultCount) resultCount.textContent = ls.length + " item" + (ls.length === 1 ? "" : "s");
+              updateMapFilterSummary(f);
+              if (currentView === "list") renderListView(ls);
+            });
+          }
+        }, {
+          defaultCategories: s["map.default_categories"] || "all",
+          defaultMonth:      s["map.default_month"]      || "",
+          defaultCrop:       s["map.default_crop"]       || "",
         });
-      }
-    });
+      });
   });
 })();

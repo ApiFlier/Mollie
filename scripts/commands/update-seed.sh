@@ -168,6 +168,7 @@ _crop_count="$(_q "SELECT COUNT(*) FROM crops;")"
 _note_count="$(_q "SELECT COUNT(*) FROM notes;")"
 _unote_count="$(_q "SELECT COUNT(*) FROM user_notes;")"
 _src_count="$(_q "SELECT COUNT(*) FROM event_sources;")"
+_set_count="$(_q "SELECT COUNT(*) FROM app_settings;" 2>/dev/null || echo 0)"
 _ext_count="$(_q "SELECT COUNT(*) FROM external_events;")"
 
 info "  categories:      ${_cat_count} rows"
@@ -176,6 +177,7 @@ info "  crops:           ${_crop_count} rows"
 info "  notes:           ${_note_count} rows"
 info "  user_notes:      ${_unote_count} rows"
 info "  event_sources:   ${_src_count} rows"
+info "  app_settings:    ${_set_count} rows"
 info "  external_events: ${_ext_count} rows  (runtime cache — will be excluded)"
 
 # =============================================================================
@@ -227,7 +229,7 @@ trap 'rm -f "$SEED_TMP"' EXIT
         'mysqldump -h127.0.0.1 -P3306 -uroot -p"$MYSQL_ROOT_PASSWORD" \
         --single-transaction --no-create-info --skip-comments \
         "$MYSQL_DATABASE" \
-        categories crops locations notes user_notes event_sources' \
+        categories crops locations notes user_notes event_sources app_settings' \
         2>/dev/null
 
     echo ""
@@ -333,6 +335,7 @@ printf  "    %-16s %s rows\n" "notes"       "${_note_count}"
 printf  "    %-16s %s rows\n" "user_notes"  "${_unote_count}"
 printf  "    %-16s %s rows  (runtime fields reset to NULL)\n" \
                               "event_sources" "${_src_count}"
+printf  "    %-16s %s rows\n" "app_settings" "${_set_count}"
 echo ""
 echo -e "  ${BOLD}Excluded runtime data:${NC}"
 printf  "    %-16s %s rows  (runtime cache — excluded entirely)\n" \
