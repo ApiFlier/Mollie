@@ -141,7 +141,7 @@ const AdminList = (() => {
       html += '<td>' + escapeHtml(loc.city || "") + '</td>';
       html += '<td>' + (loc.crops ? loc.crops.length : 0) + '</td>';
       html += '<td><div class="row-actions">';
-      html += '<a href="/admin/edit.html?id=' + loc.id + '" class="btn btn-secondary btn-small">Edit</a>';
+      html += '<a href="/admin/edit.html?id=' + loc.id + '&return=map" class="btn btn-secondary btn-small">Edit</a>';
       html += '</div></td>';
       html += '</tr>';
     });
@@ -183,6 +183,15 @@ const AdminEdit = (() => {
     } else {
       pageTitle.textContent = "Add New Location";
     }
+
+    // Update Back / Cancel links to return to the originating admin tab
+    var returnDest = getQueryParam("return") || "events";
+    var validReturn = { events: true, map: true, maintenance: true };
+    if (!validReturn[returnDest]) returnDest = "events";
+    var returnUrl = "/admin/#" + returnDest;
+    document.querySelectorAll('a.btn[href="/admin/"]').forEach(function(a) {
+      a.href = returnUrl;
+    });
 
     document.getElementById("add-crop-btn").addEventListener("click", function() {
       addCropRow();
@@ -487,10 +496,14 @@ const AdminEdit = (() => {
     savePromise.then(function(id) {
       return syncCrops(id).then(function() { return id; });
     }).then(function(id) {
-      showFlash("success", "Saved successfully", 2500);
+      showFlash("success", "Saved successfully", 3000);
+      window.scrollTo({ top: 0, behavior: "smooth" });
       if (!locationId) {
-        window.location.href = "/admin/edit.html?id=" + id;
+        window.location.href = "/admin/edit.html?id=" + id +
+          (getQueryParam("return") ? "&return=" + encodeURIComponent(getQueryParam("return")) : "");
       } else {
+        saveBtn.textContent = "Saved ✓";
+        setTimeout(function() { saveBtn.textContent = "Save"; }, 2000);
         AdminAPI.getLocation(locationId).then(populateForm);
       }
     }).catch(function(err) {
@@ -498,7 +511,7 @@ const AdminEdit = (() => {
       showFlash("error", "Save failed: " + err.message);
     }).finally(function() {
       saveBtn.disabled = false;
-      saveBtn.textContent = "Save";
+      if (saveBtn.textContent === "Saving...") saveBtn.textContent = "Save";
     });
   }
 
@@ -699,13 +712,10 @@ const AdminTabs = (() => {
         switchTab(btn.getAttribute("data-tab"));
       });
     });
-    // Default to Events; honour #map hash to open Map instead.
+    // Default to Events; honour hash to restore the right tab.
     var hash = window.location.hash.replace(/^#/, "");
-    if (hash === "map") {
-      switchTab("map");
-    } else {
-      switchTab("events");
-    }
+    var validTabs = { events: true, map: true, maintenance: true };
+    switchTab(validTabs[hash] ? hash : "events");
   }
 
   function switchTab(name) {

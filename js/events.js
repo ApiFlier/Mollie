@@ -1003,6 +1003,10 @@
   // ── Init ──────────────────────────────────────────────────────────────────────
 
   document.addEventListener("DOMContentLoaded", function () {
+    // Activate saved filter when arriving from map with ?saved=1
+    if (new URLSearchParams(window.location.search).get("saved") === "1") {
+      state.savedOnly = true;
+    }
     syncButtonStates();
     updateFilterSummary();
     initControls();

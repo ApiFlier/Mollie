@@ -626,7 +626,7 @@ table.locations-table {
     flex-direction: column;
     gap: 6px;
     z-index: 100;
-    min-width: 180px;
+    min-width: 200px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
   }
 
@@ -637,4 +637,82 @@ table.locations-table {
   .header-actions-wrap {
     position: relative;
   }
+
+  /* Flatten account dropdown inside the mobile ☰ menu */
+  .admin-actions-open .acct-btn { display: none; }
+  .admin-actions-open .acct-dropdown {
+    display: contents;
+  }
+  .admin-actions-open .acct-divider { display: none; }
+  .admin-actions-open .acct-item {
+    display: inline-block;
+    padding: 7px 14px;
+    border: 1.5px solid var(--line);
+    border-radius: 6px;
+    background: var(--bg-panel);
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--ink);
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .admin-actions-open .acct-item:hover { background: var(--bg); }
+  .admin-actions-open .acct-item-danger { color: var(--danger); }
+}
+
+/* ── Account action dropdown (desktop) ─────────────────────────────────── */
+.acct-wrap {
+  position: relative;
+}
+
+.acct-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px;
+  min-width: 180px;
+  box-shadow: 0 4px 16px rgba(26,39,64,0.12);
+  z-index: 300;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.acct-dropdown.acct-open {
+  display: flex;
+}
+
+.acct-item {
+  display: block;
+  width: 100%;
+  padding: 9px 12px;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.acct-item:hover {
+  background: var(--bg);
+}
+
+.acct-item-danger {
+  color: var(--danger);
+}
+
+.acct-divider {
+  height: 1px;
+  background: var(--line);
+  margin: 4px 0;
 }

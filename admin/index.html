@@ -10,27 +10,33 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/admin/admin.css?v=20260517d">
+  <link rel="stylesheet" href="/admin/admin.css?v=20260519a">
 </head>
 <body>
   <header class="admin-header">
-    <h1><a href="/admin/">Event Map<span class="subtitle">Admin</span></a></h1>
+    <h1><a href="/">Event Map</a><span class="subtitle">Admin</span></h1>
     <div class="header-actions-wrap">
-      <button class="btn btn-secondary admin-menu-btn" id="admin-menu-toggle" aria-expanded="false" aria-label="Toggle menu">☰ Menu</button>
+      <button class="btn btn-secondary admin-menu-btn" id="admin-menu-toggle" aria-expanded="false" aria-label="Toggle menu">☰</button>
       <div class="actions" id="admin-actions">
-        <a href="/" class="btn btn-secondary">View Public Site</a>
-        <button type="button" class="btn btn-secondary" id="btn-logout">Logout</button>
-        <button id="btn-change-username" class="btn btn-secondary" type="button">Change Username</button>
-        <button id="btn-change-password" class="btn btn-secondary" type="button">Change Password</button>
         <a href="/admin/edit.html" class="btn btn-primary">+ Add Location</a>
+        <a href="/" class="btn btn-secondary">Public Site</a>
+        <div class="acct-wrap">
+          <button class="btn btn-secondary acct-btn" id="acct-menu-btn" aria-expanded="false" aria-haspopup="true">Account ▾</button>
+          <div class="acct-dropdown" id="acct-dropdown">
+            <button id="btn-change-username" class="acct-item" type="button">Change Username</button>
+            <button id="btn-change-password" class="acct-item" type="button">Change Password</button>
+            <div class="acct-divider"></div>
+            <button type="button" class="acct-item acct-item-danger" id="btn-logout">Logout</button>
+          </div>
+        </div>
       </div>
     </div>
   </header>
 
   <main class="main">
     <div class="admin-tabs">
-      <button class="admin-tab" data-tab="map">Map</button>
       <button class="admin-tab admin-tab-active" data-tab="events">Events</button>
+      <button class="admin-tab" data-tab="map">Map</button>
       <button class="admin-tab" data-tab="maintenance">Maintenance</button>
     </div>
 
@@ -100,20 +106,38 @@
     </div>
   </main>
 
-  <script src="/admin/admin.js?v=20260517d"></script>
+  <script src="/admin/admin.js?v=20260519a"></script>
   <script>AdminList.init(); AdminCredsModal.init(); AdminTabs.init(); AdminMaintenance.init();</script>
   <script>
     (function() {
+      // Logout
       var b = document.getElementById("btn-logout");
       if (b) b.addEventListener("click", function() { AdminAuth.logout(); });
 
-      // Mobile header menu toggle
+      // Mobile header ☰ toggle
       var toggle = document.getElementById("admin-menu-toggle");
       var actions = document.getElementById("admin-actions");
       if (toggle && actions) {
         toggle.addEventListener("click", function() {
           var open = actions.classList.toggle("admin-actions-open");
           toggle.setAttribute("aria-expanded", open ? "true" : "false");
+        });
+      }
+
+      // Account dropdown (desktop)
+      var acctBtn = document.getElementById("acct-menu-btn");
+      var acctDropdown = document.getElementById("acct-dropdown");
+      if (acctBtn && acctDropdown) {
+        acctBtn.addEventListener("click", function(e) {
+          e.stopPropagation();
+          var open = acctDropdown.classList.toggle("acct-open");
+          acctBtn.setAttribute("aria-expanded", open ? "true" : "false");
+        });
+        document.addEventListener("click", function(e) {
+          if (!acctBtn.contains(e.target) && !acctDropdown.contains(e.target)) {
+            acctDropdown.classList.remove("acct-open");
+            acctBtn.setAttribute("aria-expanded", "false");
+          }
         });
       }
     })();
