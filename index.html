@@ -10,12 +10,13 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:wght@500;600&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/css/styles.css?v=20260516x">
+  <link rel="stylesheet" href="/css/styles.css?v=20260518b">
 </head>
 <body>
   <div class="top-nav">
     <a href="/" class="top-nav-link top-nav-active">Events</a>
     <a href="/map" class="top-nav-link">Map</a>
+    <button class="top-nav-link top-nav-saved" id="top-saved-btn">Saved</button>
     <a href="/admin/" class="top-nav-link top-nav-admin">Admin</a>
   </div>
 
@@ -23,10 +24,11 @@
     <header class="events-header">
       <!-- Compact toolbar: title · summary · Filters (mobile) | title · search · summary (desktop) -->
       <div class="ev-headerbar">
-        <span class="events-title">Mollie Events</span>
-        <span class="ev-filter-summary" id="ev-filter-summary">This weekend · 30 mi · Soonest</span>
+        <button class="ev-filter-summary" id="ev-filter-summary"
+                aria-label="Open filters" aria-expanded="false"
+                aria-controls="ev-filters-panel">This weekend · 30 mi · Soonest</button>
         <button class="ev-filters-toggle-btn" id="ev-filters-toggle"
-                aria-expanded="false" aria-controls="ev-filters-panel">Filters</button>
+                aria-expanded="false" aria-controls="ev-filters-panel">Refine</button>
         <div class="ev-search-wrap">
           <input type="search" id="ev-search-input" class="ev-search-input"
                  placeholder="Search events, venues, cities…" autocomplete="off" spellcheck="false">
@@ -45,7 +47,7 @@
             <button class="ev-filter-btn" data-date="today">Today</button>
             <button class="ev-filter-btn" data-date="this_weekend">This Weekend</button>
             <button class="ev-filter-btn" data-date="next_weekend">Next Weekend</button>
-            <button class="ev-filter-btn" data-date="weekend_after_next">Wknd After Next</button>
+            <button class="ev-filter-btn" data-date="weekend_after_next">Following Weekend</button>
             <button class="ev-filter-btn" data-date="custom">Custom…</button>
           </div>
           <div id="custom-date-row" class="ev-custom-row" style="display:none;">
@@ -115,6 +117,13 @@
     <div id="events-list" class="events-list"></div>
   </div>
 
-  <script src="/js/events.js?v=20260517x"></script>
+  <nav class="mob-nav" aria-label="Main navigation">
+    <a href="/" class="mob-nav-item mob-nav-active">Events</a>
+    <a href="/map" class="mob-nav-item">Map</a>
+    <button class="mob-nav-item" id="mob-saved-btn" aria-pressed="false">&#9733; Saved</button>
+    <a href="/admin/" class="mob-nav-item mob-nav-admin-item">Admin</a>
+  </nav>
+
+  <script src="/js/events.js?v=20260518b"></script>
 </body>
 </html>

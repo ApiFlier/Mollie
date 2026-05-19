@@ -126,6 +126,29 @@
   function updateFilterSummary() {
     var el = document.getElementById("ev-filter-summary");
     if (el) el.textContent = buildFilterSummary();
+
+    // Refine button: keep count and tint in sync with filter state
+    var refineBtn = document.getElementById("ev-filters-toggle");
+    if (refineBtn) {
+      var nActive = countActiveFilters();
+      refineBtn.textContent = nActive > 0 ? "Refine (" + nActive + ")" : "Refine";
+      refineBtn.classList.toggle("ev-refine-active", nActive > 0);
+    }
+
+    // Top-nav Saved button (desktop)
+    var topSaved = document.getElementById("top-saved-btn");
+    if (topSaved) topSaved.classList.toggle("top-nav-saved-active", state.savedOnly);
+  }
+
+  function countActiveFilters() {
+    var n = 0;
+    if (state.dateFilter !== "this_weekend") n++;
+    if (state.maxMiles !== 30) n++;
+    if (state.sort !== "soonest") n++;
+    if (state.savedOnly) n++;
+    if (state.priceFilter !== "any") n++;
+    if (state.sourcesFilter !== null) n++;
+    return n;
   }
 
   function syncButtonStates() {
@@ -147,9 +170,16 @@
       btn.classList.toggle("ev-sort-active", btn.dataset.sort === state.sort);
     });
 
-    // Saved button
+    // Saved button (panel)
     var savedBtn = document.querySelector(".ev-saved-btn");
     if (savedBtn) savedBtn.classList.toggle("ev-filter-active", state.savedOnly);
+
+    // Saved button (mobile bottom nav)
+    var mobSaved = document.getElementById("mob-saved-btn");
+    if (mobSaved) {
+      mobSaved.classList.toggle("mob-saved-active", state.savedOnly);
+      mobSaved.setAttribute("aria-pressed", state.savedOnly ? "true" : "false");
+    }
 
     // Price filter buttons
     document.querySelectorAll("#price-filter-row .ev-filter-btn").forEach(function (btn) {
@@ -379,7 +409,7 @@
     if (ev.admission) {
       return '<span class="ev-paid-pill">' + esc(ev.admission) + '</span>';
     }
-    return '<span class="ev-unknown-pill">Price not listed</span>';
+    return '';
   }
 
   function renderCard(ev) {
@@ -424,11 +454,14 @@
     html += '</div>';
 
     var addrLines = [];
-    if (ev.venue_name) addrLines.push(ev.venue_name);
-    if (ev.address)    addrLines.push(ev.address);
     var cityState = [ev.city, ev.state].filter(Boolean).join(", ");
-    if (ev.postal_code) cityState += " " + ev.postal_code;
-    if (cityState)     addrLines.push(cityState);
+    if (ev.venue_name) {
+      addrLines.push(ev.venue_name);
+      if (cityState) addrLines.push(cityState);
+    } else {
+      if (ev.address) addrLines.push(ev.address);
+      if (cityState)  addrLines.push(cityState);
+    }
 
     if (addrLines.length) {
       html += '<div class="ev-address">';
@@ -454,8 +487,9 @@
     if (dirUrl) {
       html += '<a href="' + esc(dirUrl) + '" class="ev-btn ev-btn-secondary" target="_blank" rel="noopener">Directions</a>';
     }
-    var saveLabel = ev.saved ? "Unsave" : "Save";
-    html += '<button class="ev-btn ev-btn-ghost ev-save-btn" data-id="' + ev.id + '" data-saved="' + (ev.saved ? "1" : "0") + '">' + saveLabel + '</button>';
+    var saveLabel = ev.saved ? "Saved" : "Save";
+    var saveCls   = ev.saved ? " ev-save-btn-saved" : "";
+    html += '<button class="ev-btn ev-btn-ghost ev-save-btn' + saveCls + '" data-id="' + ev.id + '" data-saved="' + (ev.saved ? "1" : "0") + '">' + saveLabel + '</button>';
     html += '<button class="ev-btn ev-btn-ghost ev-hide-btn" data-id="' + ev.id + '">Hide</button>';
     html += '</div>';
 
@@ -469,10 +503,12 @@
     var listEl = document.getElementById("events-list");
     if (!events || !events.length) {
       var q = state.searchText.trim();
-      if (q) {
-        listEl.innerHTML = '<div class="ev-empty">No events found for "' + esc(q) + '" with the current filters.</div>';
+      if (state.savedOnly) {
+        listEl.innerHTML = '<div class="ev-empty">No saved events yet.<br><span style="font-size:13px;display:block;margin-top:6px">Tap <strong>Save</strong> on any event to bookmark it for later.</span></div>';
+      } else if (q) {
+        listEl.innerHTML = '<div class="ev-empty">No results for “' + esc(q) + '” — try different words or clear the search.</div>';
       } else {
-        listEl.innerHTML = '<div class="ev-empty">No events match your current filters. Try broadening your filters, or <button class="ev-refresh-link" id="manual-refresh-btn">refresh sources</button>.</div>';
+        listEl.innerHTML = '<div class="ev-empty">Nothing here with these filters. Try a wider date or distance, or <button class="ev-refresh-link" id="manual-refresh-btn">refresh events</button>.</div>';
         document.getElementById("manual-refresh-btn").addEventListener("click", function () {
           manualRefresh();
         });
@@ -655,13 +691,13 @@
         state.cacheStale = data.cache_stale;
 
         if (data.cache_stale && (!data.events || data.events.length === 0)) {
-          showStatus("Loading events from sources — check back in a moment.", "loading");
+          showStatus("Finding events near you…", "loading");
           state.allEvents = [];
           applyAndRender();
           setTimeout(loadEvents, 5000);
         } else {
           if (data.cache_stale) {
-            showStatus("Refreshing events in the background…", "loading");
+            showStatus("Updating events in the background…", "loading");
             setTimeout(function () {
               loadEvents();
               hideStatus();
@@ -675,7 +711,7 @@
       })
       .catch(function (err) {
         state.loading = false;
-        showStatus("Could not load events. Check your connection.", "error");
+        showStatus("Couldn’t load events. Check your connection and try again.", "error");
         console.error("events load error", err);
       });
   }
@@ -715,6 +751,16 @@
         var open = panel.classList.toggle("ev-filters-open");
         toggleBtn.classList.toggle("ev-toggle-active", open);
         toggleBtn.setAttribute("aria-expanded", open ? "true" : "false");
+        var summaryEl = document.getElementById("ev-filter-summary");
+        if (summaryEl) summaryEl.setAttribute("aria-expanded", open ? "true" : "false");
+      });
+    }
+
+    // Tapping the filter summary also opens/closes the filter panel
+    var summaryEl = document.getElementById("ev-filter-summary");
+    if (summaryEl && toggleBtn) {
+      summaryEl.addEventListener("click", function () {
+        toggleBtn.click();
       });
     }
 
@@ -795,9 +841,32 @@
     savedBtn.addEventListener("click", function () {
       state.savedOnly = !state.savedOnly;
       savedBtn.classList.toggle("ev-filter-active", state.savedOnly);
+      syncButtonStates();
       updateFilterSummary();
       loadEvents();
     });
+
+    // Mobile bottom nav Saved button
+    var mobSavedBtn = document.getElementById("mob-saved-btn");
+    if (mobSavedBtn) {
+      mobSavedBtn.addEventListener("click", function () {
+        state.savedOnly = !state.savedOnly;
+        syncButtonStates();
+        updateFilterSummary();
+        loadEvents();
+      });
+    }
+
+    // Desktop top-nav Saved button
+    var topSavedBtn = document.getElementById("top-saved-btn");
+    if (topSavedBtn) {
+      topSavedBtn.addEventListener("click", function () {
+        state.savedOnly = !state.savedOnly;
+        syncButtonStates();
+        updateFilterSummary();
+        loadEvents();
+      });
+    }
 
     // ── Sort ──────────────────────────────────────────────────────────────────
     document.querySelectorAll(".ev-sort-btn").forEach(function (btn) {

@@ -698,6 +698,35 @@ h1 .subtitle {
 
 .top-nav-admin {
   margin-left: auto;
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.top-nav-admin:hover {
+  opacity: 1;
+}
+
+/* Saved button in top nav — desktop only, hidden on mobile (bottom nav handles it) */
+.top-nav-saved {
+  display: none;
+  background: none;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (min-width: 641px) {
+  .top-nav-saved {
+    display: inline-flex;
+    align-items: center;
+  }
+}
+
+/* Active state: gold tint, matches card saved indicator */
+.top-nav-saved-active {
+  background: rgba(212, 151, 42, 0.12) !important;
+  color: var(--gold) !important;
 }
 
 /* ── Events feed page ────────────────────────────────────────────────────── */
@@ -793,8 +822,8 @@ h1 .subtitle {
 }
 
 .ev-sort-active {
-  background: var(--ink);
-  border-color: var(--ink);
+  background: var(--berry);
+  border-color: var(--berry);
   color: var(--bg-panel);
 }
 
@@ -1098,6 +1127,17 @@ h1 .subtitle {
   color: var(--ink);
 }
 
+/* Save button — gold tone when the event is already saved */
+.ev-save-btn-saved {
+  color: var(--gold) !important;
+  border-color: var(--gold) !important;
+  font-weight: 600 !important;
+}
+
+.ev-save-btn-saved:hover {
+  background: rgba(212, 151, 42, 0.08) !important;
+}
+
 /* ── Empty / refresh link ────────────────────────────────────────────────── */
 .ev-empty {
   text-align: center;
@@ -1278,6 +1318,21 @@ h1 .subtitle {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+  /* pill affordance — signals it's tappable */
+  background: var(--bg);
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 11px;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.ev-filter-summary:hover {
+  border-color: var(--berry);
+  color: var(--berry);
 }
 
 .ev-filters-toggle-btn {
@@ -1304,6 +1359,13 @@ h1 .subtitle {
   background: var(--berry) !important;
   border-color: var(--berry) !important;
   color: #fff !important;
+}
+
+/* Refine button tint when any filter is non-default — panel is still closed */
+.ev-refine-active {
+  border-color: var(--berry) !important;
+  color: var(--berry) !important;
+  background: rgba(61, 114, 200, 0.06) !important;
 }
 
 .ev-filter-row {
@@ -1373,5 +1435,92 @@ h1 .subtitle {
 
   .ev-title {
     font-size: 16px;
+  }
+}
+
+/* ── Mobile bottom nav (events page only) ──────────────────────────────────── */
+.mob-nav {
+  display: none; /* hidden on desktop */
+}
+
+@media (max-width: 640px) {
+  /* Hide top nav on events page — bottom nav takes over */
+  body:has(#events-app) .top-nav {
+    display: none;
+  }
+
+  /* Let events-app fill the full viewport height */
+  body:has(#events-app) #events-app {
+    min-height: 0;
+    flex: 1 1 auto;
+  }
+
+  /* Push list content above bottom nav */
+  #events-app .events-list {
+    padding-bottom: 76px;
+  }
+
+  /* Bottom nav bar */
+  .mob-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    background: var(--bg-panel);
+    border-top: 1px solid var(--line);
+    z-index: 9998;
+    box-shadow: 0 -2px 8px rgba(26, 39, 64, 0.08);
+    /* safe area for notched phones */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    height: calc(56px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .mob-nav-item {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-soft);
+    text-decoration: none;
+    border: none;
+    border-top: 2px solid transparent;
+    background: none;
+    cursor: pointer;
+    font-family: inherit;
+    padding: 8px 4px;
+    transition: color 0.15s, border-color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    min-height: 44px;
+  }
+
+  .mob-nav-item:hover {
+    color: var(--berry);
+  }
+
+  .mob-nav-active {
+    color: var(--berry);
+    font-weight: 700;
+    border-top-color: var(--berry);
+  }
+
+  /* Saved active state — gold to match card saved indicator */
+  .mob-saved-active {
+    color: var(--gold) !important;
+    font-weight: 700 !important;
+    border-top-color: var(--gold) !important;
+  }
+
+  /* Admin link in bottom nav — slightly muted */
+  .mob-nav-admin-item {
+    font-size: 11px;
+    opacity: 0.65;
+  }
+
+  .mob-nav-admin-item:hover {
+    opacity: 1;
   }
 }
