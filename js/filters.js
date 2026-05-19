@@ -136,11 +136,17 @@ const EventMapFilters = (() => {
     allChip.className = "chip chip-all";
     allChip.id = "chip-all-btn";
     allChip.textContent = "All";
-    allChip.title = "Show all categories";
+    allChip.title = "Select all / deselect all categories";
     allChip.onclick = function() {
-      allCategoryNames.forEach(function(n) { state.categories.add(n); });
+      var allActive = allCategoryNames.length > 0 &&
+                      state.categories.size === allCategoryNames.length;
+      if (allActive) {
+        state.categories.clear();
+      } else {
+        allCategoryNames.forEach(function(n) { state.categories.add(n); });
+      }
       categoriesEl.querySelectorAll(".chip:not(.chip-all)").forEach(function(c) {
-        setChipActive(c, true);
+        setChipActive(c, state.categories.has(c.dataset.value));
       });
       updateAllChip();
       updateFarmControls();
