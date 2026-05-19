@@ -57,7 +57,7 @@ def _parse_int_env(name, default, min_val=None, max_val=None):
 HOME_LAT = _parse_float_env("HOME_LAT", 40.487993, min_val=-90.0, max_val=90.0)
 HOME_LNG = _parse_float_env("HOME_LNG", -79.805208, min_val=-180.0, max_val=180.0)
 
-CACHE_HOURS = int(os.environ.get("EVENTS_CACHE_HOURS", "24"))
+CACHE_HOURS = int(os.environ.get("EVENTS_CACHE_HOURS", "48"))
 
 # Stale event retention.
 # Unsaved external_events with a start/end older than this many days are

@@ -699,10 +699,8 @@
           setTimeout(loadEvents, 5000);
         } else {
           if (data.cache_stale) {
-            showStatus("Updating events in the background…", "loading");
             setTimeout(function () {
               loadEvents();
-              hideStatus();
             }, 8000);
           } else {
             hideStatus();
