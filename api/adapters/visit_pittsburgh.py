@@ -15,6 +15,7 @@ import datetime
 import requests
 
 from adapters.base import BaseAdapter
+from adapters.utils import FetchResult
 import events as _ev_module
 
 _APP_ID   = os.environ.get("VP_ALGOLIA_APP_ID",  "EYQHJ2IY2M")
@@ -156,6 +157,7 @@ def _normalize(hit):
 class VisitPittsburgh(BaseAdapter):
     source_key = "visit_pittsburgh"
     display_name = "Visit Pittsburgh"
+    homepage_url = "https://www.visitpittsburgh.com/"
 
     def fetch(self, coverage_days=60) -> list:
         headers = {
@@ -170,6 +172,7 @@ class VisitPittsburgh(BaseAdapter):
 
         seen_ids = set()
         events = []
+        failure = None
 
         # Two queries: "2026" for upcoming year-labelled events,
         # "pittsburgh" for recurring/unlabelled events not captured by year query.
@@ -190,6 +193,7 @@ class VisitPittsburgh(BaseAdapter):
                     data = resp.json()
                 except Exception as e:
                     print(f"[visit_pittsburgh] fetch error (query={query!r}, page={page}): {e}")
+                    failure = f"query={query!r} page={page}: {e}"
                     break
 
                 hits = data.get("hits") or []
@@ -215,4 +219,9 @@ class VisitPittsburgh(BaseAdapter):
 
                     events.append(_normalize(hit))
 
-        return events
+                if not hits or page + 1 >= int(nb_pages or 1):
+                    break
+
+            if failure:
+                break
+        return FetchResult(events, complete=failure is None, error=failure)

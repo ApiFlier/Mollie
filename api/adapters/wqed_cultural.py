@@ -16,3 +16,4 @@ class WqedCultural(TribeEventsAdapter):
     source_key   = "wqed_cultural"
     display_name = "WQED Cultural Calendar"
     api_base     = "https://www.wqed.org"
+    homepage_url = "https://www.wqed.org/events/"

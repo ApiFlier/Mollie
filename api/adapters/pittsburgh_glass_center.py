@@ -27,12 +27,16 @@ class PittsburghGlassCenter(TribeEventsAdapter):
     source_key   = "pittsburgh_glass_center"
     display_name = "Pittsburgh Glass Center"
     api_base     = "https://www.pittsburghglasscenter.org"
+    homepage_url = "https://www.pittsburghglasscenter.org/events/"
 
     def fetch(self, coverage_days=60) -> list:
         events = super().fetch(coverage_days=coverage_days)
         # Venue data is missing from this source's API; apply known fallback.
         for ev in events:
-            for field, value in _FALLBACK.items():
-                if not ev.get(field):
-                    ev[field] = value
+            # Only locate the event at PGC when the provider supplied no venue
+            # and no address at all. Never overwrite a partial explicit venue.
+            if not ev.get("venue_name") and not ev.get("address"):
+                for field, value in _FALLBACK.items():
+                    if not ev.get(field):
+                        ev[field] = value
         return events

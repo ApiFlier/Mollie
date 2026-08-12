@@ -258,3 +258,14 @@ UPDATE `event_sources`
       `last_attempt_at` = NULL,
       `last_error`      = NULL;
 
+-- Structured event providers known to fresh installs. Runtime startup also
+-- pre-seeds these idempotently and adds newer metadata columns as needed.
+INSERT IGNORE INTO `event_sources`
+  (`source_key`, `display_name`, `enabled`, `coverage_days`) VALUES
+  ('play_pittsburgh', 'Play Pittsburgh', 1, 60),
+  ('kidsburgh', 'Kidsburgh', 1, 60),
+  ('experience_butler', 'Experience Butler County', 1, 60),
+  ('visit_pa', 'VisitPA', 1, 60),
+  ('laurel_highlands', 'Laurel Highlands', 1, 60),
+  ('pittsburgh_magazine', 'Pittsburgh Magazine', 1, 60),
+  ('mercer_county', 'Mercer County', 1, 60);

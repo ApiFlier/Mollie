@@ -14,3 +14,4 @@ class CarnegieMuseums(TribeEventsAdapter):
     source_key   = "carnegie_museums"
     display_name = "Carnegie Museums of Pittsburgh"
     api_base     = "https://carnegiemuseums.org"
+    homepage_url = "https://carnegiemuseums.org/events/"

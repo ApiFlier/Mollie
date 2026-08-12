@@ -6,6 +6,8 @@ import math
 import os
 import datetime
 import threading
+import json
+from urllib.parse import urlparse
 
 def _clamp_coverage_days(val, default=60, min_val=7, max_val=180):
     """Parse and clamp a coverage_days value. Returns default for missing/invalid."""
@@ -210,13 +212,13 @@ def any_source_stale(conn):
 
 # ── DB helpers ────────────────────────────────────────────────────────────────
 
-def _ensure_source(conn, source_key, display_name):
+def _ensure_source(conn, source_key, display_name, homepage_url=None):
     cur = conn.cursor()
     cur.execute(
-        """INSERT INTO event_sources (source_key, display_name)
-           VALUES (%s, %s)
-           ON DUPLICATE KEY UPDATE display_name = %s""",
-        (source_key, display_name, display_name)
+        """INSERT INTO event_sources (source_key, display_name, homepage_url)
+           VALUES (%s, %s, %s)
+           ON DUPLICATE KEY UPDATE display_name = %s, homepage_url = %s""",
+        (source_key, display_name, homepage_url, display_name, homepage_url)
     )
     conn.commit()
     cur.close()
@@ -308,6 +310,52 @@ def _upsert_event(conn, ev):
         _do_insert(conn, ev)
 
     _apply_user_state(conn, fp)
+
+
+def _validate_event(ev):
+    """Validate/coerce one normalized adapter event without making optional fields required."""
+    if not isinstance(ev, dict):
+        raise ValueError("normalized event is not an object")
+    out = dict(ev)
+    for key in ("source_key", "title", "normalized_fingerprint"):
+        out[key] = str(out.get(key) or "").strip()
+        if not out[key]:
+            raise ValueError(f"missing required normalized field: {key}")
+    if out.get("source_event_id") is not None:
+        out["source_event_id"] = str(out["source_event_id"])
+    if out.get("admission") is not None:
+        admission = out["admission"]
+        if isinstance(admission, (dict, list)):
+            admission = json.dumps(admission, default=str, ensure_ascii=False)
+        # The normalized cache contract stores a concise display label.
+        out["admission"] = str(admission).strip()[:255] or None
+    for key in ("start_datetime", "end_datetime"):
+        val = out.get(key)
+        if val:
+            try:
+                datetime.datetime.strptime(str(val), "%Y-%m-%d %H:%M:%S")
+            except ValueError as exc:
+                raise ValueError(f"invalid {key}: {val!r}") from exc
+    for key, lo, hi in (("latitude", -90, 90), ("longitude", -180, 180)):
+        val = out.get(key)
+        if val not in (None, ""):
+            try:
+                val = float(val)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"invalid {key}: {val!r}") from exc
+            if not lo <= val <= hi:
+                raise ValueError(f"out-of-range {key}: {val!r}")
+            out[key] = val
+        else:
+            out[key] = None
+    for key in ("source_url", "official_url", "image_url"):
+        val = out.get(key)
+        if val and urlparse(str(val)).scheme not in ("http", "https"):
+            out[key] = None
+    raw = out.get("raw_source_json")
+    if raw is not None and not isinstance(raw, str):
+        out["raw_source_json"] = json.dumps(raw, default=str, ensure_ascii=False)
+    return out
 
 
 def _do_update(conn, event_id, ev):
@@ -551,7 +599,7 @@ def refresh_source(conn, source_key):
     if not adapter:
         raise ValueError(f"Unknown source: {source_key}")
 
-    _ensure_source(conn, source_key, adapter.display_name)
+    _ensure_source(conn, source_key, adapter.display_name, getattr(adapter, "homepage_url", None))
     coverage_days = get_source_coverage_days(conn, source_key)
 
     try:
@@ -561,9 +609,18 @@ def refresh_source(conn, source_key):
         _mark_error(conn, source_key, e)
         return 0
 
+    if getattr(events, "complete", True) is False:
+        error = getattr(events, "error", None) or "incomplete paginated response"
+        print(f"[events] {source_key} incomplete fetch: {error}")
+        _mark_error(conn, source_key, error)
+        return 0
+
     count = 0
     for ev in events:
         try:
+            ev = _validate_event(ev)
+            if ev["source_key"] != source_key:
+                raise ValueError(f"source_key mismatch: {ev['source_key']!r}")
             _upsert_event(conn, ev)
             count += 1
         except Exception as e:
@@ -711,12 +768,12 @@ def get_sources(conn, enabled_only=True):
     cur = conn.cursor(dictionary=True)
     if enabled_only:
         cur.execute(
-            "SELECT source_key, display_name, enabled, coverage_days"
+            "SELECT source_key, display_name, enabled, coverage_days, homepage_url"
             " FROM event_sources WHERE enabled = TRUE ORDER BY source_key"
         )
     else:
         cur.execute(
-            "SELECT source_key, display_name, enabled, coverage_days"
+            "SELECT source_key, display_name, enabled, coverage_days, homepage_url"
             " FROM event_sources ORDER BY source_key"
         )
     rows = cur.fetchall()
@@ -959,6 +1016,7 @@ CREATE TABLE IF NOT EXISTS event_sources (
     display_name     VARCHAR(128) NOT NULL,
     enabled          BOOLEAN DEFAULT TRUE,
     coverage_days    INT NOT NULL DEFAULT 60,
+    homepage_url     VARCHAR(1024),
     last_success_at  DATETIME,
     last_attempt_at  DATETIME,
     last_error       TEXT,
@@ -1048,6 +1106,12 @@ def ensure_tables(conn):
     except Exception:
         pass  # Column already exists — expected on re-run.
 
+    try:
+        cur.execute("ALTER TABLE event_sources ADD COLUMN homepage_url VARCHAR(1024) NULL")
+        conn.commit()
+    except Exception:
+        pass
+
     # Safe backfill: add seed sync tracking columns to locations.
     try:
         cur.execute(
@@ -1127,10 +1191,11 @@ def ensure_tables(conn):
     for key, adapter in _ADAPTERS.items():
         try:
             cur.execute(
-                "INSERT INTO event_sources (source_key, display_name)"
-                " VALUES (%s, %s)"
-                " ON DUPLICATE KEY UPDATE display_name = %s",
-                (key, adapter.display_name, adapter.display_name)
+                "INSERT INTO event_sources (source_key, display_name, homepage_url)"
+                " VALUES (%s, %s, %s)"
+                " ON DUPLICATE KEY UPDATE display_name = %s, homepage_url = %s",
+                (key, adapter.display_name, getattr(adapter, "homepage_url", None),
+                 adapter.display_name, getattr(adapter, "homepage_url", None))
             )
         except Exception as e:
             print(f"[events] could not pre-seed source {key!r}: {e}")

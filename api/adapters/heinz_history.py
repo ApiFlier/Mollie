@@ -12,3 +12,4 @@ class HeinzHistory(TribeEventsAdapter):
     source_key   = "heinz_history"
     display_name = "Heinz History Center"
     api_base     = "https://www.heinzhistorycenter.org"
+    homepage_url = "https://www.heinzhistorycenter.org/events/"

@@ -21,6 +21,13 @@ from adapters.carnegie_library import CarnegieLibrary
 from adapters.wqed_cultural import WqedCultural
 from adapters.pittsburgh_parks import PittsburghParks
 from adapters.pittsburgh_glass_center import PittsburghGlassCenter
+from adapters.play_pittsburgh import PlayPittsburgh
+from adapters.kidsburgh import Kidsburgh
+from adapters.experience_butler import ExperienceButler
+from adapters.visit_pa import VisitPA
+from adapters.laurel_highlands import LaurelHighlands
+from adapters.pittsburgh_magazine import PittsburghMagazine
+from adapters.mercer_county import MercerCounty
 
 _events.register_adapter(PositivelyPgh())
 _events.register_adapter(VisitPittsburgh())
@@ -30,6 +37,13 @@ _events.register_adapter(CarnegieLibrary())
 _events.register_adapter(WqedCultural())
 _events.register_adapter(PittsburghParks())
 _events.register_adapter(PittsburghGlassCenter())
+_events.register_adapter(PlayPittsburgh())
+_events.register_adapter(Kidsburgh())
+_events.register_adapter(ExperienceButler())
+_events.register_adapter(VisitPA())
+_events.register_adapter(LaurelHighlands())
+_events.register_adapter(PittsburghMagazine())
+_events.register_adapter(MercerCounty())
 
 app = Flask(__name__, static_url_path='', static_folder='static')
 app.secret_key = os.environ.get("FLASK_SECRET") or os.urandom(32)
@@ -696,6 +710,8 @@ def admin_index():
 
 @app.route("/sources")
 @app.route("/api/sources")
+@app.route("/event-sources")
+@app.route("/api/event-sources")
 def get_sources():
     """Public endpoint: list enabled event sources."""
     conn = get_conn()

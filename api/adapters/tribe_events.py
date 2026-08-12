@@ -14,8 +14,10 @@ import json
 import re
 import datetime
 import requests
+from zoneinfo import ZoneInfo
 
 from adapters.base import BaseAdapter
+from adapters.utils import FetchResult, REGIONAL_TZ, utc_naive_string
 import events as _ev_module
 
 _PER_PAGE = 100   # Tribe API max per page
@@ -84,21 +86,33 @@ def _normalize(ev, source_key):
     if desc and len(desc) > 280:
         desc = desc[:277] + '…'
 
-    # Dates — Tribe returns local-time strings "YYYY-MM-DD HH:MM:SS"
-    start_dt = ev.get('start_date')  # already the right format for MySQL
-    end_dt   = ev.get('end_date')
+    # Prefer explicit UTC values. Otherwise interpret provider wall-clock values
+    # in its declared IANA timezone, falling back to the Pittsburgh region.
+    try:
+        source_tz = ZoneInfo(ev.get('timezone')) if ev.get('timezone') else REGIONAL_TZ
+    except Exception:
+        source_tz = REGIONAL_TZ
+    start_dt = utc_naive_string(ev.get('utc_start_date'), ZoneInfo('UTC')) \
+        if ev.get('utc_start_date') else utc_naive_string(ev.get('start_date'), source_tz)
+    end_dt = utc_naive_string(ev.get('utc_end_date'), ZoneInfo('UTC')) \
+        if ev.get('utc_end_date') else utc_naive_string(ev.get('end_date'), source_tz)
 
     date_label = None
     if start_dt:
         try:
-            date_label = datetime.datetime.strptime(
-                start_dt, '%Y-%m-%d %H:%M:%S'
-            ).strftime('%a %b %-d')
+            if ev.get('start_date'):
+                label_dt = datetime.datetime.fromisoformat(str(ev['start_date']).replace('Z', '+00:00'))
+            else:
+                label_dt = datetime.datetime.strptime(start_dt, '%Y-%m-%d %H:%M:%S').replace(
+                    tzinfo=ZoneInfo('UTC')).astimezone(source_tz)
+            date_label = label_dt.strftime('%a %b %-d')
         except Exception:
             pass
 
     # Venue
     vd        = ev.get('venue') or {}
+    if isinstance(vd, list):
+        vd = next((item for item in vd if isinstance(item, dict)), {})
     venue_name = _strip_html(vd.get('venue') or '') or None
     address    = vd.get('address') or None
     city       = (vd.get('city') or '').strip().title() or None  # "pittsburgh" → "Pittsburgh"
@@ -113,7 +127,7 @@ def _normalize(ev, source_key):
 
     # Image — use the full-size URL from the image block
     img       = ev.get('image') or {}
-    image_url = img.get('url') if img else None
+    image_url = img.get('url') if isinstance(img, dict) else None
 
     # Category — first category name, HTML-decoded
     cats     = ev.get('categories') or []
@@ -187,7 +201,8 @@ class TribeEventsAdapter(BaseAdapter):
               f' window={start_str[:10]} → {end_str[:10]}')
 
         events   = []
-        seen_ids = set()
+        seen_occurrences = set()
+        failure = None
 
         for page in range(1, _MAX_PAGES + 1):
             params = {
@@ -207,6 +222,7 @@ class TribeEventsAdapter(BaseAdapter):
                 data = resp.json()
             except Exception as e:
                 print(f'[{self.source_key}] fetch error page={page}: {e}')
+                failure = f"page {page}: {e}"
                 break
 
             batch       = data.get('events') or []
@@ -214,10 +230,11 @@ class TribeEventsAdapter(BaseAdapter):
 
             for ev in batch:
                 eid = str(ev.get('id') or '')
-                if eid and eid in seen_ids:
+                occurrence_key = (eid, ev.get('utc_start_date') or ev.get('start_date') or '')
+                if eid and occurrence_key in seen_occurrences:
                     continue
                 if eid:
-                    seen_ids.add(eid)
+                    seen_occurrences.add(occurrence_key)
                 normalized = _normalize(ev, self.source_key)
                 if normalized is not None:
                     events.append(normalized)
@@ -226,4 +243,4 @@ class TribeEventsAdapter(BaseAdapter):
                 break
 
         print(f'[{self.source_key}] {len(events)} events fetched')
-        return events
+        return FetchResult(events, complete=failure is None, error=failure)

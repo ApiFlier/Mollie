@@ -17,6 +17,7 @@ class PittsburghParks(TribeEventsAdapter):
     source_key   = "pittsburgh_parks"
     display_name = "Pittsburgh Parks Conservancy"
     api_base     = "https://www.pittsburghparks.org"
+    homepage_url = "https://www.pittsburghparks.org/events/"
 
     def fetch(self, coverage_days=60) -> list:
         events = super().fetch(coverage_days=coverage_days)
@@ -28,7 +29,7 @@ class PittsburghParks(TribeEventsAdapter):
             lng = ev.get("longitude")
             if lat is not None and lng is not None:
                 try:
-                    if float(lat) > 0 and float(lng) > 0:
+                    if 38.0 <= float(lat) <= 43.0 and 74.0 <= float(lng) <= 82.0:
                         ev["longitude"] = -float(lng)
                 except (TypeError, ValueError):
                     pass

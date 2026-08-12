@@ -15,3 +15,4 @@ class CarnegieLibrary(TribeEventsAdapter):
     source_key   = "carnegie_library"
     display_name = "Carnegie Library of Pittsburgh"
     api_base     = "https://www.carnegielibrary.org"
+    homepage_url = "https://www.carnegielibrary.org/events/"

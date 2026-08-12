@@ -93,6 +93,8 @@ CREATE TABLE IF NOT EXISTS event_sources (
     source_key       VARCHAR(64) NOT NULL UNIQUE,
     display_name     VARCHAR(128) NOT NULL,
     enabled          BOOLEAN DEFAULT TRUE,
+    coverage_days    INT NOT NULL DEFAULT 60,
+    homepage_url     VARCHAR(1024),
     last_success_at  DATETIME,
     last_attempt_at  DATETIME,
     last_error       TEXT,

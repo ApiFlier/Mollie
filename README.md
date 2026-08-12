@@ -156,6 +156,45 @@ A named Docker volume (`event_map_db_data`) provides persistent storage.
 
 ## Data Sources
 
+### Structured event feeds
+
+The Events view is backed by 15 server-side JSON integrations. Provider data is
+normalized into the common `external_events` occurrence schema and retained as a
+refreshable MySQL cache; browsers never call provider APIs directly.
+
+| Provider family | Sources |
+|---|---|
+| CitySpark | Positively Pittsburgh |
+| Algolia | Visit Pittsburgh, Experience Butler County |
+| Tribe Events REST | Heinz History Center, Carnegie Museums, Carnegie Library, WQED Cultural Calendar, Pittsburgh Parks Conservancy, Pittsburgh Glass Center, Play Pittsburgh, Kidsburgh |
+| Simpleview | VisitPA, Laurel Highlands |
+| Evvnt | Pittsburgh Magazine |
+| EventON / WordPress REST | Mercer County |
+
+Imports preserve provider occurrence IDs, normalize timestamps to UTC-naive
+MySQL `DATETIME` values, exclude explicitly virtual events, and keep source-scoped
+fingerprints so one provider cannot overwrite another provider's occurrence.
+Source configuration and refresh health live in `event_sources`; normalized
+occurrences live in `external_events`. Provider payloads are retained in
+`raw_source_json` for diagnostics.
+
+The Algolia and Simpleview defaults used here are public browser/read-only site
+tokens, not administrative secrets. They can be rotated without code changes:
+
+| Variable | Purpose |
+|---|---|
+| `VP_ALGOLIA_APP_ID`, `VP_ALGOLIA_API_KEY`, `VP_ALGOLIA_INDEX` | Visit Pittsburgh Algolia overrides |
+| `EB_ALGOLIA_APP_ID`, `EB_ALGOLIA_API_KEY`, `EB_ALGOLIA_INDEX` | Experience Butler Algolia overrides |
+| `VISIT_PA_SIMPLEVIEW_TOKEN` | VisitPA public Simpleview token override |
+| `LAUREL_SIMPLEVIEW_TOKEN` | Laurel Highlands public Simpleview token override |
+| `EVENTS_CACHE_HOURS` | Source staleness interval; default 48 hours |
+| `EVENT_CACHE_RETENTION_DAYS` | Untouched expired-event retention; default 14 days |
+| `SAVED_EVENT_RETENTION_DAYS` | Optional saved-event retention; blank means indefinite |
+
+Fresh setup works with the included public defaults. Provider requests are made
+by Flask with bounded pagination and timeouts. Failed or incomplete paginated
+refreshes retain the previous cache and record an error instead of purging rows.
+
 The seed dataset (`api/data/seed.sql`) is an **opinionated starter dataset** curated for Mollie — a specific person in the Pittsburgh area. It reflects her preferences, her neighborhoods, and the farms, markets, butchers, trails, and events she actually cares about. It is not a neutral, universal dataset.
 
 If you are running this app for yourself, you should expect to replace or supplement the seed data with locations relevant to your own area and interests. The seed is a starting point, not a canonical directory.

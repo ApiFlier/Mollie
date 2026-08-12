@@ -28,8 +28,7 @@ def _stub_module(name):
 
 _adapters      = _stub_module("adapters")
 _adapters_base = _stub_module("adapters.base")
-if not hasattr(_adapters, "__path__"):
-    _adapters.__path__ = []
+_adapters.__path__ = [os.path.join(os.path.dirname(__file__), "..", "api", "adapters")]
 
 class _BaseAdapter:
     source_key   = None

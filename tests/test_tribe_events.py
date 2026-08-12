@@ -23,7 +23,7 @@ def _stub_module(name):
 
 _adapters      = _stub_module("adapters")
 _adapters_base = _stub_module("adapters.base")
-_adapters.__path__ = []
+_adapters.__path__ = [os.path.join(os.path.dirname(__file__), "..", "api", "adapters")]
 
 class _BaseAdapter:
     source_key   = None
@@ -193,8 +193,8 @@ class TestNormalize(unittest.TestCase):
         self.assertIsNotNone(r)
         self.assertEqual(r["source_key"], "test_source")
         self.assertEqual(r["title"], "Test Event")
-        self.assertEqual(r["start_datetime"], "2026-06-01 10:00:00")
-        self.assertEqual(r["end_datetime"],   "2026-06-01 12:00:00")
+        self.assertEqual(r["start_datetime"], "2026-06-01 14:00:00")
+        self.assertEqual(r["end_datetime"],   "2026-06-01 16:00:00")
 
     def test_virtual_event_returns_none(self):
         ev = _make_ev(is_virtual=True)

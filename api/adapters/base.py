@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 class BaseAdapter(ABC):
     source_key: str = None
     display_name: str = None
+    homepage_url: str = None
 
     @abstractmethod
     def fetch(self, coverage_days=60) -> list:

@@ -8,6 +8,7 @@ import datetime
 import requests
 
 from adapters.base import BaseAdapter
+from adapters.utils import FetchResult, utc_naive_string
 import events as _ev_module
 
 _ENDPOINT = "https://portal.cityspark.com/api/events/GetEvents/PopularPittsburgh"
@@ -142,17 +143,13 @@ def _parse_city_state(city_state):
 
 def _normalize(ev):
     city, state = _parse_city_state(ev.get("CityState"))
-    start = ev.get("DateStart") or ev.get("Date")
-    end = ev.get("DateEnd")
+    # CitySpark's DateStart has been observed to label Pittsburgh wall-clock
+    # components with "Z". StartUTC/EndUTC are the authoritative instants.
+    start = ev.get("StartUTC") or ev.get("DateStart") or ev.get("Date")
+    end = ev.get("EndUTC") or ev.get("DateEnd")
 
     def to_dt(s):
-        if not s:
-            return None
-        try:
-            dt = datetime.datetime.fromisoformat(s.replace("Z", "+00:00"))
-            return dt.strftime("%Y-%m-%d %H:%M:%S")
-        except Exception:
-            return None
+        return utc_naive_string(s)
 
     start_dt = to_dt(start)
     end_dt = to_dt(end)
@@ -210,6 +207,7 @@ def _normalize(ev):
 class PositivelyPgh(BaseAdapter):
     source_key = "positively_pgh"
     display_name = "Positively Pittsburgh"
+    homepage_url = "https://positivelypittsburgh.com/calendar/"
 
     def fetch(self, coverage_days=60) -> list:
         # Clamp to valid range; fall back to 30 for any bad input.
@@ -229,6 +227,7 @@ class PositivelyPgh(BaseAdapter):
         skip = 0
         pages_fetched = 0
         latest_date_seen = ""  # furthest DateStart encountered across all fetched pages
+        failure = None
 
         while pages_fetched < _MAX_PAGES:
             payload = {
@@ -259,10 +258,12 @@ class PositivelyPgh(BaseAdapter):
                 data = resp.json()
             except Exception as e:
                 print(f"[positively_pgh] skip={skip} fetch error: {e}")
+                failure = f"skip={skip}: {e}"
                 break
 
             if not data.get("Success"):
                 print(f"[positively_pgh] API returned Success=False: {data.get('ErrorMessage')}")
+                failure = data.get("ErrorMessage") or "CitySpark returned Success=False"
                 break
 
             batch = data.get("Value") or []
@@ -309,4 +310,4 @@ class PositivelyPgh(BaseAdapter):
             f"[positively_pgh] {len(events)} events in {pages_fetched} page(s), "
             f"latest={latest_date_seen or 'none'}, target={coverage_target} (coverage_days={_cov})"
         )
-        return events
+        return FetchResult(events, complete=failure is None, error=failure)

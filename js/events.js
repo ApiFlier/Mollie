@@ -269,19 +269,9 @@
     return colors[sourceKey] || "#7c5cc8";
   }
 
-  var SOURCE_HOMEPAGES = {
-    positively_pgh:          "https://positivelypittsburgh.com/calendar/",
-    visit_pittsburgh:        "https://www.visitpittsburgh.com/",
-    carnegie_library:        "https://www.carnegielibrary.org/events/",
-    carnegie_museums:        "https://carnegiemnh.org/event/",
-    heinz_history:           "https://www.heinzhistorycenter.org/events/",
-    wqed_cultural:           "https://www.wqed.org/events/",
-    pittsburgh_parks:        "https://pittsburghparks.org/event/",
-    pittsburgh_glass_center: "https://www.pittsburghglasscenter.org/events/",
-  };
-
   function sourceHomeUrl(sourceKey) {
-    return SOURCE_HOMEPAGES[sourceKey] || null;
+    var source = state.allSources.find(function (item) { return item.source_key === sourceKey; });
+    return source ? source.homepage_url || null : null;
   }
 
   function isGenericDesc(desc) {

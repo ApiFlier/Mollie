@@ -56,6 +56,13 @@ _stub("adapters.carnegie_library", CarnegieLibrary=_FakeAdapter)
 _stub("adapters.wqed_cultural",   WqedCultural=_FakeAdapter)
 _stub("adapters.pittsburgh_parks", PittsburghParks=_FakeAdapter)
 _stub("adapters.pittsburgh_glass_center", PittsburghGlassCenter=_FakeAdapter)
+_stub("adapters.play_pittsburgh", PlayPittsburgh=_FakeAdapter)
+_stub("adapters.kidsburgh", Kidsburgh=_FakeAdapter)
+_stub("adapters.experience_butler", ExperienceButler=_FakeAdapter)
+_stub("adapters.visit_pa", VisitPA=_FakeAdapter)
+_stub("adapters.laurel_highlands", LaurelHighlands=_FakeAdapter)
+_stub("adapters.pittsburgh_magazine", PittsburghMagazine=_FakeAdapter)
+_stub("adapters.mercer_county", MercerCounty=_FakeAdapter)
 
 # Stub events module
 _ev_stub = _stub("events")
@@ -92,7 +99,11 @@ _generate_seed_sql = _app_mod._generate_seed_sql
 
 # Remove stubs from sys.modules after app is loaded so that other test files
 # (test_event_hygiene.py, etc.) can load the real events module without interference.
-for _cleanup_key in ["events", "migrations", "requests", "adapters.positively_pgh",
+for _cleanup_key in ["events", "migrations", "requests", "adapters",
+                     "adapters.play_pittsburgh", "adapters.kidsburgh",
+                     "adapters.experience_butler", "adapters.visit_pa",
+                     "adapters.laurel_highlands", "adapters.pittsburgh_magazine",
+                     "adapters.mercer_county", "adapters.positively_pgh",
                      "adapters.visit_pittsburgh", "adapters.heinz_history",
                      "adapters.carnegie_museums", "adapters.carnegie_library",
                      "adapters.wqed_cultural", "adapters.pittsburgh_parks",
