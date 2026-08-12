@@ -13,9 +13,9 @@ import events as _ev_module
 
 _ENDPOINT = "https://portal.cityspark.com/api/events/GetEvents/PopularPittsburgh"
 _PAGE_SIZE = 100           # CitySpark returns up to 100 events per response
-_MAX_PAGES = 40            # safety guard — normal stop is coverage-based, not page-count-based
+_MAX_PAGES = 20            # safety guard per date partition
 _MIN_COVERAGE_DAYS = 60    # keep paging until events reach at least this many days ahead
-_FETCH_WINDOW_DAYS = 90    # upper-bound sent to CitySpark; end:null returns only today's events
+_FETCH_WINDOW_DAYS = 7     # small partitions avoid CitySpark's broad-result refinement limit
 _TIMEOUT = 15              # seconds
 
 # Pittsburgh-area center coordinates used for the CitySpark query.
@@ -209,105 +209,71 @@ class PositivelyPgh(BaseAdapter):
     display_name = "Positively Pittsburgh"
     homepage_url = "https://positivelypittsburgh.com/calendar/"
 
+    def _fetch_window(self, start_date, end_date):
+        """Fetch one bounded CitySpark date partition completely."""
+        events = []
+        skip = 0
+        for page in range(_MAX_PAGES):
+            payload = {
+                "ppid": 8462,
+                "start": start_date.strftime("%Y-%m-%dT00:00:00"),
+                "end": end_date.strftime("%Y-%m-%dT23:59:59"),
+                "labels": [], "pick": False, "tps": None, "sparks": False,
+                "sort": "Time", "category": [], "distance": 60,
+                "lat": _QUERY_LAT, "lng": _QUERY_LNG, "search": "",
+                "skip": skip, "defFilter": "all",
+            }
+            try:
+                resp = requests.post(
+                    _ENDPOINT, json=payload, timeout=_TIMEOUT,
+                    headers={"Content-Type": "application/json"},
+                )
+                resp.raise_for_status()
+                data = resp.json()
+            except Exception as exc:
+                return FetchResult(events, complete=False, error=f"{start_date}..{end_date} skip={skip}: {exc}")
+            if not data.get("Success"):
+                return FetchResult(events, complete=False, error=(
+                    f"{start_date}..{end_date} skip={skip}: "
+                    f"{data.get('ErrorMessage') or 'CitySpark returned Success=False'}"
+                ))
+            batch = data.get("Value") or []
+            for ev in batch:
+                if not ev.get("isVirtual"):
+                    events.append(_normalize(ev))
+            skip += len(batch)
+            possible = data.get("Possible")
+            if not batch or len(batch) < _PAGE_SIZE or (possible and skip >= possible):
+                return FetchResult(events)
+        return FetchResult(events, complete=False, error=(
+            f"{start_date}..{end_date}: reached {_MAX_PAGES}-page partition safety limit"
+        ))
+
     def fetch(self, coverage_days=60) -> list:
-        # Clamp to valid range; fall back to 30 for any bad input.
         try:
             _cov = max(7, min(180, int(coverage_days)))
         except (ValueError, TypeError):
             _cov = _MIN_COVERAGE_DAYS
         print(f"[positively_pgh] coverage_days={_cov}")
 
-        events = []
-        seen_ids = set()
-        now = datetime.datetime.utcnow()
-        coverage_target = (now + datetime.timedelta(days=_cov)).strftime("%Y-%m-%d")
-        start_str = now.strftime("%Y-%m-%dT00:00:00")
-        end_str = (now + datetime.timedelta(days=_FETCH_WINDOW_DAYS)).strftime("%Y-%m-%dT23:59:59")
-
-        skip = 0
-        pages_fetched = 0
-        latest_date_seen = ""  # furthest DateStart encountered across all fetched pages
-        failure = None
-
-        while pages_fetched < _MAX_PAGES:
-            payload = {
-                "ppid": 8462,
-                "start": start_str,
-                "end": end_str,  # explicit 90-day window; end:null returns only today's events
-                "labels": [],
-                "pick": False,
-                "tps": None,
-                "sparks": False,
-                "sort": "Time",
-                "category": [],
-                "distance": 60,
-                "lat": _QUERY_LAT,
-                "lng": _QUERY_LNG,
-                "search": "",
-                "skip": skip,
-                "defFilter": "all",
-            }
-            try:
-                resp = requests.post(
-                    _ENDPOINT,
-                    json=payload,
-                    timeout=_TIMEOUT,
-                    headers={"Content-Type": "application/json"},
-                )
-                resp.raise_for_status()
-                data = resp.json()
-            except Exception as e:
-                print(f"[positively_pgh] skip={skip} fetch error: {e}")
-                failure = f"skip={skip}: {e}"
-                break
-
-            if not data.get("Success"):
-                print(f"[positively_pgh] API returned Success=False: {data.get('ErrorMessage')}")
-                failure = data.get("ErrorMessage") or "CitySpark returned Success=False"
-                break
-
-            batch = data.get("Value") or []
-            possible = data.get("Possible")  # total available events if provided
-            pages_fetched += 1
-
-            for ev in batch:
-                # Track coverage from all events (including virtual) — measures
-                # how far CitySpark's results reach, regardless of what we keep.
-                ds = _event_date_str(ev)
-                if ds > latest_date_seen:
-                    latest_date_seen = ds
-
-                # Skip virtual/online events — not relevant for local in-person listings.
-                if ev.get("isVirtual"):
-                    continue
-                uid = str(ev.get("Id") or ev.get("PId") or "")
-                if uid and uid in seen_ids:
-                    continue
-                if uid:
-                    seen_ids.add(uid)
-                events.append(_normalize(ev))
-
-            if not batch or len(batch) < _PAGE_SIZE:
-                break  # exhausted CitySpark results
-
-            skip += len(batch)
-
-            # If CitySpark reports a positive total, stop once we've fetched them all.
-            if possible and skip >= possible:
-                break
-
-            # Coverage target reached — events at least _MIN_COVERAGE_DAYS ahead seen.
-            if latest_date_seen >= coverage_target:
-                break
-
-        if pages_fetched >= _MAX_PAGES and latest_date_seen < coverage_target:
-            print(
-                f"[positively_pgh] WARNING: hit {_MAX_PAGES}-page cap before coverage target "
-                f"— pages={pages_fetched}, skip={skip}, "
-                f"latest={latest_date_seen or 'none'}, target={coverage_target} (coverage_days={_cov})"
-            )
-        print(
-            f"[positively_pgh] {len(events)} events in {pages_fetched} page(s), "
-            f"latest={latest_date_seen or 'none'}, target={coverage_target} (coverage_days={_cov})"
-        )
-        return FetchResult(events, complete=failure is None, error=failure)
+        # Explicitly virtual CitySpark records are filtered in _fetch_window.
+        today = datetime.datetime.utcnow().date()
+        target = today + datetime.timedelta(days=_cov)
+        cursor = today
+        events, seen = [], set()
+        windows = 0
+        while cursor <= target:
+            window_end = min(cursor + datetime.timedelta(days=_FETCH_WINDOW_DAYS - 1), target)
+            result = self._fetch_window(cursor, window_end)
+            if not result.complete:
+                print(f"[positively_pgh] incomplete partition: {result.error}")
+                return FetchResult(events, complete=False, error=result.error)
+            for event in result:
+                occurrence = (event.get("source_event_id"), event.get("start_datetime"))
+                if occurrence not in seen:
+                    seen.add(occurrence)
+                    events.append(event)
+            windows += 1
+            cursor = window_end + datetime.timedelta(days=1)
+        print(f"[positively_pgh] {len(events)} events across {windows} complete date partition(s)")
+        return FetchResult(events)

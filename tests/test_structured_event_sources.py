@@ -18,6 +18,7 @@ from adapters.visit_pa import VisitPA
 from adapters.laurel_highlands import LaurelHighlands
 from adapters.pittsburgh_magazine import PittsburghMagazine
 from adapters.mercer_county import MercerCounty
+from adapters.positively_pgh import PositivelyPgh
 from adapters.utils import FetchResult, wall_clock_epoch_to_utc
 import events
 
@@ -76,6 +77,8 @@ class TestSimpleview(unittest.TestCase):
     def test_visit_pa_and_laurel_normalize(self):
         self.assertEqual(VisitPA().normalize(self.fixture())["source_key"], "visit_pa")
         self.assertEqual(LaurelHighlands().normalize(self.fixture())["category"], "Family Fun")
+        county = dict(self.fixture(), region="WESTMORELAND")
+        self.assertEqual(LaurelHighlands().normalize(county)["state"], "PA")
 
     def test_occurrence_uses_recid_and_date(self):
         row = LaurelHighlands().normalize(self.fixture())
@@ -94,6 +97,25 @@ class TestSimpleview(unittest.TestCase):
         adapter._get_page = MagicMock(side_effect=[{"docs":{"count":2,"docs":docs}}, {"docs":{"count":2,"docs":docs}}])
         self.assertEqual(len(adapter.fetch()), 2)
         self.assertEqual(adapter._get_page.call_args_list[1].args[1], 1)
+
+    def test_laurel_uses_published_browser_query_shape(self):
+        query = LaurelHighlands()._query(60, 0, True, 12)
+        self.assertTrue(query["filter"]["active"])
+        self.assertIn("$and", query["filter"])
+        self.assertIn("listing.title", query["options"]["fields"])
+        self.assertNotIn("admission", query["options"]["fields"])
+
+    def test_laurel_discovers_public_simple_token(self):
+        adapter = LaurelHighlands()
+        session = MagicMock()
+        ok = MagicMock(); ok.raise_for_status.return_value = None
+        token = MagicMock(text="published-token\n"); token.raise_for_status.return_value = None
+        session.get.side_effect = [ok, token]
+        with patch("adapters.laurel_highlands.requests.Session", return_value=session), \
+             patch.object(SimpleviewEventsAdapter, "fetch", side_effect=lambda coverage: FetchResult([adapter._runtime_token])):
+            result = adapter.fetch(60)
+        self.assertEqual(result, ["published-token"])
+        session.close.assert_called_once()
 
 
 class TestEvvnt(unittest.TestCase):
@@ -146,6 +168,27 @@ class TestRefreshSafety(unittest.TestCase):
                 self.assertEqual(events.refresh_source(conn,"partial"),0)
                 mark.assert_called_once(); purge.assert_not_called()
         finally: events._ADAPTERS=old
+
+
+class TestCitySparkPartitions(unittest.TestCase):
+    def _row(self, event_id, start):
+        return {"source_event_id": event_id, "start_datetime": start}
+
+    def test_adjacent_windows_deduplicate_occurrences(self):
+        adapter = PositivelyPgh()
+        same = self._row("1", "2026-08-19 04:00:00")
+        adapter._fetch_window = MagicMock(side_effect=[FetchResult([same]), FetchResult([dict(same)])])
+        result = adapter.fetch(7)
+        self.assertTrue(result.complete)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(adapter._fetch_window.call_count, 2)
+
+    def test_any_failed_partition_makes_fetch_incomplete(self):
+        adapter = PositivelyPgh()
+        adapter._fetch_window = MagicMock(return_value=FetchResult([], complete=False, error="refine"))
+        result = adapter.fetch(60)
+        self.assertFalse(result.complete)
+        self.assertEqual(result.error, "refine")
 
 
 if __name__ == "__main__": unittest.main()

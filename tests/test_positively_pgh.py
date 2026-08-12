@@ -5,6 +5,7 @@ Run with:  python3 -m pytest tests/ -v
 """
 import sys
 import os
+import datetime
 import types
 import importlib.util
 import unittest
@@ -31,6 +32,13 @@ class _BaseAdapter:
         return []
 
 _adapters_base.BaseAdapter = _BaseAdapter
+
+_adapters_utils = _stub_module("adapters.utils")
+class _FetchResult(list):
+    def __init__(self, values=(), complete=True, error=None):
+        super().__init__(values); self.complete = complete; self.error = error
+_adapters_utils.FetchResult = _FetchResult
+_adapters_utils.utc_naive_string = lambda value: str(value).replace("T", " ").replace("Z", "") if value else None
 
 # events stub
 _ev = _stub_module("events")
@@ -409,7 +417,7 @@ class TestRawJsonValidity(unittest.TestCase):
     def test_is_virtual_true_events_skipped_in_fetch(self):
         """Verify that the isVirtual guard is present in the fetch loop."""
         import inspect
-        src = inspect.getsource(_mod.PositivelyPgh.fetch)
+        src = inspect.getsource(_mod.PositivelyPgh._fetch_window)
         self.assertIn("isVirtual", src)
 
 
@@ -463,6 +471,11 @@ class TestFetchPagination(unittest.TestCase):
         """Extract skip values from recorded requests.post calls."""
         return [c.kwargs["json"]["skip"] for c in mock_req.post.call_args_list]
 
+    def _one_window(self, adapter=None):
+        adapter = adapter or _mod.PositivelyPgh()
+        today = datetime.date.today()
+        return adapter._fetch_window(today, today)
+
     # ── Pagination ────────────────────────────────────────────────────────────
 
     def test_paginates_three_pages_and_includes_future_events(self):
@@ -479,7 +492,7 @@ class TestFetchPagination(unittest.TestCase):
         ]
         mock_req = self._mock_requests(pages)
         with unittest.mock.patch.object(_mod, "requests", mock_req):
-            result = _mod.PositivelyPgh().fetch()
+            result = self._one_window()
 
         self.assertEqual(mock_req.post.call_count, 3)
         self.assertEqual(self._skips(mock_req), [0, ps, ps * 2])
@@ -494,7 +507,7 @@ class TestFetchPagination(unittest.TestCase):
         evs = [self._ev(1, date="2026-05-18T14:00:00")]
         mock_req = self._mock_requests([self._page(evs)])
         with unittest.mock.patch.object(_mod, "requests", mock_req):
-            result = _mod.PositivelyPgh().fetch()
+            result = self._one_window()
         self.assertIn("2026-05-18", result[0]["start_datetime"])
 
     # ── Stop conditions ───────────────────────────────────────────────────────
@@ -508,7 +521,7 @@ class TestFetchPagination(unittest.TestCase):
         ]
         mock_req = self._mock_requests(pages)
         with unittest.mock.patch.object(_mod, "requests", mock_req):
-            result = _mod.PositivelyPgh().fetch()
+            result = self._one_window()
         self.assertEqual(mock_req.post.call_count, 2)
         self.assertEqual(len(result), ps)
 
@@ -521,7 +534,7 @@ class TestFetchPagination(unittest.TestCase):
         ]
         mock_req = self._mock_requests(pages)
         with unittest.mock.patch.object(_mod, "requests", mock_req):
-            result = _mod.PositivelyPgh().fetch()
+            result = self._one_window()
         self.assertEqual(mock_req.post.call_count, 2)
         self.assertEqual(len(result), ps + ps // 4)
 
@@ -549,7 +562,7 @@ class TestFetchPagination(unittest.TestCase):
         pages = [self._page(evs, possible=ps)]  # tells us exactly ps events exist
         mock_req = self._mock_requests(pages)
         with unittest.mock.patch.object(_mod, "requests", mock_req):
-            result = _mod.PositivelyPgh().fetch()
+            result = self._one_window()
         self.assertEqual(mock_req.post.call_count, 1)
         self.assertEqual(len(result), ps)
 
@@ -563,7 +576,7 @@ class TestFetchPagination(unittest.TestCase):
         ]
         mock_req = self._mock_requests([self._page(evs)])
         with unittest.mock.patch.object(_mod, "requests", mock_req):
-            result = _mod.PositivelyPgh().fetch()
+            result = self._one_window()
         ids = {e["source_event_id"] for e in result}
         self.assertIn("1", ids)
         self.assertNotIn("2", ids)
@@ -611,38 +624,22 @@ class TestFetchPagination(unittest.TestCase):
         self.assertEqual(_mod._MIN_COVERAGE_DAYS, 60)
 
     def test_default_coverage_days_uses_60(self):
-        """fetch() with no coverage_days arg must stop at a 60-day target."""
-        import datetime
-        ps = _mod._PAGE_SIZE
-        now = datetime.datetime.utcnow()
-        near   = (now + datetime.timedelta(days=5)).strftime("%Y-%m-%dT10:00:00")
-        target = (now + datetime.timedelta(days=60)).strftime("%Y-%m-%dT10:00:00")
-        pages = [
-            self._page([self._ev(i, date=near)     for i in range(ps)]),
-            self._page([self._ev(i+ps, date=target) for i in range(ps)]),
-        ]
-        mock_req = self._mock_requests(pages)
+        """The inclusive 60-day coverage range is split into nine 7-day requests."""
+        mock_req = self._mock_requests([])
         with unittest.mock.patch.object(_mod, "requests", mock_req):
-            _mod.PositivelyPgh().fetch()  # no coverage_days arg
-        self.assertEqual(mock_req.post.call_count, 2)
+            result = _mod.PositivelyPgh().fetch()
+        self.assertTrue(result.complete)
+        self.assertEqual(mock_req.post.call_count, 9)
 
     def test_custom_coverage_days_45_stops_at_45_day_target(self):
-        """fetch(coverage_days=45) must keep paging past 30 days and stop at 45."""
-        import datetime
-        ps = _mod._PAGE_SIZE
-        now = datetime.datetime.utcnow()
-        day30  = (now + datetime.timedelta(days=30)).strftime("%Y-%m-%dT10:00:00")
-        day45  = (now + datetime.timedelta(days=45)).strftime("%Y-%m-%dT10:00:00")
-        pages = [
-            self._page([self._ev(i,      date=day30) for i in range(ps)]),  # 30-day page — NOT enough
-            self._page([self._ev(i+ps,   date=day45) for i in range(ps)]),  # 45-day page — stops here
-        ]
-        mock_req = self._mock_requests(pages)
+        """Custom coverage drives the number and final edge of partitions."""
+        mock_req = self._mock_requests([])
         with unittest.mock.patch.object(_mod, "requests", mock_req):
             result = _mod.PositivelyPgh().fetch(coverage_days=45)
-        # Must have fetched both pages (30-day page wasn't enough with target=45)
-        self.assertEqual(mock_req.post.call_count, 2)
-        self.assertEqual(len(result), ps * 2)
+        self.assertTrue(result.complete)
+        self.assertEqual(mock_req.post.call_count, 7)
+        final_end = datetime.datetime.fromisoformat(mock_req.post.call_args_list[-1].kwargs["json"]["end"]).date()
+        self.assertEqual(final_end, datetime.datetime.utcnow().date() + datetime.timedelta(days=45))
 
     def test_coverage_days_clamps_low(self):
         """fetch(coverage_days=3) must clamp to 7, not crash."""
@@ -695,57 +692,37 @@ class TestFetchPagination(unittest.TestCase):
         self.assertIn("coverage_days=45", buf.getvalue())
 
     def test_fetch_payload_sends_explicit_end_date(self):
-        """Payload must send an explicit end date ~90 days out; end:null returns only today's events."""
-        import datetime
-        mock_req = self._mock_requests([self._page([self._ev(1)])])
+        """Each payload has an explicit seven-calendar-day upper bound."""
+        mock_req = self._mock_requests([])
         with unittest.mock.patch.object(_mod, "requests", mock_req):
             _mod.PositivelyPgh().fetch()
         payload = mock_req.post.call_args_list[0].kwargs["json"]
         self.assertIsNotNone(payload.get("end"))
         end_date = datetime.datetime.fromisoformat(payload["end"]).date()
-        expected = (datetime.datetime.utcnow() + datetime.timedelta(days=_mod._FETCH_WINDOW_DAYS)).date()
+        expected = datetime.datetime.utcnow().date() + datetime.timedelta(days=_mod._FETCH_WINDOW_DAYS - 1)
         self.assertEqual(end_date, expected)
 
     def test_stops_after_coverage_target_reached(self):
-        """Fetch must stop once a page contains events at or past the 30-day target."""
-        import datetime
-        ps = _mod._PAGE_SIZE
-        now = datetime.datetime.utcnow()
-        near   = (now + datetime.timedelta(days=5)).strftime("%Y-%m-%dT10:00:00")
-        target = (now + datetime.timedelta(days=_mod._MIN_COVERAGE_DAYS)).strftime("%Y-%m-%dT10:00:00")
-        pages = [
-            self._page([self._ev(i,      date=near)   for i in range(ps)]),
-            self._page([self._ev(i + ps, date=target) for i in range(ps)]),
-            # third page must NOT be requested
-        ]
-        mock_req = self._mock_requests(pages)
+        """The final partition ends exactly at the configured target."""
+        mock_req = self._mock_requests([])
         with unittest.mock.patch.object(_mod, "requests", mock_req):
             result = _mod.PositivelyPgh().fetch()
-        self.assertEqual(mock_req.post.call_count, 2)
-        self.assertEqual(len(result), ps * 2)
+        final_end = datetime.datetime.fromisoformat(mock_req.post.call_args_list[-1].kwargs["json"]["end"]).date()
+        self.assertEqual(final_end, datetime.datetime.utcnow().date() + datetime.timedelta(days=60))
+        self.assertTrue(result.complete)
 
     def test_continues_past_same_day_pages_until_coverage(self):
-        """Adapter must keep paging through near-future events until coverage target is reached."""
-        import datetime
+        """A full page is exhausted before advancing to the next partition."""
         ps = _mod._PAGE_SIZE
-        now = datetime.datetime.utcnow()
-        near   = (now + datetime.timedelta(days=1)).strftime("%Y-%m-%dT10:00:00")
-        target = (now + datetime.timedelta(days=_mod._MIN_COVERAGE_DAYS)).strftime("%Y-%m-%dT10:00:00")
-        pages = [
-            self._page([self._ev(i,        date=near)   for i in range(ps)]),
-            self._page([self._ev(i + ps,   date=near)   for i in range(ps)]),
-            self._page([self._ev(i + 2*ps, date=target) for i in range(ps)]),
-            # page 4 must NOT be requested
-        ]
+        pages = [self._page([self._ev(i) for i in range(ps)]), self._page([])]
         mock_req = self._mock_requests(pages)
         with unittest.mock.patch.object(_mod, "requests", mock_req):
-            result = _mod.PositivelyPgh().fetch()
-        self.assertEqual(mock_req.post.call_count, 3)
-        self.assertEqual(len(result), ps * 3)
+            result = self._one_window()
+        self.assertEqual(mock_req.post.call_count, 2)
+        self.assertEqual(len(result), ps)
 
     def test_logs_warning_when_cap_hit_before_coverage(self):
-        """Must log a WARNING with pages, skip, latest date, and target when cap fires early."""
-        import datetime, io, contextlib
+        """A partition page cap is an incomplete result, never a successful truncation."""
         ps = _mod._PAGE_SIZE
         now = datetime.datetime.utcnow()
         near = (now + datetime.timedelta(days=1)).strftime("%Y-%m-%dT10:00:00")
@@ -760,14 +737,10 @@ class TestFetchPagination(unittest.TestCase):
 
         mock_req = unittest.mock.MagicMock()
         mock_req.post.side_effect = _infinite_post
-        buf = io.StringIO()
-        with contextlib.redirect_stdout(buf):
-            with unittest.mock.patch.object(_mod, "requests", mock_req):
-                _mod.PositivelyPgh().fetch()
-        output = buf.getvalue()
-        self.assertIn("WARNING", output)
-        self.assertIn("cap", output.lower())
-        self.assertIn("target", output.lower())
+        with unittest.mock.patch.object(_mod, "requests", mock_req):
+            result = self._one_window()
+        self.assertFalse(result.complete)
+        self.assertIn("partition safety limit", result.error)
 
     def test_duplicate_ids_not_double_counted(self):
         """Same CitySpark ID appearing on two pages must produce only one event."""
